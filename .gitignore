@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Employee images (now using Cloudinary)
+public/employee_images/
+dist/employee_images/
+
 # Firebase service account keys
 *.json
 !package.json

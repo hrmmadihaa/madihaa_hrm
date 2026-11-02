@@ -63,16 +63,26 @@ export const PersonalInfo = ({ employee, onNext, onCancel, onSave }: PersonalInf
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Show preview immediately
       const reader = new FileReader();
       reader.onloadend = () => {
-        const result = reader.result as string;
-        setPhotoPreview(result);
-        setFormData(prev => ({ ...prev, photo: result }));
+        setPhotoPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+
+      // Upload to Cloudinary
+      try {
+        const { uploadImage } = await import('../../lib/cloudinary');
+        const employeeId = formData.employeeId || employee?.employeeId;
+        const cloudinaryUrl = await uploadImage(file, 'employee_images', employeeId);
+        setFormData(prev => ({ ...prev, photo: cloudinaryUrl }));
+      } catch (error) {
+        console.error('Failed to upload photo:', error);
+        alert('Failed to upload photo. Please try again.');
+      }
     }
   };
 

@@ -175,46 +175,10 @@ export const removeDuplicateEmployees = async (): Promise<{ removed: number; kep
 };
 
 // Update existing employees with photo paths
+// NOTE: This function is deprecated - photos are now uploaded to Cloudinary
 export const updateEmployeePhotoPaths = async (): Promise<{ updated: number; failed: number }> => {
-  const { getEmployees, updateEmployee } = await import('./employees');
-  
-  const results = { updated: 0, failed: 0 };
-  
-  try {
-    const employees = await getEmployees();
-    console.log(`Found ${employees.length} employees to check for photos`);
-    
-    for (const employee of employees) {
-      try {
-        // Check if employee already has a photo
-        if (employee.photo) continue;
-        
-        // Try to set photo path based on employee ID
-        const photoExtensions = ['jpg', 'JPG', 'jpeg', 'JPEG', 'png', 'PNG'];
-        let photoPath = '';
-        
-        for (const ext of photoExtensions) {
-          photoPath = `/employee_images/${employee.employeeId}.${ext}`;
-          break; // Use first extension
-        }
-        
-        if (photoPath) {
-          await updateEmployee(employee.id, {
-            photo: photoPath
-          });
-          results.updated++;
-          console.log(`Added photo path for ${employee.employeeId}`);
-        }
-      } catch (error) {
-        results.failed++;
-        console.error(`Failed to update photo for ${employee.employeeId}:`, error);
-      }
-    }
-  } catch (error) {
-    console.error('Failed to load employees:', error);
-  }
-  
-  return results;
+  console.warn('updateEmployeePhotoPaths is deprecated. Photos should be uploaded to Cloudinary via the employee form.');
+  return { updated: 0, failed: 0 };
 };
 
 // Split name into first and last name
