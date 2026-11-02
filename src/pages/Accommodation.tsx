@@ -340,10 +340,12 @@ export const Accommodation = () => {
 
   const filteredAccommodations = accommodations.filter(acc => {
     const searchLower = accommodationSearch.toLowerCase();
-    const matchesName = acc.name.toLowerCase().includes(searchLower) || 
-                        acc.location.toLowerCase().includes(searchLower);
-    
-    // Also search by assigned employee names
+    if (!searchLower) return true;
+
+    const matchesName = acc.name.toLowerCase().includes(searchLower);
+    const matchesLocation = acc.location.toLowerCase().includes(searchLower);
+
+    // Search by assigned employee names
     const hasMatchingEmployee = acc.floors.some(floor =>
       floor.rooms.some(room =>
         room.beds.some(bed =>
@@ -351,8 +353,8 @@ export const Accommodation = () => {
         )
       )
     );
-    
-    return matchesName || hasMatchingEmployee;
+
+    return matchesName || matchesLocation || hasMatchingEmployee;
   });
 
   if (loading) {

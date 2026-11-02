@@ -17,7 +17,12 @@ export const Login: React.FC = () => {
   // Redirect if already logged in
   React.useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      // Redirect employees to staff dashboard, others to regular dashboard
+      if (user.role === 'employee') {
+        navigate('/staff-dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     }
   }, [user, navigate]);
 

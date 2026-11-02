@@ -140,8 +140,24 @@ export const signUp = async (email: string, password: string, userData: Partial<
 
 export const createUser = async (email: string, password: string, userData: Partial<User>) => {
   try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    
+    let userCredential;
+
+    try {
+      userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    } catch (error: any) {
+      // If user already exists in Firebase Auth, try to sign them in to get their UID
+      if (error.code === 'auth/email-already-in-use') {
+        try {
+          userCredential = await signInWithEmailAndPassword(auth, email, password);
+        } catch (signInError) {
+          // If sign in fails (wrong password), throw original error
+          throw new Error('Email already exists with a different password. Please use a different email or contact the administrator.');
+        }
+      } else {
+        throw error;
+      }
+    }
+
     const newUser: User = {
       id: userCredential.user.uid,
       email: userCredential.user.email!,
@@ -152,9 +168,9 @@ export const createUser = async (email: string, password: string, userData: Part
       photoURL: userData.photoURL || userCredential.user.photoURL || '',
       createdAt: new Date(),
     };
-    
-    await setDoc(doc(db, 'users', userCredential.user.uid), newUser);
-    
+
+    await setDoc(doc(db, 'users', userCredential.user.uid), newUser, { merge: true });
+
     return newUser;
   } catch (error) {
     console.error('Create user error:', error);

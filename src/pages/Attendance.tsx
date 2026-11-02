@@ -48,6 +48,16 @@ export const Attendance = () => {
   const [deleteAllLoading, setDeleteAllLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [fixingEmployeeIds, setFixingEmployeeIds] = useState(false);
+  const [editingFirebaseRecord, setEditingFirebaseRecord] = useState<string | null>(null);
+  const [editedCheckIn, setEditedCheckIn] = useState('');
+  const [editedCheckOut, setEditedCheckOut] = useState('');
+  const [editedStatus, setEditedStatus] = useState('');
+  const [editedLate, setEditedLate] = useState(false);
+  const [savingFirebaseRecord, setSavingFirebaseRecord] = useState(false);
+  const [filterEmployeeId, setFilterEmployeeId] = useState('');
+  const [filterSearchName, setFilterSearchName] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
 
   const loadTodayStats = useCallback(async () => {
     try {
@@ -190,17 +200,84 @@ export const Attendance = () => {
         }
       }
 
-      console.log(`Fixed ${fixedCount} employee IDs, skipped ${skippedCount} (already correct)`);
-      alert(`Fixed ${fixedCount} employee IDs${skippedCount > 0 ? ` (${skippedCount} already correct)` : ''}`);
-      // Reload employees to get updated data
-      const updatedEmployees = await getEmployees();
-      setEmployees(updatedEmployees);
+      alert(`Fixed ${fixedCount} employee IDs, skipped ${skippedCount}`);
     } catch (error) {
       console.error('Error fixing employee IDs:', error);
       alert('Error fixing employee IDs');
     } finally {
       setFixingEmployeeIds(false);
     }
+  };
+
+  const handleEditFirebaseRecord = (record: any) => {
+    setEditingFirebaseRecord(record.id);
+    // Format time as HH:MM in 24-hour format
+    const formatTime = (date: Date) => {
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    };
+    setEditedCheckIn(record.checkInTime ? formatTime(record.checkInTime) : '');
+    setEditedCheckOut(record.checkOutTime ? formatTime(record.checkOutTime) : '');
+    setEditedStatus(record.status || '');
+    setEditedLate(record.lateArrival || false);
+  };
+
+  const handleSaveFirebaseRecord = async (recordId: string) => {
+    setSavingFirebaseRecord(true);
+    try {
+      const record = firebaseAttendance.find(r => r.id === recordId);
+      if (!record) return;
+
+      const updateData: any = {};
+
+      // Parse and update check-in time
+      if (editedCheckIn) {
+        const [hours, minutes] = editedCheckIn.split(':').map(Number);
+        const checkInDate = new Date(record.date);
+        checkInDate.setHours(hours, minutes, 0, 0);
+        updateData.checkInTime = Timestamp.fromDate(checkInDate);
+      } else {
+        updateData.checkInTime = null;
+      }
+
+      // Parse and update check-out time
+      if (editedCheckOut) {
+        const [hours, minutes] = editedCheckOut.split(':').map(Number);
+        const checkOutDate = new Date(record.date);
+        checkOutDate.setHours(hours, minutes, 0, 0);
+        updateData.checkOutTime = Timestamp.fromDate(checkOutDate);
+      } else {
+        updateData.checkOutTime = null;
+      }
+
+      // Update status
+      updateData.status = editedStatus;
+
+      // Update late arrival
+      updateData.lateArrival = editedLate;
+
+      await updateDoc(doc(db, 'attendance', recordId), updateData);
+
+      // Reload the data
+      await loadFirebaseAttendance();
+      setEditingFirebaseRecord(null);
+      setSaveSuccess('Record saved successfully');
+      setTimeout(() => setSaveSuccess(null), 3000);
+    } catch (error) {
+      console.error('Error saving record:', error);
+      alert('Error saving record');
+    } finally {
+      setSavingFirebaseRecord(false);
+    }
+  };
+
+  const handleCancelEditFirebase = () => {
+    setEditingFirebaseRecord(null);
+    setEditedCheckIn('');
+    setEditedCheckOut('');
+    setEditedStatus('');
+    setEditedLate(false);
   };
 
   useEffect(() => {
@@ -1292,7 +1369,65 @@ const processAttendanceData = (rawData: any[]) => {
             </>
           ) : (
             <>
-              <div className="flex justify-end mb-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                {/* Filter Controls */}
+                <div className="flex flex-wrap gap-3 items-center">
+                  <div>
+                    <label className="block text-xs text-secondary-600 mb-1">Search Name</label>
+                    <input
+                      type="text"
+                      placeholder="Search by name..."
+                      value={filterSearchName}
+                      onChange={(e) => setFilterSearchName(e.target.value)}
+                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-48"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-secondary-600 mb-1">Employee ID</label>
+                    <select
+                      value={filterEmployeeId}
+                      onChange={(e) => setFilterEmployeeId(e.target.value)}
+                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="">All Employees</option>
+                      {employees.map(emp => (
+                        <option key={emp.id} value={emp.employeeId}>{emp.employeeId}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-secondary-600 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      value={filterStartDate}
+                      onChange={(e) => setFilterStartDate(e.target.value)}
+                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-secondary-600 mb-1">End Date</label>
+                    <input
+                      type="date"
+                      value={filterEndDate}
+                      onChange={(e) => setFilterEndDate(e.target.value)}
+                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div className="flex gap-2 items-end">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setFilterEmployeeId('');
+                        setFilterSearchName('');
+                        setFilterStartDate('');
+                        setFilterEndDate('');
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                </div>
                 <Button
                   onClick={handleDeleteAllFirebase}
                   loading={deleteAllLoading}
@@ -1321,10 +1456,40 @@ const processAttendanceData = (rawData: any[]) => {
                         <th className="text-left py-3 px-4 text-sm font-medium text-secondary-700">Check Out</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-secondary-700">Status</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-secondary-700">Late</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-secondary-700">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {firebaseAttendance.map((record) => (
+                      {firebaseAttendance
+                        .filter(record => {
+                          // Filter by search name
+                          if (filterSearchName) {
+                            const searchLower = filterSearchName.toLowerCase();
+                            const name = (record.employeeName || '').toLowerCase();
+                            if (!name.includes(searchLower)) {
+                              return false;
+                            }
+                          }
+                          // Filter by employee ID
+                          if (filterEmployeeId && record.employeeId !== filterEmployeeId) {
+                            return false;
+                          }
+                          // Filter by date range
+                          if (filterStartDate) {
+                            const recordDate = new Date(record.date).toISOString().split('T')[0];
+                            if (recordDate < filterStartDate) {
+                              return false;
+                            }
+                          }
+                          if (filterEndDate) {
+                            const recordDate = new Date(record.date).toISOString().split('T')[0];
+                            if (recordDate > filterEndDate) {
+                              return false;
+                            }
+                          }
+                          return true;
+                        })
+                        .map((record) => (
                         <tr key={record.id} className="border-b border-secondary-100 hover:bg-secondary-50">
                           <td className="py-3 px-4 text-sm text-secondary-900">{record.employeeId || record.id}</td>
                           <td className="py-3 px-4 text-sm text-secondary-900">{record.employeeName || 'N/A'}</td>
@@ -1332,25 +1497,96 @@ const processAttendanceData = (rawData: any[]) => {
                             {record.date ? record.date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) : 'N/A'}
                           </td>
                           <td className="py-3 px-4 text-sm text-secondary-900">
-                            {record.checkInTime ? record.checkInTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}
+                            {editingFirebaseRecord === record.id ? (
+                              <input
+                                type="text"
+                                value={editedCheckIn}
+                                onChange={(e) => setEditedCheckIn(e.target.value)}
+                                placeholder="HH:MM"
+                                pattern="[0-9]{2}:[0-9]{2}"
+                                className="px-2 py-1 border border-secondary-300 rounded text-sm w-20"
+                              />
+                            ) : (
+                              record.checkInTime ? record.checkInTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'
+                            )}
                           </td>
                           <td className="py-3 px-4 text-sm text-secondary-900">
-                            {record.checkOutTime ? record.checkOutTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'Pending'}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                              record.status === 'present'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {record.status || 'N/A'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {record.lateArrival ? (
-                              <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-semibold">Yes</span>
+                            {editingFirebaseRecord === record.id ? (
+                              <input
+                                type="text"
+                                value={editedCheckOut}
+                                onChange={(e) => setEditedCheckOut(e.target.value)}
+                                placeholder="HH:MM"
+                                pattern="[0-9]{2}:[0-9]{2}"
+                                className="px-2 py-1 border border-secondary-300 rounded text-sm w-20"
+                              />
                             ) : (
-                              <span className="text-secondary-600">No</span>
+                              record.checkOutTime ? record.checkOutTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'Pending'
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm">
+                            {editingFirebaseRecord === record.id ? (
+                              <select
+                                value={editedStatus}
+                                onChange={(e) => setEditedStatus(e.target.value)}
+                                className="px-2 py-1 border border-secondary-300 rounded text-sm"
+                              >
+                                <option value="present">Present</option>
+                                <option value="absent">Absent</option>
+                                <option value="on_leave">On Leave</option>
+                              </select>
+                            ) : (
+                              <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                record.status === 'present'
+                                  ? 'bg-green-100 text-green-800'
+                                  : record.status === 'absent'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}>
+                                {record.status || 'N/A'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm">
+                            {editingFirebaseRecord === record.id ? (
+                              <input
+                                type="checkbox"
+                                checked={editedLate}
+                                onChange={(e) => setEditedLate(e.target.checked)}
+                                className="rounded border-secondary-300"
+                              />
+                            ) : (
+                              record.lateArrival ? (
+                                <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-semibold">Yes</span>
+                              ) : (
+                                <span className="text-secondary-600">No</span>
+                              )
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm">
+                            {editingFirebaseRecord === record.id ? (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleSaveFirebaseRecord(record.id)}
+                                  disabled={savingFirebaseRecord}
+                                  className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-50"
+                                >
+                                  {savingFirebaseRecord ? 'Saving...' : 'Save'}
+                                </button>
+                                <button
+                                  onClick={handleCancelEditFirebase}
+                                  className="px-2 py-1 bg-secondary-600 text-white rounded text-xs hover:bg-secondary-700"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleEditFirebaseRecord(record)}
+                                className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                              >
+                                Edit
+                              </button>
                             )}
                           </td>
                         </tr>

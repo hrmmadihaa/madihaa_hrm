@@ -321,6 +321,21 @@ export const bulkDeleteLeaveRequests = async (ids: string[]) => {
   }
 };
 
+export const deleteAllLeaveRequests = async () => {
+  try {
+    const q = query(collection(db, LEAVE_REQUESTS_COLLECTION));
+    const querySnapshot = await getDocs(q);
+    const ids = querySnapshot.docs.map(doc => doc.id);
+    if (ids.length > 0) {
+      await bulkDeleteLeaveRequests(ids);
+    }
+    return ids.length;
+  } catch (error) {
+    console.error('Error deleting all leave requests:', error);
+    throw error;
+  }
+};
+
 // Leave Balance functions
 export const getLeaveBalance = async (employeeId: string, year: number) => {
   try {

@@ -24,6 +24,8 @@ export const LeaveHistory = ({ employee, onPrev }: LeaveHistoryProps) => {
     off_day: 0,
   });
 
+  const [leavePeriod, setLeavePeriod] = useState<{ start: Date; end: Date } | null>(null);
+
   const typeLabels: Record<LeaveType, string> = {
     annual: 'Annual Leave',
     medical: 'Sick Leave',
@@ -48,10 +50,24 @@ export const LeaveHistory = ({ employee, onPrev }: LeaveHistoryProps) => {
         const requests = await getLeaveRequests(employee.id);
         setLeaveRequests(requests);
 
-        // Calculate leave stats for current calendar year
-        const currentYear = new Date().getFullYear();
-        const yearStart = new Date(currentYear, 0, 1); // January 1st of current year
-        const yearEnd = new Date(currentYear, 11, 31); // December 31st of current year
+        // Calculate leave period based on hire date (rolling year)
+        const hireDate = employee.joinDate ? new Date(employee.joinDate) : new Date();
+        const now = new Date();
+
+        // Calculate the current leave year
+        const yearsSinceHire = now.getFullYear() - hireDate.getFullYear();
+        const periodStart = new Date(hireDate);
+        periodStart.setFullYear(periodStart.getFullYear() + yearsSinceHire);
+
+        // If current date is before the anniversary date, use previous year
+        if (now < periodStart) {
+          periodStart.setFullYear(periodStart.getFullYear() - 1);
+        }
+
+        const periodEnd = new Date(periodStart);
+        periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+
+        setLeavePeriod({ start: periodStart, end: periodEnd });
 
         const stats: Record<LeaveType, number> = {
           annual: 0,
@@ -66,8 +82,7 @@ export const LeaveHistory = ({ employee, onPrev }: LeaveHistoryProps) => {
         };
 
         requests.forEach(request => {
-          const requestDate = new Date(request.startDate);
-          if (requestDate >= yearStart && requestDate <= yearEnd && request.status === 'approved') {
+          if (request.status === 'approved') {
             stats[request.type] += request.days;
           }
         });
@@ -198,12 +213,14 @@ export const LeaveHistory = ({ employee, onPrev }: LeaveHistoryProps) => {
       </div>
 
       {/* Period Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-800">
-          <strong>Leave Period:</strong> January 1, {new Date().getFullYear()} to December 31, {new Date().getFullYear()}
-        </p>
-        <p className="text-xs text-blue-600 mt-1">Showing approved leave days within the current calendar year</p>
-      </div>
+      {leavePeriod && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800">
+            <strong>Leave Period:</strong> {leavePeriod.start.toLocaleDateString()} to {leavePeriod.end.toLocaleDateString()}
+          </p>
+          <p className="text-xs text-blue-600 mt-1">Showing approved leave days within the current leave year (based on hire date)</p>
+        </div>
+      )}
 
       {/* Leave Requests */}
       <div className="bg-white rounded-lg shadow-sm border border-secondary-200 overflow-hidden">

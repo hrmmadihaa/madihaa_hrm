@@ -21,6 +21,7 @@ export const PERMISSIONS = {
   ATTENDANCE_EDIT: 'attendance.edit',
   ATTENDANCE_ADJUST: 'attendance.adjust',
   ATTENDANCE_APPROVE_ADJUSTMENTS: 'attendance.approve_adjustments',
+  ATTENDANCE_DELETE: 'attendance.delete',
   
   // Leave Management
   LEAVE_VIEW: 'leave.view',
@@ -92,16 +93,18 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     PERMISSIONS.USERS_CREATE,
     
     // Employee Management - Full CRUD
-    PERMISSIONS.EMPLOYEES_VIEW,
     PERMISSIONS.EMPLOYEES_VIEW_ALL,
     PERMISSIONS.EMPLOYEES_CREATE,
     PERMISSIONS.EMPLOYEES_EDIT,
     PERMISSIONS.EMPLOYEES_DELETE,
     
-    // Attendance - View and approve adjustments
+    // Attendance - Full CRUD
     PERMISSIONS.ATTENDANCE_VIEW,
     PERMISSIONS.ATTENDANCE_VIEW_ALL,
+    PERMISSIONS.ATTENDANCE_EDIT,
+    PERMISSIONS.ATTENDANCE_ADJUST,
     PERMISSIONS.ATTENDANCE_APPROVE_ADJUSTMENTS,
+    PERMISSIONS.ATTENDANCE_DELETE,
     
     // Leave - Full management including approval
     PERMISSIONS.LEAVE_VIEW,
@@ -219,19 +222,20 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   employee: [
     // Employee Management - View own profile only
     PERMISSIONS.EMPLOYEES_VIEW,
-    
+
     // Attendance - View own attendance
     PERMISSIONS.ATTENDANCE_VIEW,
-    
+
     // Leave - View own only (no request or cancel)
     PERMISSIONS.LEAVE_VIEW,
-    
-    // Overtime - View own only (no request)
+
+    // Overtime - View own and request
     PERMISSIONS.OVERTIME_VIEW,
-    
+    PERMISSIONS.OVERTIME_REQUEST,
+
     // Performance - View own
     PERMISSIONS.PERFORMANCE_VIEW,
-    
+
     // Training - View available
     PERMISSIONS.TRAINING_VIEW,
   ],

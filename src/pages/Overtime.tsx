@@ -72,6 +72,7 @@ export const Overtime = () => {
         // For admins, load all data; for employees, load all data and filter client-side
         const bioData = await getOvertimeFromAttendance(undefined);
         console.log('Overtime from attendance loaded:', bioData.length);
+        console.log('Sample records:', bioData.slice(0, 3).map(r => ({ employeeId: r.employeeId, employeeName: r.employeeName, date: r.date })));
 
         // Filter biometric data by selected payroll cycle
         const payrollCycle = getPayrollCycleDates(selectedMonth, selectedYear);
@@ -80,20 +81,30 @@ export const Overtime = () => {
           return recordDate >= payrollCycle.start && recordDate <= payrollCycle.end;
         });
 
+        console.log('After payroll cycle filter:', filteredBioData.length);
+
         // Employees see only their own data (match by employeeId)
         const finalBioData = hasApprovePermission
           ? filteredBioData
           : filteredBioData.filter(r => {
               // Try exact match first
-              if (r.employeeId === user?.employeeId) return true;
+              if (r.employeeId === user?.employeeId) {
+                console.log('Matched by user.employeeId:', user?.employeeId);
+                return true;
+              }
               // Try matching with the employee's Firebase document ID
               const employee = employees.find(e => e.id === user?.id);
-              if (employee && r.employeeId === employee.employeeId) return true;
+              if (employee && r.employeeId === employee.employeeId) {
+                console.log('Matched by employee.employeeId:', employee.employeeId);
+                return true;
+              }
+              console.log('No match for record:', r.employeeId, 'user.employeeId:', user?.employeeId);
               return false;
             });
 
         console.log('Filtered biometric data:', finalBioData.length);
         console.log('User employeeId:', user?.employeeId);
+        console.log('User ID:', user?.id);
         setBiometricData(finalBioData);
       } catch (bioError) {
         console.log('Attendance data not available:', bioError instanceof Error ? bioError.message : String(bioError));

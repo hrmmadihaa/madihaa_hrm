@@ -46,20 +46,20 @@ export const WorkLocationPage = () => {
   // Calculate statistics for each work location
   const locationStats = useMemo(() => {
     return workLocations.map(location => {
-      const assignedEmployees = employees.filter(emp => 
+      const assignedEmployees = employees.filter(emp =>
         location.assignedStaff?.includes(emp.id)
       );
-      
+
       const positions = assignedEmployees.reduce((acc, emp) => {
         const position = emp.designation || 'Unknown';
         acc[position] = (acc[position] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
-      
+
       const topPositions = Object.entries(positions)
         .sort(([, a], [, b]) => (b as number) - (a as number))
         .slice(0, 3);
-      
+
       return {
         ...location,
         totalStaff: assignedEmployees.length,
@@ -68,6 +68,25 @@ export const WorkLocationPage = () => {
       };
     });
   }, [workLocations, employees]);
+
+  // Filter work locations based on search term
+  const filteredLocations = useMemo(() => {
+    const searchLower = searchTerm.toLowerCase();
+    if (!searchLower) return locationStats;
+
+    return locationStats.filter(location => {
+      const matchesName = location.name.toLowerCase().includes(searchLower);
+      const matchesAddress = location.address?.toLowerCase().includes(searchLower);
+
+      // Search by assigned employee names
+      const hasMatchingEmployee = location.assignedStaff?.some(staffId => {
+        const employee = employees.find(emp => emp.id === staffId);
+        return employee?.fullName?.toLowerCase().includes(searchLower);
+      });
+
+      return matchesName || matchesAddress || hasMatchingEmployee;
+    });
+  }, [locationStats, searchTerm, employees]);
 
   useEffect(() => {
     loadData();
@@ -274,6 +293,13 @@ export const WorkLocationPage = () => {
           <p className="text-secondary-600 mt-1">Manage work locations and staff assignments</p>
         </div>
         <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Search by name, address, or employee..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 sm:w-64 w-full"
+          />
           <Button onClick={() => { setEditingLocation(null); setFormData({ name: '', description: '', address: '', lateThresholdSundayToThursday: '08:30', lateThresholdFriday: '08:30', lateThresholdSaturday: '08:30', assignedStaff: [] }); setShowModal(true); }}>
             <Plus className="w-5 h-5 mr-2" />
             Add Work Location
@@ -287,7 +313,7 @@ export const WorkLocationPage = () => {
 
       {/* Work Locations Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {locationStats.map((location) => (
+        {filteredLocations.map((location) => (
           <Card key={location.id} className="group relative bg-gradient-to-br from-white to-gray-50 hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-primary-200 overflow-hidden">
             {/* Decorative gradient accent */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary-500/10 to-primary-600/5 rounded-bl-full -mr-16 -mt-16 transition-all duration-300 group-hover:from-primary-500/20 group-hover:to-primary-600/10" />
@@ -359,6 +385,40 @@ export const WorkLocationPage = () => {
                         <span className="text-secondary-900 font-semibold ml-2">{count}</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Assigned Staff Names */}
+              {location.assignedStaff && location.assignedStaff.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs text-secondary-500 font-medium mb-2">Assigned Staff:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {location.assignedStaff.slice(0, 6).map((staffId) => {
+                      const employee = employees.find(emp => emp.id === staffId);
+                      if (!employee) return null;
+                      return (
+                        <div
+                          key={staffId}
+                          className="flex items-center gap-2 bg-gradient-to-r from-primary-50 to-primary-100 px-3 py-1.5 rounded-full border border-primary-200"
+                          title={employee.fullName}
+                        >
+                          <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-xs font-semibold text-primary-700">
+                            {employee.fullName?.charAt(0).toUpperCase() || '?'}
+                          </div>
+                          <span className="text-xs font-medium text-primary-900 truncate max-w-[100px]">
+                            {employee.fullName}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {location.assignedStaff.length > 6 && (
+                      <div className="flex items-center gap-2 bg-secondary-100 px-3 py-1.5 rounded-full border border-secondary-200">
+                        <span className="text-xs font-medium text-secondary-700">
+                          +{location.assignedStaff.length - 6} more
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

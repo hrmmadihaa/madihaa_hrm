@@ -14,7 +14,17 @@ export const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, signOut } = useAuth();
 
-  const navigation = [
+  // Simplified navigation for employee role
+  const employeeNavigation = [
+    { name: 'My Profile', href: '/staff-dashboard', icon: User },
+    { name: 'My Attendance', href: '/staff-attendance', icon: Calendar },
+    { name: 'My Leaves', href: '/leave', icon: CalendarCheck },
+    { name: 'My Overtime', href: '/overtime', icon: Clock },
+    { name: 'My Payslips', href: '/staff-payslips', icon: DollarSign },
+  ] as const;
+
+  // Full navigation for admin/manager roles
+  const adminNavigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Employees', href: '/employees', icon: Users },
     { name: 'Attendance', href: '/attendance', icon: Calendar },
@@ -33,6 +43,8 @@ export const Layout: React.FC = () => {
     { name: 'User Management', href: '/users', icon: UserCog },
     { name: 'Settings', href: '/settings', icon: Settings },
   ] as const;
+
+  const navigation = user?.role === 'employee' ? employeeNavigation : adminNavigation;
 
   return (
     <div className="min-h-screen bg-secondary-50">

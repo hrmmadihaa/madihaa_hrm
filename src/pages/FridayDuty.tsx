@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, Printer } from 'lucide-react';
+import { Save, Printer, RefreshCw } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { getEmployees } from '../lib/employees';
 import { getAllWorkLocations } from '../lib/workLocation';
-import { getLeaveRequests } from '../lib/leave';
+import { getLeaveRequests, createLeaveRequest, deleteLeaveRequest } from '../lib/leave';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { WorkLocation } from '../types';
@@ -86,11 +86,11 @@ export const FridayDuty = () => {
     const fridays: Date[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     // Find the most recent Friday (could be today if today is Friday)
     let current = new Date(today);
     const dayOfWeek = current.getDay();
-    
+
     // If today is Friday, start from today
     if (dayOfWeek === 5) {
       // Keep current as is
@@ -99,19 +99,19 @@ export const FridayDuty = () => {
       const daysSinceFriday = (dayOfWeek - 5 + 7) % 7;
       current.setDate(current.getDate() - daysSinceFriday);
     }
-    
+
     // Get past 4 Fridays (going backwards)
     for (let i = 3; i >= 0; i--) {
       const pastFriday = new Date(current);
       pastFriday.setDate(current.getDate() - (i * 7));
       fridays.push(pastFriday);
     }
-    
+
     // Get next Friday
     const nextFriday = new Date(current);
     nextFriday.setDate(current.getDate() + 7);
     fridays.push(nextFriday);
-    
+
     // Sort chronologically
     return fridays.sort((a, b) => a.getTime() - b.getTime());
   }, []);
@@ -161,54 +161,77 @@ export const FridayDuty = () => {
 
   // Update Fridays when data loads
   useEffect(() => {
+    console.log('Friday Duty - useEffect triggered, employees:', employees.length, 'leaves:', leaveRequests.length);
     if (employees.length === 0 || leaveRequests.length === 0) return;
-    
+
     const fridays = getFridays();
+    console.log('Friday Duty - Fridays:', fridays.map(f => getDateString(f)));
     setCurrentFridays(fridays);
-    
+
     // Auto-populate schedule data based on leave requests
     const updatedScheduleData: FridayScheduleData = { ...scheduleData };
-    
+
     fridays.forEach(friday => {
       const dateString = getDateString(friday);
-      
+
       employees.forEach(emp => {
         // Check if employee has leave on this Friday
         const hasLeave = leaveRequests.some(leave => {
           if (leave.employeeId !== emp.id) return false;
-          
+          if (leave.status !== 'approved') return false;
+
           const leaveStart = new Date(leave.startDate);
           const leaveEnd = new Date(leave.endDate);
           leaveStart.setHours(0, 0, 0, 0);
           leaveEnd.setHours(23, 59, 59, 999);
-          
+
           return friday >= leaveStart && friday <= leaveEnd;
         });
-        
+
         if (hasLeave) {
           const leaveRequest = leaveRequests.find(leave => {
             if (leave.employeeId !== emp.id) return false;
-            
+            if (leave.status !== 'approved') return false;
+
             const leaveStart = new Date(leave.startDate);
             const leaveEnd = new Date(leave.endDate);
             leaveStart.setHours(0, 0, 0, 0);
             leaveEnd.setHours(23, 59, 59, 999);
-            
+
             return friday >= leaveStart && friday <= leaveEnd;
           });
-          
+
           if (!updatedScheduleData[dateString]) updatedScheduleData[dateString] = {};
-          if (!updatedScheduleData[dateString][emp.empId]) {
-            updatedScheduleData[dateString][emp.empId] = { status: 'Off', remarks: '' };
-          }
-          updatedScheduleData[dateString][emp.empId].status = 'Off';
-          updatedScheduleData[dateString][emp.empId].remarks = leaveRequest?.reason || 'Leave';
+          // Always override with leave data - leave takes precedence
+          updatedScheduleData[dateString][emp.empId] = {
+            status: 'Off',
+            remarks: leaveRequest?.reason || `Imported from Excel (${leaveRequest?.type})`
+          };
+          console.log(`Friday Duty - Marked ${emp.fullName} (${emp.empId}) as Off on ${dateString}`);
         }
       });
     });
-    
+
+    // Debug: Check for Ahmed Rifath specifically
+    const ahmedEmployees = employees.filter(e => e.fullName.toLowerCase().includes('ahmed'));
+    console.log('Friday Duty - All Ahmed employees:');
+    ahmedEmployees.forEach(e => console.log(`  - ${e.fullName} (${e.empId}), ID: ${e.id}`));
+    const ahmedRifath = employees.find(e => e.fullName.toLowerCase().includes('ahmed rifath'));
+    if (ahmedRifath) {
+      console.log('Friday Duty - Ahmed Rifath found:', ahmedRifath);
+      const ahmedLeaves = leaveRequests.filter(l => l.employeeId === ahmedRifath.id);
+      console.log('Friday Duty - Ahmed Rifath leaves count:', ahmedLeaves.length);
+      console.log('Friday Duty - Ahmed Rifath leaves:', ahmedLeaves.map(l => ({
+        type: l.type,
+        startDate: l.startDate,
+        endDate: l.endDate,
+        status: l.status
+      })));
+    }
+
     setScheduleData(updatedScheduleData);
-  }, [getFridays, employees.length, leaveRequests.length]);
+    console.log('Friday Duty - Schedule data updated');
+  }, [getFridays, employees, leaveRequests]);
 
   const handleStatusChange = (dateString: string, empId: string, status: 'On' | 'Off' | 'Holiday') => {
     setScheduleData(prev => {
@@ -234,7 +257,69 @@ export const FridayDuty = () => {
     setSaving(true);
     try {
       await setDoc(doc(db, 'friday_schedules', 'current'), scheduleData, { merge: true });
-      alert('Schedule saved successfully!');
+
+      // Refresh leave requests to get latest data
+      const updatedLeaveRequests = await getLeaveRequests();
+
+      // Create leave requests for employees marked as "Off" and delete for "On"
+      for (const dateString in scheduleData) {
+        // Parse date in local timezone to avoid timezone shifts
+        const [year, month, day] = dateString.split('-').map(Number);
+        const fridayDate = new Date(year, month - 1, day);
+        fridayDate.setHours(0, 0, 0, 0);
+
+        // Skip dates that are not Fridays (day of week 5)
+        if (fridayDate.getDay() !== 5) {
+          continue;
+        }
+
+        const dayEntries = scheduleData[dateString];
+
+        for (const empId in dayEntries) {
+          const entry = dayEntries[empId];
+          const employee = employees.find(emp => emp.empId === empId);
+          if (!employee) continue;
+
+          // Check if leave request already exists for this date
+          const existingLeave = updatedLeaveRequests.find(leave => {
+            if (leave.employeeId !== employee.id) return false;
+            if (leave.type !== 'off_day') return false;
+            const leaveStart = new Date(leave.startDate);
+            leaveStart.setHours(0, 0, 0, 0);
+            return leaveStart.getTime() === fridayDate.getTime();
+          });
+
+          if (entry.status === 'Off') {
+            // Create leave request if it doesn't exist
+            if (!existingLeave) {
+              await createLeaveRequest({
+                employeeId: employee.id,
+                type: 'off_day',
+                startDate: fridayDate,
+                endDate: fridayDate,
+                days: 1,
+                reason: entry.remarks || 'Friday Off Duty',
+                status: 'approved',
+                balanceAdjusted: true,
+                appliedDate: new Date(),
+                approvals: [{
+                  level: 1,
+                  approverId: 'system',
+                  approverName: 'System',
+                  status: 'approved',
+                  comments: 'Auto-generated from Friday Duty Schedule',
+                  actionDate: new Date()
+                }]
+              });
+            }
+          } else if (entry.status === 'On' && existingLeave) {
+            // Delete leave request if employee is marked as "On"
+            await deleteLeaveRequest(existingLeave.id);
+          }
+        }
+      }
+
+      alert('Schedule saved successfully! Leave requests updated.');
     } catch (error) {
       console.error('Error saving schedule:', error);
       alert('Failed to save schedule. Please try again.');
@@ -247,12 +332,53 @@ export const FridayDuty = () => {
     window.print();
   };
 
+  const handleRefresh = async () => {
+    console.log('Friday Duty - Refreshing data...');
+    setLoading(true);
+    try {
+      const [leaveData, scheduleDoc] = await Promise.all([
+        getLeaveRequests(),
+        getDoc(doc(db, 'friday_schedules', 'current'))
+      ]);
+      console.log('Friday Duty - Loaded leave requests:', leaveData.length);
+      console.log('Friday Duty - Loaded schedule doc exists:', scheduleDoc.exists());
+      setLeaveRequests(leaveData);
+      if (scheduleDoc.exists()) {
+        setScheduleData(scheduleDoc.data() as FridayScheduleData);
+      } else {
+        setScheduleData({});
+      }
+      console.log('Friday Duty - Refresh complete');
+    } catch (error) {
+      console.error('Friday Duty - Error refreshing data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClearSchedule = async () => {
+    if (!confirm('Are you sure you want to clear all Friday schedule data? This will remove all saved "On/Off" statuses.')) {
+      return;
+    }
+    try {
+      await setDoc(doc(db, 'friday_schedules', 'current'), {});
+      setScheduleData({});
+      alert('Schedule data cleared successfully!');
+    } catch (error) {
+      console.error('Error clearing schedule:', error);
+      alert('Failed to clear schedule. Please try again.');
+    }
+  };
+
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
   };
 
   const getDateString = (date: Date) => {
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   // Calculate summary for a department on a specific date
@@ -368,13 +494,20 @@ export const FridayDuty = () => {
               <option key={loc} value={loc}>{loc}</option>
             ))}
           </select>
-          <Button variant="secondary" onClick={handlePrint}>
-            <Printer className="w-5 h-5 mr-2" />
-            Print PDF
+          <Button variant="secondary" onClick={handleRefresh} disabled={loading}>
+            <RefreshCw className="w-5 h-5 mr-2" />
+            Refresh
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button variant="secondary" onClick={handleClearSchedule} disabled={loading}>
+            Clear
+          </Button>
+          <Button onClick={handlePrint} disabled={loading}>
+            <Printer className="w-5 h-5 mr-2" />
+            Print
+          </Button>
+          <Button onClick={handleSave} disabled={loading || saving} loading={saving}>
             <Save className="w-5 h-5 mr-2" />
-            {saving ? 'Saving...' : 'Save Schedule'}
+            Save
           </Button>
         </div>
       </div>

@@ -1,31 +1,55 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
     function isSuperAdmin() {
-      return isAuthenticated() && 
+      return isAuthenticated() &&
              request.auth.token.email == 'madihaapvtltd@gmail.com';
     }
-    
-    function isHRManager() {
-      return isAuthenticated() && 
-             request.auth.token.email_verified;
+
+    function hasRole(role) {
+      return isAuthenticated() &&
+             request.auth.token.role == role;
     }
-    
+
+    function isHRManager() {
+      return hasRole('hr_manager') || isSuperAdmin();
+    }
+
+    function isDepartmentManager() {
+      return hasRole('department_manager') || isHRManager();
+    }
+
+    function isSupervisor() {
+      return hasRole('supervisor') || isDepartmentManager();
+    }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
-    
-    // Allow read/write for super admin
+
+    function isEmployeeOwner(employeeId) {
+      return isAuthenticated() && request.auth.token.employeeId == employeeId;
+    }
+
+    // Allow read/write for super admin (fallback)
     match /{document=**} {
       allow read, write: if isSuperAdmin();
     }
-    
+
+    // Users collection - for user management
+    match /users/{userId} {
+      allow read: if isAuthenticated(); // Temporarily allow all authenticated users to read for development
+      allow create: if isSuperAdmin() || isHRManager() || isOwner(userId);
+      allow update: if isSuperAdmin() || isHRManager() || isOwner(userId);
+      allow delete: if isSuperAdmin();
+    }
+
     // Employees collection
     match /employees/{employeeId} {
       allow read: if isAuthenticated();
@@ -38,12 +62,18 @@ service cloud.firestore {
       allow create, update: if isSuperAdmin() || isHRManager() || isOwner(resource.data.userId);
     }
     
-    // Leave collection
-    match /leave/{leaveId} {
+    // Leave requests collection
+    match /leave_requests/{leaveId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isSuperAdmin() || isHRManager() || isOwner(resource.data.userId);
+      allow update: if isSuperAdmin() || isHRManager() || isOwner(resource.data.employeeId);
       allow delete: if isSuperAdmin();
+    }
+
+    // Leave balances collection
+    match /leave_balances/{balanceId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isSuperAdmin() || isHRManager();
     }
     
     // Payroll collection
@@ -51,15 +81,27 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create, update, delete: if isSuperAdmin() || isHRManager();
     }
-    
+
     // Overtime collection
-    match /overtime/{overtimeId} {
+    match /overtime_requests {
+      allow list: if isAuthenticated();
+    }
+    match /overtime_requests/{overtimeId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isSuperAdmin() || isHRManager() || isOwner(resource.data.userId);
+      allow update: if isAuthenticated();
       allow delete: if isSuperAdmin();
     }
-    
+
+    // Biometric overtime collection
+    match /biometric_overtime {
+      allow list: if isAuthenticated();
+    }
+    match /biometric_overtime/{bioId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isSuperAdmin() || isHRManager();
+    }
+
     // Recruitment collection
     match /recruitment/{recruitmentId} {
       allow read: if isAuthenticated();
@@ -112,6 +154,12 @@ service cloud.firestore {
     }
     
     match /accommodation_assignments/{assignmentId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isSuperAdmin() || isHRManager();
+    }
+
+    // Work locations collection
+    match /workLocations/{locationId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isSuperAdmin() || isHRManager();
     }

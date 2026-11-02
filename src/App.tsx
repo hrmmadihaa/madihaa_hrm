@@ -21,6 +21,9 @@ import { Accommodation } from './pages/Accommodation';
 import { WorkLocationPage } from './pages/WorkLocation';
 import { OrganizationChart } from './pages/OrganizationChart';
 import { FridayDuty } from './pages/FridayDuty';
+import { StaffDashboard } from './pages/StaffDashboard';
+import { StaffPayslip } from './pages/StaffPayslip';
+import { StaffAttendance } from './pages/StaffAttendance';
 
 function App() {
   return (
@@ -38,6 +41,9 @@ function App() {
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="staff-dashboard" element={<StaffDashboard />} />
+            <Route path="staff-attendance" element={<StaffAttendance />} />
+            <Route path="staff-payslips" element={<StaffPayslip />} />
             <Route path="employees" element={<Employees />} />
             <Route path="employees/new" element={<EmployeeProfilePage />} />
             <Route path="employees/:name" element={<EmployeeProfilePage isEditing={true} />} />
