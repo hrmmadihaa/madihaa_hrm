@@ -76,7 +76,7 @@ export const Overtime = () => {
 
         // Filter biometric data by selected payroll cycle
         const payrollCycle = getPayrollCycleDates(selectedMonth, selectedYear);
-        const filteredBioData = bioData.filter(r => {
+        const filteredBioData = bioData.filter((r: any) => {
           const recordDate = new Date(r.date);
           return recordDate >= payrollCycle.start && recordDate <= payrollCycle.end;
         });
@@ -86,7 +86,7 @@ export const Overtime = () => {
         // Employees see only their own data (match by employeeId)
         const finalBioData = hasApprovePermission
           ? filteredBioData
-          : filteredBioData.filter(r => {
+          : filteredBioData.filter((r: any) => {
               // Try exact match first
               if (r.employeeId === user?.employeeId) {
                 console.log('Matched by user.employeeId:', user?.employeeId);
