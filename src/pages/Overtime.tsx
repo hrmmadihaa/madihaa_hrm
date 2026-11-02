@@ -11,6 +11,9 @@ import {
   approveOvertimeRequest,
   rejectOvertimeRequest,
   deleteOvertimeRequest,
+  fixOvertimeEmployeeIds,
+  deleteAllOvertimeRequests,
+  getOvertimeFromAttendance
 } from '../lib/overtime';
 import { getEmployees } from '../lib/employees';
 import { useAuth } from '../contexts/AuthContext';
@@ -40,23 +43,77 @@ export const Overtime = () => {
   const [submittingOvertime, setSubmittingOvertime] = useState(false);
   const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set());
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'manual' | 'biometric'>('manual');
+  const [biometricData, setBiometricData] = useState<any[]>([]);
+  const [migrating, setMigrating] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('=== LOAD DATA START ===');
+      console.log('User:', user?.employeeId, 'role:', user?.role, 'id:', user?.id);
       const hasApprovePermission = can(PERMISSIONS.OVERTIME_APPROVE);
+      console.log('Has approve permission:', hasApprovePermission);
+      console.log('Querying with employeeId:', hasApprovePermission ? undefined : user?.employeeId);
+
       const [requests, empData] = await Promise.all([
         getOvertimeRequests(hasApprovePermission ? undefined : user?.employeeId),
         getEmployees()
       ]);
+      console.log('Loaded requests:', requests.length);
       setOvertimeRequests(requests);
       setEmployees(empData.filter(e => e.status === 'active'));
 
+      // Load biometric data from attendance history
+      try {
+        console.log('Loading overtime from attendance history...');
+        // For admins, load all data; for employees, load all data and filter client-side
+        const bioData = await getOvertimeFromAttendance(undefined);
+        console.log('Overtime from attendance loaded:', bioData.length);
+
+        // Filter biometric data by selected payroll cycle
+        const payrollCycle = getPayrollCycleDates(selectedMonth, selectedYear);
+        const filteredBioData = bioData.filter(r => {
+          const recordDate = new Date(r.date);
+          return recordDate >= payrollCycle.start && recordDate <= payrollCycle.end;
+        });
+
+        // Employees see only their own data (match by employeeId)
+        const finalBioData = hasApprovePermission
+          ? filteredBioData
+          : filteredBioData.filter(r => {
+              // Try exact match first
+              if (r.employeeId === user?.employeeId) return true;
+              // Try matching with the employee's Firebase document ID
+              const employee = employees.find(e => e.id === user?.id);
+              if (employee && r.employeeId === employee.employeeId) return true;
+              return false;
+            });
+
+        console.log('Filtered biometric data:', finalBioData.length);
+        console.log('User employeeId:', user?.employeeId);
+        setBiometricData(finalBioData);
+      } catch (bioError) {
+        console.log('Attendance data not available:', bioError instanceof Error ? bioError.message : String(bioError));
+        setBiometricData([]);
+      }
+
       const payrollCycle = getPayrollCycleDates();
-      const summaryData = await getOvertimeSummary(payrollCycle.start, payrollCycle.end, hasApprovePermission ? undefined : user?.employeeId);
+      // Admins see all-time data, employees see current payroll cycle
+      const summaryStartDate = hasApprovePermission ? new Date('2020-01-01') : payrollCycle.start;
+      const summaryEndDate = hasApprovePermission ? new Date('2030-12-31') : payrollCycle.end;
+      const summaryData = await getOvertimeSummary(summaryStartDate, summaryEndDate, hasApprovePermission ? undefined : user?.employeeId);
       setSummary(summaryData);
+      console.log('=== LOAD DATA SUCCESS ===');
     } catch (error) {
-      console.error('Error loading overtime data:', error);
+      console.error('=== LOAD DATA ERROR ===');
+      console.error('Error:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+      }
+      console.error('Error details:', JSON.stringify(error, null, 2));
     } finally {
       setLoading(false);
     }
@@ -66,17 +123,23 @@ export const Overtime = () => {
     loadData();
   }, [loadData]);
 
+  // Reload data when month/year changes for biometric tab
+  useEffect(() => {
+    if (activeTab === 'biometric') {
+      loadData();
+    }
+  }, [selectedMonth, selectedYear, activeTab]);
+
   // Calculate payroll cycle dates (26th of previous month to 25th of current month)
-  const getPayrollCycleDates = () => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+  const getPayrollCycleDates = (month?: number, year?: number) => {
+    const targetMonth = month !== undefined ? month : new Date().getMonth();
+    const targetYear = year !== undefined ? year : new Date().getFullYear();
 
     // Previous month 26th - use UTC to avoid timezone issues
-    const cycleStart = new Date(Date.UTC(currentYear, currentMonth - 1, 26, 0, 0, 0, 0));
+    const cycleStart = new Date(Date.UTC(targetYear, targetMonth - 1, 26, 0, 0, 0, 0));
 
     // Current month 25th - use UTC to avoid timezone issues
-    const cycleEnd = new Date(Date.UTC(currentYear, currentMonth, 25, 23, 59, 59, 999));
+    const cycleEnd = new Date(Date.UTC(targetYear, targetMonth, 25, 23, 59, 59, 999));
 
     console.log('Payroll cycle:', cycleStart.toISOString().split('T')[0], 'to', cycleEnd.toISOString().split('T')[0]);
 
@@ -91,13 +154,8 @@ export const Overtime = () => {
   const payrollCycle = getPayrollCycleDates();
 
   const filteredRequests = overtimeRequests.filter(request => {
-    const requestDate = new Date(request.date);
-    // Compare using UTC to avoid timezone issues
-    const requestDateUTC = Date.UTC(requestDate.getFullYear(), requestDate.getMonth(), requestDate.getDate());
-    const startUTC = payrollCycle.start.getTime();
-    const endUTC = payrollCycle.end.getTime();
-    const isInPayrollCycle = requestDateUTC >= startUTC && requestDateUTC <= endUTC;
-    if (!isInPayrollCycle) return false;
+    // Exclude biometric overtime requests from manual tab
+    if (request.reason === 'Biometric overtime') return false;
     if (filterStatus === 'all') return true;
     return request.status === filterStatus;
   });
@@ -273,6 +331,42 @@ export const Overtime = () => {
     }
   };
 
+  const handleFixEmployeeIds = async () => {
+    if (!can(PERMISSIONS.OVERTIME_DELETE)) return;
+    if (!confirm('This will update all overtime requests to use correct employee IDs. Continue?')) return;
+
+    setMigrating(true);
+    try {
+      console.log('=== MIGRATION TRIGGERED FROM UI ===');
+      await fixOvertimeEmployeeIds();
+      alert('Migration completed! Check console for details.');
+      await loadData();
+    } catch (error) {
+      console.error('Migration error:', error);
+      alert('Migration failed. Check console for details.');
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (!can(PERMISSIONS.OVERTIME_DELETE)) return;
+    if (!confirm('WARNING: This will PERMANENTLY delete ALL overtime requests. This action cannot be undone. Continue?')) return;
+
+    setMigrating(true);
+    try {
+      console.log('=== DELETION TRIGGERED FROM UI ===');
+      const deletedCount = await deleteAllOvertimeRequests();
+      alert(`Deleted ${deletedCount} overtime requests. Check console for details.`);
+      await loadData();
+    } catch (error) {
+      console.error('Deletion error:', error);
+      alert('Deletion failed. Check console for details.');
+    } finally {
+      setMigrating(false);
+    }
+  };
+
   const applyBulkEdit = () => {
     const updatedEntries = { ...dailyEntries };
     let appliedCount = 0;
@@ -296,6 +390,41 @@ export const Overtime = () => {
 
     setDailyEntries(updatedEntries);
     alert(`Bulk changes applied to ${appliedCount} entries.`);
+  };
+
+  const handleCreateBiometricOvertime = async () => {
+    const selectedRecords = biometricData.filter(r => r.selected);
+    if (selectedRecords.length === 0) {
+      alert('Please select at least one record to create overtime requests.');
+      return;
+    }
+
+    if (!confirm(`Create ${selectedRecords.length} overtime request(s)?`)) return;
+
+    setBulkSubmitting(true);
+    try {
+      for (const record of selectedRecords) {
+        await createOvertimeRequest({
+          employeeId: record.employeeId,
+          date: record.date,
+          startTime: '19:00',
+          endTime: record.finishTime,
+          hours: record.overtimeHours,
+          reason: 'Biometric overtime',
+          status: 'pending',
+          requestedDate: new Date(),
+        });
+      }
+
+      alert('Overtime requests created successfully!');
+      setBiometricData([]);
+      await loadData();
+    } catch (error) {
+      console.error('Error creating overtime requests:', error);
+      alert('Failed to create overtime requests. Please try again.');
+    } finally {
+      setBulkSubmitting(false);
+    }
   };
 
   const generateOTForm = () => {
@@ -451,21 +580,55 @@ export const Overtime = () => {
           <h1 className="text-3xl font-bold text-secondary-900">Overtime Management</h1>
           <p className="text-secondary-600 mt-1">Track and approve overtime requests</p>
         </div>
-        {can(PERMISSIONS.OVERTIME_REQUEST) && (
+        {activeTab === 'manual' && can(PERMISSIONS.OVERTIME_REQUEST) && (
           <Button onClick={toggleRequestForm} className="sm:w-auto w-full">
             <Plus className="w-5 h-5 mr-2" />
             Request Overtime
           </Button>
         )}
-        {can(PERMISSIONS.OVERTIME_APPROVE) && (
+        {activeTab === 'manual' && can(PERMISSIONS.OVERTIME_APPROVE) && (
           <Button variant="secondary" onClick={() => setShowSummary(!showSummary)} className="sm:w-auto w-full">
             <Download className="w-5 h-5 mr-2" />
             Monthly Summary
           </Button>
         )}
+        {can(PERMISSIONS.OVERTIME_DELETE) && (
+          <div className="flex gap-2 sm:w-auto w-full">
+            <Button variant="danger" onClick={handleFixEmployeeIds} disabled={migrating} className="flex-1">
+              {migrating ? 'Fixing...' : 'Fix Employee IDs'}
+            </Button>
+            <Button variant="danger" onClick={handleDeleteAll} disabled={migrating} className="flex-1">
+              {migrating ? 'Deleting...' : 'Delete All'}
+            </Button>
+          </div>
+        )}
       </div>
 
-      {showRequestForm && (
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-secondary-200">
+        <button
+          onClick={() => setActiveTab('manual')}
+          className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+            activeTab === 'manual'
+              ? 'border-primary-600 text-primary-600'
+              : 'border-transparent text-secondary-600 hover:text-secondary-900'
+          }`}
+        >
+          Manual Overtime
+        </button>
+        <button
+          onClick={() => setActiveTab('biometric')}
+          className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+            activeTab === 'biometric'
+              ? 'border-primary-600 text-primary-600'
+              : 'border-transparent text-secondary-600 hover:text-secondary-900'
+          }`}
+        >
+          Biometric Overtime
+        </button>
+      </div>
+
+      {activeTab === 'manual' && showRequestForm && (
         <Card>
           <CardContent className="p-4">
             <div className="mb-4 p-3 bg-blue-50 rounded-lg">
@@ -640,7 +803,7 @@ export const Overtime = () => {
       )}
 
       {/* Monthly Summary */}
-      {showSummary && can(PERMISSIONS.OVERTIME_APPROVE) && (
+      {activeTab === 'manual' && showSummary && can(PERMISSIONS.OVERTIME_APPROVE) && (
         <Card>
           <CardContent className="p-4">
             <div className="mb-4 p-3 bg-blue-50 rounded-lg flex justify-between items-center">
@@ -707,7 +870,7 @@ export const Overtime = () => {
       )}
 
       {/* Summary Cards */}
-      {summary && (
+      {activeTab === 'manual' && summary && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-4">
@@ -727,7 +890,7 @@ export const Overtime = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-secondary-600">Total Hours</p>
-                  <p className="text-2xl font-bold text-primary-600">{summary.totalHours}</p>
+                  <p className="text-2xl font-bold text-primary-600">{summary.totalHours.toFixed(2)}</p>
                   <p className="text-xs text-secondary-500">hours</p>
                 </div>
                 <div className="p-2 bg-primary-100 rounded-lg">
@@ -741,7 +904,7 @@ export const Overtime = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-secondary-600">Approved</p>
-                  <p className="text-2xl font-bold text-green-600">{summary.approvedHours}</p>
+                  <p className="text-2xl font-bold text-green-600">{summary.approvedHours.toFixed(2)}</p>
                   <p className="text-xs text-secondary-500">hours</p>
                 </div>
                 <div className="p-2 bg-green-100 rounded-lg">
@@ -755,7 +918,7 @@ export const Overtime = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-secondary-600">Pending</p>
-                  <p className="text-2xl font-bold text-yellow-600">{summary.pendingHours}</p>
+                  <p className="text-2xl font-bold text-yellow-600">{summary.pendingHours.toFixed(2)}</p>
                   <p className="text-xs text-secondary-500">hours</p>
                 </div>
                 <div className="p-2 bg-yellow-100 rounded-lg">
@@ -769,7 +932,7 @@ export const Overtime = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-secondary-600">Completed</p>
-                  <p className="text-2xl font-bold text-blue-600">{summary.completedHours}</p>
+                  <p className="text-2xl font-bold text-blue-600">{summary.completedHours.toFixed(2)}</p>
                   <p className="text-xs text-secondary-500">hours</p>
                 </div>
                 <div className="p-2 bg-blue-100 rounded-lg">
@@ -781,9 +944,373 @@ export const Overtime = () => {
         </div>
       )}
 
+      {/* Biometric Overtime Section */}
+      {activeTab === 'biometric' && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-secondary-900 mb-2">Overtime from Attendance History</h3>
+              <p className="text-sm text-secondary-600 mb-4">
+                Overtime calculated from attendance check-out times after 19:00.
+              </p>
+
+              {/* Month/Year Selector */}
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                <div className="flex flex-wrap gap-3 items-center">
+                  <div>
+                    <label className="block text-xs text-secondary-600 mb-1">Month</label>
+                    <select
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                      className="px-3 py-1 border border-secondary-300 rounded text-sm"
+                    >
+                      <option value={0}>January</option>
+                      <option value={1}>February</option>
+                      <option value={2}>March</option>
+                      <option value={3}>April</option>
+                      <option value={4}>May</option>
+                      <option value={5}>June</option>
+                      <option value={6}>July</option>
+                      <option value={7}>August</option>
+                      <option value={8}>September</option>
+                      <option value={9}>October</option>
+                      <option value={10}>November</option>
+                      <option value={11}>December</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-secondary-600 mb-1">Year</label>
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                      className="px-3 py-1 border border-secondary-300 rounded text-sm"
+                    >
+                      {[2025, 2026, 2027, 2028].map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="text-xs text-secondary-600">
+                    <strong>Payroll Cycle:</strong> {getPayrollCycleDates(selectedMonth, selectedYear).startFormatted} to {getPayrollCycleDates(selectedMonth, selectedYear).endFormatted}
+                  </div>
+                </div>
+              </div>
+
+              {/* Calendar View for Superadmin - Shows all employees */}
+              {can(PERMISSIONS.OVERTIME_APPROVE) && (
+                <div className="mb-4 overflow-x-auto border border-secondary-300 rounded-lg">
+                  <table className="w-full text-xs">
+                    <thead className="bg-secondary-50 sticky top-0">
+                      <tr>
+                        <th className="px-2 py-2 text-left font-medium sticky left-0 bg-secondary-50">Employee</th>
+                        {(() => {
+                          const payrollCycle = getPayrollCycleDates(selectedMonth, selectedYear);
+                          const dates = [];
+                          const current = new Date(payrollCycle.start);
+                          const end = new Date(payrollCycle.end);
+                          while (current <= end) {
+                            dates.push(new Date(current));
+                            current.setUTCDate(current.getUTCDate() + 1);
+                          }
+                          return dates.map((date, idx) => (
+                            <th key={idx} className="px-1 py-2 text-center font-medium min-w-[35px]">
+                              <div>{date.getUTCDate()}</div>
+                              <div className="text-[10px] text-secondary-500">{date.toLocaleDateString('en-GB', { month: 'short' })}</div>
+                            </th>
+                          ));
+                        })()}
+                        <th className="px-2 py-2 text-center font-bold bg-primary-100">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {employees.map(employee => {
+                        const payrollCycle = getPayrollCycleDates(selectedMonth, selectedYear);
+                        const dates = [];
+                        const current = new Date(payrollCycle.start);
+                        const end = new Date(payrollCycle.end);
+                        while (current <= end) {
+                          dates.push(new Date(current));
+                          current.setUTCDate(current.getUTCDate() + 1);
+                        }
+
+                        const employeeRecords = biometricData.filter(r => r.employeeId === employee.employeeId);
+                        let totalHours = 0;
+
+                        return (
+                          <tr key={employee.id} className="border-t border-secondary-200">
+                            <td className="px-2 py-1 whitespace-nowrap font-medium sticky left-0 bg-white">
+                              <div className="text-xs font-semibold">{employee.fullName}</div>
+                              <div className="text-[10px] text-secondary-500">{employee.employeeId}</div>
+                            </td>
+                            {dates.map((date, idx) => {
+                              const dateStr = date.toISOString().split('T')[0];
+                              const record = employeeRecords.find(r => {
+                                const recordDate = new Date(r.date).toISOString().split('T')[0];
+                                return recordDate === dateStr;
+                              });
+                              const hours = record?.overtimeHours || 0;
+                              totalHours += hours;
+                              return (
+                                <td key={idx} className="px-1 py-1 text-center">
+                                  {hours > 0 ? (
+                                    <span className="inline-block bg-primary-100 text-primary-700 px-1 rounded text-[10px] font-medium">
+                                      {hours.toFixed(1)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-secondary-300">-</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                            <td className="px-2 py-1 text-center font-bold bg-primary-50">
+                              {totalHours.toFixed(1)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Calendar View for Individual Employee - Shows only their own data */}
+              {!can(PERMISSIONS.OVERTIME_APPROVE) && user?.employeeId && (
+                <div className="mb-4 overflow-x-auto border border-secondary-300 rounded-lg">
+                  <div className="p-3 bg-green-50 rounded-lg mb-3">
+                    <p className="text-sm font-medium text-green-800">
+                      Your Overtime Summary for {getPayrollCycleDates(selectedMonth, selectedYear).startFormatted} to {getPayrollCycleDates(selectedMonth, selectedYear).endFormatted}
+                    </p>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-secondary-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">Date</th>
+                        <th className="px-3 py-2 text-center font-medium">Check-in</th>
+                        <th className="px-3 py-2 text-center font-medium">Check-out</th>
+                        <th className="px-3 py-2 text-center font-medium bg-primary-100">Overtime Hours</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const payrollCycle = getPayrollCycleDates(selectedMonth, selectedYear);
+                        const dates = [];
+                        const current = new Date(payrollCycle.start);
+                        const end = new Date(payrollCycle.end);
+                        while (current <= end) {
+                          dates.push(new Date(current));
+                          current.setUTCDate(current.getUTCDate() + 1);
+                        }
+
+                        const employeeRecords = biometricData.filter(r => {
+                          // Try exact match first
+                          if (r.employeeId === user.employeeId) return true;
+                          // Try matching with the employee's Firebase document ID
+                          const employee = employees.find(e => e.id === user?.id);
+                          if (employee && r.employeeId === employee.employeeId) return true;
+                          return false;
+                        });
+                        let totalHours = 0;
+
+                        return dates.map((date, idx) => {
+                          const dateStr = date.toISOString().split('T')[0];
+                          const record = employeeRecords.find(r => {
+                            const recordDate = new Date(r.date).toISOString().split('T')[0];
+                            return recordDate === dateStr;
+                          });
+                          const hours = record?.overtimeHours || 0;
+                          totalHours += hours;
+
+                          return (
+                            <tr key={idx} className="border-t border-secondary-200">
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                {date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                {record?.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                {record?.finishTime || '-'}
+                              </td>
+                              <td className="px-3 py-2 text-center font-medium bg-primary-50">
+                                {hours > 0 ? (
+                                  <span className="text-primary-700 font-bold">{hours.toFixed(2)}</span>
+                                ) : (
+                                  <span className="text-secondary-300">-</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        }).concat(
+                          <tr key="total" className="border-t-2 border-secondary-400 bg-primary-100">
+                            <td className="px-3 py-2 font-bold" colSpan={3}>Total Overtime Hours</td>
+                            <td className="px-3 py-2 text-center font-bold text-primary-700">{totalHours.toFixed(2)}</td>
+                          </tr>
+                        );
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {biometricData.length > 0 && can(PERMISSIONS.OVERTIME_APPROVE) && (
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant="secondary" onClick={() => setBiometricData(biometricData.map(r => ({ ...r, selected: true })))}>
+                    Select All
+                  </Button>
+                  <Button variant="secondary" onClick={() => setBiometricData(biometricData.map(r => ({ ...r, selected: false })))}>
+                    Clear Selection
+                  </Button>
+                  <Button onClick={handleCreateBiometricOvertime} loading={bulkSubmitting}>
+                    <Check className="w-5 h-5 mr-2" />
+                    Create Overtime Requests ({biometricData.filter(r => r.selected).length})
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {biometricData.length === 0 ? (
+              <div className="text-center py-8 text-secondary-500">
+                <Clock className="w-12 h-12 mx-auto mb-3 text-secondary-300" />
+                <p>No overtime records found in attendance history.</p>
+                <p className="text-sm mt-1">Overtime is calculated from check-out times after 19:00.</p>
+              </div>
+            ) : (
+              <>
+                {/* Mobile Cards */}
+                <div className="sm:hidden space-y-4 p-4">
+                  {biometricData.map((record) => (
+                    <div key={record.id} className="bg-white rounded-lg shadow-md p-4 border border-secondary-200">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-2">
+                          {can(PERMISSIONS.OVERTIME_APPROVE) && (
+                            <input
+                              type="checkbox"
+                              checked={record.selected}
+                              onChange={(e) => {
+                                const selected = e.target.checked;
+                                setBiometricData(prev => {
+                                  const updated = [...prev];
+                                  const recordIndex = updated.findIndex(r => r.id === record.id);
+                                  if (recordIndex !== -1) {
+                                    updated[recordIndex].selected = selected;
+                                  }
+                                  return updated;
+                                });
+                              }}
+                              className="rounded border-secondary-300 text-primary-600 focus:ring-primary-500"
+                            />
+                          )}
+                          <span className="font-bold text-secondary-900 text-sm">
+                            {new Date(record.date).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <span className="text-xs font-medium text-primary-600 bg-primary-50 px-2 py-1 rounded">
+                          {record.overtimeHours}h
+                        </span>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-secondary-600">Employee ID:</span>
+                          <span className="text-secondary-900 font-medium">{record.employeeId}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-secondary-600">Name:</span>
+                          <span className="text-secondary-900 font-medium">{record.employeeName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-secondary-600">Check-in:</span>
+                          <span className="text-secondary-900">{record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-secondary-600">Check-out:</span>
+                          <span className="text-secondary-900">{record.finishTime}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop Table */}
+                <div className="hidden sm:block overflow-x-auto border border-secondary-300 rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead className="bg-secondary-50">
+                      <tr>
+                        {can(PERMISSIONS.OVERTIME_APPROVE) && (
+                          <th className="px-4 py-3 text-left">
+                            <input
+                              type="checkbox"
+                              checked={biometricData.every(r => r.selected)}
+                              onChange={(e) => {
+                                const selected = e.target.checked;
+                                setBiometricData(prev => prev.map(r => ({ ...r, selected })));
+                              }}
+                              className="rounded border-secondary-300 text-primary-600 focus:ring-primary-500"
+                            />
+                          </th>
+                        )}
+                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">Employee ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">Check-in</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">Check-out</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">Overtime Hours</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-secondary-200">
+                      {biometricData.map((record) => (
+                        <tr key={record.id} className="hover:bg-secondary-50">
+                          {can(PERMISSIONS.OVERTIME_APPROVE) && (
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <input
+                                type="checkbox"
+                                checked={record.selected}
+                                onChange={(e) => {
+                                  const selected = e.target.checked;
+                                  setBiometricData(prev => {
+                                    const updated = [...prev];
+                                    const recordIndex = updated.findIndex(r => r.id === record.id);
+                                    if (recordIndex !== -1) {
+                                      updated[recordIndex].selected = selected;
+                                    }
+                                    return updated;
+                                  });
+                                }}
+                                className="rounded border-secondary-300 text-primary-600 focus:ring-primary-500"
+                              />
+                            </td>
+                          )}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                            {record.employeeId}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                            {record.employeeName}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                            {new Date(record.date).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                            {record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                            {record.finishTime}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-600">
+                            {record.overtimeHours}h
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
+      {activeTab === 'manual' && (
+        <Card>
+          <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
             <div className="flex gap-4">
               <select
@@ -832,9 +1359,11 @@ export const Overtime = () => {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Overtime Requests */}
-      <Card>
+      {activeTab === 'manual' && (
+        <Card>
         {/* Mobile Cards */}
         <div className="sm:hidden space-y-4 p-4">
           {filteredRequests.map((request, index) => (
@@ -843,7 +1372,7 @@ export const Overtime = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: index * 0.05 }}
-              className="bg-white rounded-lg shadow p-4 border border-secondary-200"
+              className="p-4"
             >
               <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-2">
@@ -924,7 +1453,7 @@ export const Overtime = () => {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-secondary-200">
+            <tbody className="divide-y divide-secondary-200">
               {filteredRequests.map((request, index) => (
                 <motion.tr
                   key={request.id}
@@ -1013,6 +1542,7 @@ export const Overtime = () => {
           )}
         </div>
       </Card>
+      )}
     </div>
   );
 };

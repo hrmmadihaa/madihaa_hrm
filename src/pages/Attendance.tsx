@@ -8,7 +8,7 @@ import { getEmployees } from '../lib/employees';
 import { getAllWorkLocations } from '../lib/workLocation';
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
-import { addDoc, collection, query, where, getDocs, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import { addDoc, collection, query, where, getDocs, updateDoc, doc, Timestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import * as XLSX from 'xlsx';
 
@@ -41,6 +41,13 @@ export const Attendance = () => {
   const [editedFirstPunch, setEditedFirstPunch] = useState('');
   const [editedLastPunch, setEditedLastPunch] = useState('');
   const [saving, setSaving] = useState(false);
+  const [savingAll, setSavingAll] = useState(false);
+  const [activeTab, setActiveTab] = useState<'upload' | 'history'>('upload');
+  const [firebaseAttendance, setFirebaseAttendance] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [fixingEmployeeIds, setFixingEmployeeIds] = useState(false);
 
   const loadTodayStats = useCallback(async () => {
     try {
@@ -82,6 +89,125 @@ export const Attendance = () => {
       console.error('Error loading employees and locations:', error);
     }
   };
+
+  const loadFirebaseAttendance = async () => {
+    setLoadingHistory(true);
+    try {
+      const q = query(collection(db, 'attendance'));
+      const querySnapshot = await getDocs(q);
+      const records = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().date?.toDate(),
+        checkInTime: doc.data().checkInTime?.toDate(),
+        checkOutTime: doc.data().checkOutTime?.toDate(),
+      }));
+
+      // Sort by date descending
+      records.sort((a, b) => b.date - a.date);
+      setFirebaseAttendance(records);
+    } catch (error) {
+      console.error('Error loading Firebase attendance:', error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleDeleteAllFirebase = async () => {
+    if (!confirm('Are you sure you want to delete ALL attendance records from Firebase? This cannot be undone.')) {
+      return;
+    }
+
+    setDeleteAllLoading(true);
+    try {
+      const q = query(collection(db, 'attendance'));
+      const querySnapshot = await getDocs(q);
+
+      const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+
+      setFirebaseAttendance([]);
+      alert('All attendance records deleted successfully');
+    } catch (error) {
+      console.error('Error deleting records:', error);
+      alert('Error deleting records');
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  };
+
+  const handleFixEmployeeIds = async () => {
+    console.log('handleFixEmployeeIds called');
+    if (!confirm('This will update employee IDs in the database based on the Excel file. Continue?')) {
+      return;
+    }
+
+    if (!attendanceData || attendanceData.length === 0) {
+      alert('Please upload an Excel file first');
+      return;
+    }
+
+    console.log('Starting to fix employee IDs...');
+    setFixingEmployeeIds(true);
+    let fixedCount = 0;
+    let skippedCount = 0;
+
+    try {
+      const employees = await getEmployees();
+      console.log('Loaded employees:', employees.length);
+
+      for (const emp of attendanceData) {
+        if (!emp.empId || !emp.name) continue;
+
+        // First try to match by employee ID
+        let employee = employees.find(e =>
+          (e.employeeId?.trim() || e.employeeId) === (emp.empId?.trim() || emp.empId)
+        );
+
+        // If no ID match, try name matching only if unique
+        if (!employee) {
+          const employeesWithSameName = employees.filter(e =>
+            (e.fullName?.toLowerCase().trim() || e.fullName?.toLowerCase()) === (emp.name?.toLowerCase().trim() || emp.name?.toLowerCase())
+          );
+          if (employeesWithSameName.length === 1) {
+            employee = employeesWithSameName[0];
+          }
+        }
+
+        if (employee) {
+          if (employee.employeeId !== emp.empId) {
+            // Update employeeId in database
+            await updateDoc(doc(db, 'employees', employee.id), {
+              employeeId: emp.empId
+            });
+            fixedCount++;
+            console.log(`Fixed: ${employee.fullName} - ${employee.employeeId} -> ${emp.empId}`);
+          } else {
+            skippedCount++;
+          }
+        } else {
+          console.log(`No match found for Excel employee: ${emp.empId} ${emp.name}`);
+        }
+      }
+
+      console.log(`Fixed ${fixedCount} employee IDs, skipped ${skippedCount} (already correct)`);
+      alert(`Fixed ${fixedCount} employee IDs${skippedCount > 0 ? ` (${skippedCount} already correct)` : ''}`);
+      // Reload employees to get updated data
+      const updatedEmployees = await getEmployees();
+      setEmployees(updatedEmployees);
+    } catch (error) {
+      console.error('Error fixing employee IDs:', error);
+      alert('Error fixing employee IDs');
+    } finally {
+      setFixingEmployeeIds(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      loadFirebaseAttendance();
+    }
+  }, [activeTab]);
 
   const handleCheckIn = async () => {
     if (!user?.employeeId) {
@@ -156,9 +282,9 @@ export const Attendance = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     setLoadingAttendance(true);
-    
+
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
@@ -167,7 +293,7 @@ export const Attendance = () => {
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(sheet, { raw: false });
-        
+
         // Process attendance data to group by employee and find first/last punch
         const { attendanceRecords, missingStaff } = processAttendanceData(jsonData);
         setAttendanceData(attendanceRecords);
@@ -182,71 +308,184 @@ export const Attendance = () => {
     reader.readAsArrayBuffer(file);
   };
 
-  const processAttendanceData = (rawData: any[]) => {
-    const employeeMap = new Map<string, any>();
-    const punchedEmployeeIds = new Set<string>();
-    
-    rawData.forEach((row: any) => {
-      const empId = row['User No.'];
-      if (!empId) return;
-      
-      const dateStr = row['Date/Time'];
-      // Parse date string in format DD/MM/YYYY HH:mm:ss
-      const punchDate = parseExcelDateString(dateStr);
-      
+const processAttendanceData = (rawData: any[]) => {
+  const employeeMap = new Map<string, any>();
+  const punchedEmployeeIds = new Set<string>();
+
+  rawData.forEach((row: any) => {
+    const empId = row['User No.']?.toString().trim() || row['Employee ID']?.toString().trim();
+    const name = row['Name']?.toString().trim();
+    const dateTimeStr = row['Date/Time']?.toString().trim();
+
+    // Parse combined date/time (e.g., "11/1/26 8:03")
+    if (!dateTimeStr) return;
+
+    const dateTimeParts = dateTimeStr.split(' ');
+    const dateStr = dateTimeParts[0];
+    const timeStr = dateTimeParts[1] || '00:00';
+
+    // Infer status from time:
+    // - Check-in (0): before 12 PM (morning and early morning shifts)
+    // - Check-out (1): after 12 PM (afternoon and evening shifts)
+    const hour = parseInt(timeStr.split(':')[0]) || 0;
+    const status = hour < 12 ? 0 : 1;
+
+    if (!empId || !dateStr || !timeStr) return;
+    const punchDate = parseExcelDateString(`${dateStr} ${timeStr}`);
+
+    // Get the date key (YYYY-MM-DD) for grouping
+    const dateKey = punchDate.toISOString().split('T')[0];
       if (!employeeMap.has(empId)) {
         employeeMap.set(empId, {
           empId,
-          name: row['Name'],
+          name: name,
           department: row['Department'],
-          punches: [],
-          firstPunch: punchDate,
-          lastPunch: punchDate,
+          dailyRecords: new Map<string, any>(), // Map of dateKey -> { firstCheckIn, lastCheckOut, punches }
+          firstPunch: null,
+          lastPunch: null,
           totalPunches: 0,
           isLate: false
         });
       }
-      
+
       const empData = employeeMap.get(empId);
-      empData.punches.push(punchDate);
+
+      // Initialize daily record if not exists
+      if (!empData.dailyRecords.has(dateKey)) {
+        empData.dailyRecords.set(dateKey, {
+          firstCheckIn: null,
+          lastCheckOut: null,
+          punches: []
+        });
+      }
+
+      const dailyRecord = empData.dailyRecords.get(dateKey);
+      dailyRecord.punches.push({ time: punchDate, status });
+
+      // Update first check-in (status 0)
+      if (status === 0 && (!dailyRecord.firstCheckIn || punchDate < dailyRecord.firstCheckIn)) {
+        dailyRecord.firstCheckIn = punchDate;
+      }
+
+      // Update last check-out (status 1)
+      if (status === 1 && (!dailyRecord.lastCheckOut || punchDate > dailyRecord.lastCheckOut)) {
+        dailyRecord.lastCheckOut = punchDate;
+      }
+
+      // Update total punches
       empData.totalPunches++;
-      
-      if (punchDate < empData.firstPunch) {
-        empData.firstPunch = punchDate;
-      }
-      if (punchDate > empData.lastPunch) {
-        empData.lastPunch = punchDate;
-      }
     });
-    
+
+    // For each employee, find first/last punch with time-based filters
+    employeeMap.forEach((empData) => {
+      const sortedDates = Array.from(empData.dailyRecords.keys()).sort();
+      empData.dailyAttendance = [];
+
+      sortedDates.forEach((dateKey, index) => {
+        const dailyRecord = empData.dailyRecords.get(dateKey);
+
+        // Find first check-in of the day (only at or after 5 AM)
+        const allCheckIns = dailyRecord.punches.filter((p: any) => p.status === 0 && p.time.getHours() >= 5);
+        allCheckIns.sort((a: any, b: any) => a.time.getTime() - b.time.getTime());
+        const firstCheckIn = allCheckIns.length > 0 ? allCheckIns[0].time : null;
+
+        // Find last check-out after 5 PM on current day
+        const eveningCheckOuts = dailyRecord.punches.filter((p: any) => 
+          p.status === 1 && 
+          p.time.getHours() >= 17
+        );
+        eveningCheckOuts.sort((a: any, b: any) => b.time.getTime() - a.time.getTime());
+        let lastCheckOut = eveningCheckOuts.length > 0 ? eveningCheckOuts[0].time : null;
+
+        // If no check-out after 5 PM, look for first check-out next day before 5 AM
+        if (!lastCheckOut && index < sortedDates.length - 1) {
+          const nextDateKey = sortedDates[index + 1];
+          const nextRecord = empData.dailyRecords.get(nextDateKey);
+          if (nextRecord) {
+            const nextDayEarlyCheckOuts = nextRecord.punches.filter((p: any) =>
+              p.status === 1 &&
+              p.time.getHours() < 5
+            );
+            nextDayEarlyCheckOuts.sort((a: any, b: any) => a.time.getTime() - b.time.getTime());
+            if (nextDayEarlyCheckOuts.length > 0) {
+              lastCheckOut = nextDayEarlyCheckOuts[0].time;
+            }
+          }
+        }
+
+        empData.dailyAttendance.push({
+          date: dateKey,
+          firstCheckIn,
+          lastCheckOut,
+          punches: dailyRecord.punches
+        });
+      });
+
+      // After processing all days, set overall first/last punch
+      // First punch: earliest check-in across all days (at or after 5 AM)
+      let earliestCheckIn: Date | null = null;
+      empData.dailyAttendance.forEach((dayRecord: any) => {
+        if (dayRecord.firstCheckIn && (!earliestCheckIn || dayRecord.firstCheckIn < earliestCheckIn)) {
+          earliestCheckIn = dayRecord.firstCheckIn;
+        }
+      });
+      empData.firstPunch = earliestCheckIn;
+
+      // Last punch: find the latest check-out after 5 PM (17:00) or before 5 AM next day
+      let latestCheckOut: Date | null = null;
+      empData.dailyRecords.forEach((dailyRecord: any) => {
+        dailyRecord.punches.forEach((punch: any) => {
+          if (punch.status === 1 && (punch.time.getHours() >= 17 || punch.time.getHours() < 5) && (!latestCheckOut || punch.time > latestCheckOut)) {
+            latestCheckOut = punch.time;
+          }
+        });
+      });
+      empData.lastPunch = latestCheckOut;
+    });
+
     // Check if first punch is late based on department and day of week, and match with work location
     employeeMap.forEach((empData) => {
-      // Match employee with work location first
-      const employee = employees.find(emp => 
-        emp.employeeId === empData.empId || 
-        emp.fullName?.toLowerCase() === empData.name?.toLowerCase()
+      // Match employee with work location first - prioritize employee ID matching over name matching
+      let employee = employees.find(emp =>
+        (emp.employeeId?.trim() || emp.employeeId) === (empData.empId?.trim() || empData.empId)
       );
-      
+
+      // Only use name matching if employee ID didn't match AND there's no ambiguity (only one employee with that name)
+      if (!employee && empData.name) {
+        const employeesWithSameName = employees.filter(emp =>
+          (emp.fullName?.toLowerCase().trim() || emp.fullName?.toLowerCase()) === (empData.name?.toLowerCase().trim() || empData.name?.toLowerCase())
+        );
+        if (employeesWithSameName.length === 1) {
+          employee = employeesWithSameName[0];
+        }
+      }
+
+      if (!employee) {
+        console.log('No match found for Excel employee:', empData.empId, empData.name);
+      }
+
       if (employee) {
         punchedEmployeeIds.add(employee.id);
+        console.log('Matched employee:', empData.empId, '->', employee.employeeId, 'Firebase ID:', employee.id);
         // Find work location for this employee
-        const location = workLocations.find(loc => 
+        const location = workLocations.find(loc =>
           loc.assignedStaff?.includes(employee.id)
         );
         empData.workLocation = location?.name || 'Unassigned';
         empData.workLocationId = location?.id;
-        empData.employeeId = employee.id;
-        
+        empData.employeeId = employee.employeeId || empData.empId; // Use actual employeeId, not Firebase document ID
+        empData.firebaseEmployeeId = employee.id; // Store Firebase ID separately
+
         // Check if first punch is late based on work location rules
         if (empData.firstPunch && empData.workLocationId) {
           const firstPunchDate = new Date(empData.firstPunch);
           const hours = firstPunchDate.getHours();
           const minutes = firstPunchDate.getMinutes();
           const dayOfWeek = firstPunchDate.getDay(); // 0 = Sunday, 6 = Saturday
-          
+
           // Get work location for this employee
           const location = workLocations.find(loc => loc.id === empData.workLocationId);
-          
+
           // Define late threshold based on work location rules
           let lateHour = 8;
           let lateMinute = 30; // Default: 8:30 AM
@@ -263,7 +502,7 @@ export const Attendance = () => {
               // Saturday
               threshold = location.lateThresholdSaturday;
             }
-            
+
             if (threshold) {
               const [thresholdHour, thresholdMinute] = threshold.split(':').map(Number);
               if (!isNaN(thresholdHour) && !isNaN(thresholdMinute)) {
@@ -316,24 +555,32 @@ export const Attendance = () => {
   };
 
   const parseExcelDateString = (dateStr: string): Date => {
-    // Parse format: MM/DD/YY HH:mm (e.g., "10/18/26 8:26")
+    // Parse format: MM/DD/YYYY or MM/DD/YY HH:mm (e.g., "10/31/2026 8:01" or "01/11/26 00:52")
     const parts = dateStr.split(' ');
     const dateParts = parts[0].split('/');
-    const timeParts = parts[1].split(':');
-    
+    const timeParts = parts[1] ? parts[1].split(':') : ['0', '0'];
+
     const month = parseInt(dateParts[0]) - 1; // JavaScript months are 0-indexed
     const day = parseInt(dateParts[1]);
-    const year = parseInt(dateParts[2]) + 2000; // Convert 2-digit year to 4-digit
-    const hours = parseInt(timeParts[0]);
-    const minutes = parseInt(timeParts[1]);
-    
-    return new Date(year, month, day, hours, minutes);
+    let year = parseInt(dateParts[2]);
+
+    // Handle 2-digit year (e.g., 26 -> 2026)
+    if (year < 100) {
+      year += 2000;
+    }
+
+    const hour = parseInt(timeParts[0]);
+    const minute = parseInt(timeParts[1]);
+
+    // Parse the date as-is (don't shift midnight-5 AM to previous day)
+    // The first/last punch logic will handle the time-based filtering
+    return new Date(year, month, day, hour, minute);
   };
 
   const handleEditRow = (empId: string, firstPunch: Date | null, lastPunch: Date | null) => {
     setEditingRow(empId);
-    setEditedFirstPunch(firstPunch ? new Date(firstPunch).toLocaleString('en-GB', { hour12: false }) : '');
-    setEditedLastPunch(lastPunch ? new Date(lastPunch).toLocaleString('en-GB', { hour12: false }) : '');
+    setEditedFirstPunch(firstPunch ? new Date(firstPunch).toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '');
+    setEditedLastPunch(lastPunch ? new Date(lastPunch).toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '');
   };
 
   const handleCancelEdit = () => {
@@ -350,7 +597,7 @@ export const Attendance = () => {
 
     try {
       setSaving(true);
-      
+
       // Parse the edited dates
       const firstPunchDate = editedFirstPunch ? new Date(editedFirstPunch) : emp.firstPunch;
       const lastPunchDate = editedLastPunch ? new Date(editedLastPunch) : emp.lastPunch;
@@ -370,7 +617,7 @@ export const Attendance = () => {
       );
 
       const querySnapshot = await getDocs(q);
-      
+
       if (querySnapshot.empty) {
         // Create new attendance record
         await addDoc(collection(db, 'attendance'), {
@@ -413,6 +660,76 @@ export const Attendance = () => {
     }
   };
 
+  const handleSaveAllToFirebase = async () => {
+    if (!confirm(`Are you sure you want to save ${attendanceData.length} attendance records to Firebase?`)) {
+      return;
+    }
+
+    setSavingAll(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    try {
+      for (const emp of attendanceData) {
+        if (!emp.employeeId) {
+          errorCount++;
+          continue;
+        }
+
+        try {
+          const attendanceDate = emp.firstPunch ? new Date(emp.firstPunch) : new Date();
+          const startOfDay = new Date(attendanceDate);
+          startOfDay.setHours(0, 0, 0, 0);
+          const endOfDay = new Date(attendanceDate);
+          endOfDay.setHours(23, 59, 59, 999);
+
+          const q = query(
+            collection(db, 'attendance'),
+            where('employeeId', '==', emp.employeeId),
+            where('date', '>=', Timestamp.fromDate(startOfDay)),
+            where('date', '<=', Timestamp.fromDate(endOfDay))
+          );
+
+          const querySnapshot = await getDocs(q);
+
+          if (querySnapshot.empty) {
+            await addDoc(collection(db, 'attendance'), {
+              employeeId: emp.employeeId,
+              employeeName: emp.name,
+              date: Timestamp.fromDate(attendanceDate),
+              checkInTime: emp.firstPunch ? Timestamp.fromDate(new Date(emp.firstPunch)) : null,
+              checkOutTime: emp.lastPunch ? Timestamp.fromDate(new Date(emp.lastPunch)) : null,
+              checkInMethod: 'biometric',
+              status: 'present',
+              lateArrival: emp.isLate || false,
+            });
+          } else {
+            const docId = querySnapshot.docs[0].id;
+            await updateDoc(doc(db, 'attendance', docId), {
+              employeeName: emp.name,
+              checkInTime: emp.firstPunch ? Timestamp.fromDate(new Date(emp.firstPunch)) : null,
+              checkOutTime: emp.lastPunch ? Timestamp.fromDate(new Date(emp.lastPunch)) : null,
+              lateArrival: emp.isLate || false,
+            });
+          }
+
+          successCount++;
+        } catch (error) {
+          console.error('Error saving attendance for employee:', emp.empId, error);
+          errorCount++;
+        }
+      }
+
+      setSaveSuccess(`Saved ${successCount} records successfully${errorCount > 0 ? ` (${errorCount} errors)` : ''}`);
+      setTimeout(() => setSaveSuccess(null), 5000);
+    } catch (error) {
+      console.error('Error saving to Firebase:', error);
+      alert('Error saving to Firebase');
+    } finally {
+      setSavingAll(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -433,6 +750,12 @@ export const Attendance = () => {
             <Upload className="w-5 h-5 mr-2" />
             Upload Attendance
           </Button>
+          {attendanceData.length > 0 && (
+            <Button variant="primary" onClick={handleSaveAllToFirebase} loading={savingAll}>
+              <Download className="w-5 h-5 mr-2" />
+              Save to Firebase
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => Promise.all([loadTodayStats(), loadTodayAttendance()])}>
             <RefreshCw className="w-5 h-5 mr-2" />
             Refresh
@@ -642,125 +965,163 @@ export const Attendance = () => {
       {/* Recent Activity / Attendance Data */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-secondary-900">
-            {attendanceData.length > 0 ? 'Attendance Data from Excel' : 'Today\'s Activity'}
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-secondary-900">Attendance</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTab('upload')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === 'upload'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                Upload Excel
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === 'history'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                Firebase History
+              </button>
+            </div>
+          </div>
+          {saveSuccess && (
+            <div className="mt-3 text-sm text-green-600 bg-green-50 px-4 py-2 rounded-lg">
+              {saveSuccess}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
-          {loadingAttendance ? (
-            <div className="text-center py-12 text-secondary-600">
-              Loading attendance data...
-            </div>
-          ) : attendanceData.length > 0 ? (
-            <div className="space-y-6">
-              {/* Missing Staff Section */}
-              {missingStaff.length > 0 && (
-                <div className="border-2 border-red-200 rounded-lg overflow-hidden bg-red-50">
-                  <div className="bg-red-100 px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-red-600" />
-                      <h3 className="font-semibold text-red-900">Missing Staff</h3>
-                    </div>
-                    <span className="text-sm text-red-700 font-medium">{missingStaff.length} employees</span>
-                  </div>
-                  
-                  {/* Mobile Cards - Missing Staff */}
-                  <div className="sm:hidden space-y-3 p-4">
-                    {missingStaff.map((emp: any, index: number) => (
-                      <div key={index} className="bg-white rounded-lg shadow p-4 border border-red-200">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <div className="font-bold text-red-900 text-sm">{emp.name}</div>
-                            <div className="text-xs text-red-700">{emp.empId}</div>
-                          </div>
-                          <span className="bg-red-200 text-red-800 px-2 py-1 rounded text-xs font-semibold">No Punch</span>
-                        </div>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-red-600">Department:</span>
-                            <span className="font-medium">{emp.department}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-red-600">Location:</span>
-                            <span className="font-medium">{emp.workLocation}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Desktop Table - Missing Staff */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-red-200 bg-red-50">
-                          <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Employee ID</th>
-                          <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Name</th>
-                          <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Department</th>
-                          <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Work Location</th>
-                          <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {missingStaff.map((emp: any, index: number) => (
-                          <tr key={index} className="border-b border-red-100 hover:bg-red-100">
-                            <td className="py-3 px-4 text-sm text-red-900">{emp.empId}</td>
-                            <td className="py-3 px-4 text-sm text-red-900">{emp.name}</td>
-                            <td className="py-3 px-4 text-sm text-red-900">{emp.department}</td>
-                            <td className="py-3 px-4 text-sm text-red-900">{emp.workLocation}</td>
-                            <td className="py-3 px-4 text-sm">
-                              <span className="bg-red-200 text-red-800 px-2 py-1 rounded text-xs font-semibold">No Punch</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+          {activeTab === 'upload' ? (
+            <>
+              {loadingAttendance ? (
+                <div className="text-center py-12 text-secondary-600">
+                  Loading attendance data...
                 </div>
-              )}
-
-              {/* Group by Work Location */}
-              {(() => {
-                const groupedByLocation = attendanceData.reduce((acc, emp) => {
-                  const location = emp.workLocation || 'Unassigned';
-                  if (!acc[location]) {
-                    acc[location] = [];
-                  }
-                  acc[location].push(emp);
-                  return acc;
-                }, {} as Record<string, any[]>);
-
-                return Object.entries(groupedByLocation).map(([location, emps]) => (
-                  <div key={location} className="border border-secondary-200 rounded-lg overflow-hidden">
-                    <div className="bg-gradient-to-r from-primary-50 to-primary-100 px-4 py-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-5 h-5 text-primary-600" />
-                        <h3 className="font-semibold text-primary-900">{location}</h3>
+              ) : attendanceData.length > 0 ? (
+                <div className="space-y-6">
+                  {/* Missing Staff Section */}
+                  {missingStaff.length > 0 && (
+                    <div className="border-2 border-red-200 rounded-lg overflow-hidden bg-red-50">
+                      <div className="bg-red-100 px-4 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-5 h-5 text-red-600" />
+                          <h3 className="font-semibold text-red-900">Missing Staff</h3>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-red-700 font-medium">{missingStaff.length} employees</span>
+                          <Button
+                            onClick={handleFixEmployeeIds}
+                            loading={fixingEmployeeIds}
+                            className="bg-blue-600 hover:bg-blue-700 text-white text-sm"
+                          >
+                            Fix Employee IDs
+                          </Button>
+                        </div>
                       </div>
-                      <span className="text-sm text-primary-700 font-medium">{(emps as any[]).length} employees</span>
-                    </div>
-                    
-                    {/* Mobile Cards - Work Location */}
-                    <div className="sm:hidden space-y-3 p-4">
-                      {(emps as any[]).map((emp: any, index: number) => (
-                        <div key={index} className={`bg-white rounded-lg shadow p-4 border ${emp.isLate ? 'border-red-300 bg-red-50' : 'border-secondary-200'}`}>
-                          <div className="flex justify-between items-start mb-3">
-                            <div>
-                              <div className="font-bold text-secondary-900 text-sm">{emp.name}</div>
-                              <div className="text-xs text-secondary-500">{emp.empId}</div>
+
+                      {/* Mobile Cards - Missing Staff */}
+                      <div className="sm:hidden space-y-3 p-4">
+                        {missingStaff.map((emp: any, index: number) => (
+                          <div key={index} className="bg-white rounded-lg shadow p-4 border border-red-200">
+                            <div className="flex justify-between items-start mb-3">
+                              <div>
+                                <div className="font-bold text-red-900 text-sm">{emp.name}</div>
+                                <div className="text-xs text-red-700">{emp.empId}</div>
+                              </div>
+                              <span className="bg-red-200 text-red-800 px-2 py-1 rounded text-xs font-semibold">No Punch</span>
                             </div>
-                            {emp.isLate && (
-                              <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-semibold">Late</span>
-                            )}
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-red-600">Department:</span>
+                                <span className="font-medium">{emp.department}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-red-600">Location:</span>
+                                <span className="font-medium">{emp.workLocation}</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="space-y-2 text-sm mb-4">
-                            <div className="flex justify-between">
-                              <span className="text-secondary-600">Department:</span>
-                              <span className="font-medium">{emp.department}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-secondary-600">First Punch:</span>
-                              <span className={`font-medium ${emp.isLate ? 'text-red-600' : ''}`}>
+                        ))}
+                      </div>
+
+                      {/* Desktop Table - Missing Staff */}
+                      <div className="hidden sm:block overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-red-200 bg-red-50">
+                              <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Employee ID</th>
+                              <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Name</th>
+                              <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Department</th>
+                              <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Work Location</th>
+                              <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {missingStaff.map((emp: any, index: number) => (
+                              <tr key={index} className="border-b border-red-100 hover:bg-red-100">
+                                <td className="py-3 px-4 text-sm text-red-900">{emp.empId}</td>
+                                <td className="py-3 px-4 text-sm text-red-900">{emp.name}</td>
+                                <td className="py-3 px-4 text-sm text-red-900">{emp.department}</td>
+                                <td className="py-3 px-4 text-sm text-red-900">{emp.workLocation}</td>
+                                <td className="py-3 px-4 text-sm">
+                                  <span className="bg-red-200 text-red-800 px-2 py-1 rounded text-xs font-semibold">No Punch</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Group by Work Location */}
+                  {(() => {
+                    const groupedByLocation = attendanceData.reduce((acc, emp) => {
+                      const location = emp.workLocation || 'Unassigned';
+                      if (!acc[location]) {
+                        acc[location] = [];
+                      }
+                      acc[location].push(emp);
+                      return acc;
+                    }, {} as Record<string, any[]>);
+
+                    return Object.entries(groupedByLocation).map(([location, emps]) => (
+                      <div key={location} className="border border-secondary-200 rounded-lg overflow-hidden">
+                        <div className="bg-gradient-to-r from-primary-50 to-primary-100 px-4 py-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-5 h-5 text-primary-600" />
+                            <h3 className="font-semibold text-primary-900">{location}</h3>
+                          </div>
+                          <span className="text-sm text-primary-700 font-medium">{(emps as any[]).length} employees</span>
+                        </div>
+
+                        {/* Mobile Cards - Work Location */}
+                        <div className="sm:hidden space-y-3 p-4">
+                          {(emps as any[]).map((emp: any, index: number) => (
+                            <div key={index} className={`bg-white rounded-lg shadow p-4 border ${emp.isLate ? 'border-red-300 bg-red-50' : 'border-secondary-200'}`}>
+                              <div className="flex justify-between items-start mb-3">
+                                <div>
+                                  <div className="font-bold text-secondary-900 text-sm">{emp.name}</div>
+                                  <div className="text-xs text-secondary-500">{emp.empId}</div>
+                                </div>
+                                {emp.isLate && (
+                                  <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-semibold">Late</span>
+                                )}
+                              </div>
+                              <div className="space-y-2 text-sm mb-4">
+                                <div className="flex justify-between">
+                                  <span className="text-secondary-600">Department:</span>
+                                  <span className="font-medium">{emp.department}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-secondary-600">First Punch:</span>
+                                  <span className={`font-medium ${emp.isLate ? 'text-red-600' : ''}`}>
                                 {editingRow === emp.empId ? (
                                   <input
                                     type="text"
@@ -770,13 +1131,13 @@ export const Attendance = () => {
                                     placeholder="DD/MM/YYYY HH:mm"
                                   />
                                 ) : (
-                                  emp.firstPunch ? new Date(emp.firstPunch).toLocaleString() : 'N/A'
+                                  emp.firstPunch ? new Date(emp.firstPunch).toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'
                                 )}
                               </span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-secondary-600">Last Punch:</span>
-                              <span className="font-medium">
+                              <span className={`font-medium ${!emp.lastPunch ? 'text-red-600' : ''}`}>
                                 {editingRow === emp.empId ? (
                                   <input
                                     type="text"
@@ -786,7 +1147,7 @@ export const Attendance = () => {
                                     placeholder="DD/MM/YYYY HH:mm"
                                   />
                                 ) : (
-                                  emp.lastPunch ? new Date(emp.lastPunch).toLocaleString() : 'N/A'
+                                  emp.lastPunch ? new Date(emp.lastPunch).toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : 'Missing'
                                 )}
                               </span>
                             </div>
@@ -866,12 +1227,12 @@ export const Attendance = () => {
                                   />
                                 ) : (
                                   <>
-                                    {emp.firstPunch ? new Date(emp.firstPunch).toLocaleString() : 'N/A'}
+                                    {emp.firstPunch ? new Date(emp.firstPunch).toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}
                                     {emp.isLate && <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Late</span>}
                                   </>
                                 )}
                               </td>
-                              <td className="py-3 px-4 text-sm text-secondary-900">
+                              <td className={`py-3 px-4 text-sm ${!emp.lastPunch ? 'text-red-600 font-semibold' : 'text-secondary-900'}`}>
                                 {editingRow === emp.empId ? (
                                   <input
                                     type="text"
@@ -881,7 +1242,7 @@ export const Attendance = () => {
                                     placeholder="DD/MM/YYYY HH:mm"
                                   />
                                 ) : (
-                                  emp.lastPunch ? new Date(emp.lastPunch).toLocaleString() : 'N/A'
+                                  emp.lastPunch ? new Date(emp.lastPunch).toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : 'Missing'
                                 )}
                               </td>
                               <td className="py-3 px-4 text-sm text-secondary-900">{emp.totalPunches}</td>
@@ -922,11 +1283,83 @@ export const Attendance = () => {
                   </div>
                 ));
               })()}
-            </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-secondary-600">
+                  No activity data available. Upload an Excel file to view attendance data.
+                </div>
+              )}
+            </>
           ) : (
-            <div className="text-center py-12 text-secondary-600">
-              No activity data available. Upload an Excel file to view attendance data.
-            </div>
+            <>
+              <div className="flex justify-end mb-4">
+                <Button
+                  onClick={handleDeleteAllFirebase}
+                  loading={deleteAllLoading}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Delete All Records
+                </Button>
+              </div>
+              {loadingHistory ? (
+                <div className="text-center py-12 text-secondary-600">
+                  Loading Firebase attendance history...
+                </div>
+              ) : firebaseAttendance.length === 0 ? (
+                <div className="text-center py-12 text-secondary-600">
+                  No attendance records found in Firebase.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-secondary-200 bg-secondary-50">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-secondary-700">Employee ID</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-secondary-700">Name</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-secondary-700">Date</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-secondary-700">Check In</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-secondary-700">Check Out</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-secondary-700">Status</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-secondary-700">Late</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {firebaseAttendance.map((record) => (
+                        <tr key={record.id} className="border-b border-secondary-100 hover:bg-secondary-50">
+                          <td className="py-3 px-4 text-sm text-secondary-900">{record.employeeId || record.id}</td>
+                          <td className="py-3 px-4 text-sm text-secondary-900">{record.employeeName || 'N/A'}</td>
+                          <td className="py-3 px-4 text-sm text-secondary-900">
+                            {record.date ? record.date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) : 'N/A'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-secondary-900">
+                            {record.checkInTime ? record.checkInTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-secondary-900">
+                            {record.checkOutTime ? record.checkOutTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'Pending'}
+                          </td>
+                          <td className="py-3 px-4 text-sm">
+                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                              record.status === 'present'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {record.status || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm">
+                            {record.lateArrival ? (
+                              <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-semibold">Yes</span>
+                            ) : (
+                              <span className="text-secondary-600">No</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
