@@ -1,5 +1,5 @@
 const CLOUD_NAME = 'dxcj44eln';
-const UPLOAD_PRESET = 'madiha_hrms';
+const UPLOAD_PRESET = 'delivery-hub';
 
 export const uploadImage = async (file: File, folder: string = 'employee_images', employeeId?: string): Promise<string> => {
   try {
@@ -7,10 +7,6 @@ export const uploadImage = async (file: File, folder: string = 'employee_images'
     formData.append('file', file);
     formData.append('upload_preset', UPLOAD_PRESET);
     formData.append('folder', folder);
-    formData.append('use_filename', 'false');
-    formData.append('unique_filename', 'false');
-    formData.append('use_filename_as_display_name', 'true');
-    formData.append('use_asset_folder_as_public_id_prefix', 'false');
 
     // If employeeId is provided, use it as the public_id
     if (employeeId) {

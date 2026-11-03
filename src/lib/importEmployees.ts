@@ -174,12 +174,6 @@ export const removeDuplicateEmployees = async (): Promise<{ removed: number; kep
   return results;
 };
 
-// Update existing employees with photo paths
-// NOTE: This function is deprecated - photos are now uploaded to Cloudinary
-export const updateEmployeePhotoPaths = async (): Promise<{ updated: number; failed: number }> => {
-  console.warn('updateEmployeePhotoPaths is deprecated. Photos should be uploaded to Cloudinary via the employee form.');
-  return { updated: 0, failed: 0 };
-};
 
 // Split name into first and last name
 const splitName = (fullName: string): { firstName: string; lastName: string } => {
@@ -199,17 +193,8 @@ const mapMasterEmployeeToApp = (master: MasterEmployee): Partial<Employee> => {
   const { firstName, lastName } = splitName(master.fullName);
   const joinDate = parseDate(master.joinDate);
   
-  // Check if employee image exists in public folder
-  const employeeId = master['EMP ID'];
-  const photoExtensions = ['jpg', 'JPG', 'jpeg', 'JPEG', 'png', 'PNG'];
-  let photoPath = '';
-  
-  for (const ext of photoExtensions) {
-    const testPath = `/employee_images/${employeeId}.${ext}`;
-    // We'll set the path and let the browser handle 404s gracefully
-    photoPath = testPath;
-    break; // Use first extension format, could be enhanced to check actual file
-  }
+  // Photos are now uploaded to Cloudinary via the employee form
+  // No local image mapping needed
   
   return {
     employeeId: master['EMP ID'],
@@ -219,7 +204,7 @@ const mapMasterEmployeeToApp = (master: MasterEmployee): Partial<Employee> => {
     fullName: master.fullName,
     email: '', // Not available in master data
     phone: master.phone || '',
-    photo: photoPath,
+    photo: '', // Photos uploaded to Cloudinary via employee form
     department: master.location || '',
     designation: master.designation || '',
     status: master.status?.toLowerCase() === 'active' ? 'active' : 'active',

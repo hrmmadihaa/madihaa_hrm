@@ -7,7 +7,7 @@ import { Input } from '../components/ui/Input';
 import { Card, CardContent } from '../components/ui/Card';
 import { EmployeeCard } from '../components/EmployeeCard';
 import { getEmployees, deleteEmployee } from '../lib/employees';
-import { importEmployeesFromJSON, validateMasterEmployeeJSON, normalizeExistingEmployeeNames, updateEmployeePhotoPaths, removeDuplicateEmployees } from '../lib/importEmployees';
+import { importEmployeesFromJSON, validateMasterEmployeeJSON, normalizeExistingEmployeeNames, removeDuplicateEmployees } from '../lib/importEmployees';
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
 import type { Employee } from '../types';
@@ -111,21 +111,6 @@ export const Employees = () => {
     }
   };
 
-  const handleUpdatePhotos = async () => {
-    if (!window.confirm('This will add photo paths to all employees based on their employee ID. Continue?')) return;
-    
-    setImporting(true);
-    try {
-      const results = await updateEmployeePhotoPaths();
-      alert(`Updated ${results.updated} employee photos. ${results.failed} failed.`);
-      loadEmployees();
-    } catch (error) {
-      alert('Failed to update photos: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    } finally {
-      setImporting(false);
-    }
-  };
-
   const handleRemoveDuplicates = async () => {
     if (!window.confirm('This will remove duplicate employees from the database (keeping only the most recent version of each employee). Continue?')) return;
     
@@ -191,9 +176,6 @@ export const Employees = () => {
         <div className="flex gap-2">
           <Button onClick={handleRemoveDuplicates} variant="secondary" className="sm:w-auto w-full">
             Remove Duplicates
-          </Button>
-          <Button onClick={handleUpdatePhotos} variant="secondary" className="sm:w-auto w-full">
-            Update Photos
           </Button>
           <Button onClick={handleNormalizeNames} variant="secondary" className="sm:w-auto w-full">
             Normalize Names
