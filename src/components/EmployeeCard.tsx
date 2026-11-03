@@ -1,13 +1,15 @@
-import { User, Calendar, Briefcase, MapPin, MoreVertical } from 'lucide-react';
+import { User, Calendar, Briefcase, MapPin, MoreVertical, Camera } from 'lucide-react';
 import type { Employee } from '../types';
 import { calculateDuration } from '../lib/employees';
 
 interface EmployeeCardProps {
   employee: Employee;
   onClick?: () => void;
+  onPhotoUpload?: (employeeId: string, employee: Employee) => void;
+  uploadingPhoto?: string | null;
 }
 
-export const EmployeeCard = ({ employee, onClick }: EmployeeCardProps) => {
+export const EmployeeCard = ({ employee, onClick, onPhotoUpload, uploadingPhoto }: EmployeeCardProps) => {
   const duration = calculateDuration(employee.joinDate);
 
   return (
@@ -46,6 +48,23 @@ export const EmployeeCard = ({ employee, onClick }: EmployeeCardProps) => {
               employee.status === 'resigned' ? 'bg-red-500' :
               'bg-gray-400'
             }`} />
+            {/* Photo upload button */}
+            {onPhotoUpload && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPhotoUpload(employee.employeeId || employee.id, employee);
+                }}
+                disabled={uploadingPhoto === employee.employeeId || uploadingPhoto === employee.id}
+                className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-100 transition-colors disabled:opacity-50"
+              >
+                {uploadingPhoto === employee.employeeId || uploadingPhoto === employee.id ? (
+                  <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Camera className="w-4 h-4 text-primary-600" />
+                )}
+              </button>
+            )}
           </div>
 
           {/* Name and Occupation */}

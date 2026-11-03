@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent } from '../components/ui/Card';
 import { EmployeeCard } from '../components/EmployeeCard';
-import { getEmployees, deleteEmployee } from '../lib/employees';
+import { getEmployees, deleteEmployee, updateEmployee } from '../lib/employees';
 import { importEmployeesFromJSON, validateMasterEmployeeJSON, normalizeExistingEmployeeNames, removeDuplicateEmployees } from '../lib/importEmployees';
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
@@ -25,6 +25,7 @@ export const Employees = () => {
   const [importResults, setImportResults] = useState<{ success: number; failed: number; skipped: number; errors: string[] } | null>(null);
   const [activeTab, setActiveTab] = useState<'current' | 'on_leave' | 'no_status' | 'past'>('current');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
 
   const loadEmployees = useCallback(async () => {
     try {
@@ -49,9 +50,34 @@ export const Employees = () => {
         await deleteEmployee(id);
         loadEmployees();
       } catch (error) {
-        console.error('Error deleting employee:', error);
+        alert('Failed to delete employee: ' + (error instanceof Error ? error.message : 'Unknown error'));
       }
     }
+  };
+
+  const handlePhotoUpload = async (employeeId: string, employee: Employee) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      setUploadingPhoto(employeeId);
+      try {
+        const { uploadImage } = await import('../lib/cloudinary');
+        const cloudinaryUrl = await uploadImage(file, 'employee_images', employeeId);
+        
+        await updateEmployee(employee.id, { photo: cloudinaryUrl });
+        loadEmployees();
+        alert('Photo uploaded successfully!');
+      } catch (error) {
+        alert('Failed to upload photo: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      } finally {
+        setUploadingPhoto(null);
+      }
+    };
+    input.click();
   };
 
   const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -369,6 +395,8 @@ export const Employees = () => {
               <EmployeeCard
                 employee={employee}
                 onClick={() => navigate(`/employees/${employee.fullName.toLowerCase().replace(/\s+/g, '-')}`)}
+                onPhotoUpload={handlePhotoUpload}
+                uploadingPhoto={uploadingPhoto}
               />
             </motion.div>
           ))}
