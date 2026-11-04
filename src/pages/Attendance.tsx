@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Calendar, Clock, RefreshCw, Download, ArrowRight, ArrowLeft, Upload, MapPin, Edit2, Save, X } from 'lucide-react';
+import { Calendar, Clock, RefreshCw, Download, ArrowRight, ArrowLeft, Upload, MapPin, Edit2, Save, X, Printer } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { getAttendanceStats, getTodayAttendanceForEmployee, checkIn, checkOut, requestAttendanceAdjustment } from '../lib/attendance';
@@ -58,6 +58,13 @@ export const Attendance = () => {
   const [filterSearchName, setFilterSearchName] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
+  const [uploadDate, setUploadDate] = useState('');
+  const [dailyReportDate, setDailyReportDate] = useState('');
+  const [showDailyReport, setShowDailyReport] = useState(false);
+  const [dailyReportData, setDailyReportData] = useState<any[]>([]);
+  const [loadingDailyReport, setLoadingDailyReport] = useState(false);
+  const [editingStatus, setEditingStatus] = useState<string | null>(null);
+  const [savingStatus, setSavingStatus] = useState(false);
 
   const loadTodayStats = useCallback(async () => {
     try {
@@ -280,6 +287,126 @@ export const Attendance = () => {
     setEditedLate(false);
   };
 
+  const handleGenerateDailyReport = async () => {
+    if (!dailyReportDate) {
+      alert('Please select a date');
+      return;
+    }
+
+    setLoadingDailyReport(true);
+    try {
+      const selectedDate = new Date(dailyReportDate);
+      const startOfDay = new Date(Date.UTC(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+        0, 0, 0, 0
+      ));
+      const endOfDay = new Date(Date.UTC(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+        23, 59, 59, 999
+      ));
+
+      const q = query(
+        collection(db, 'attendance'),
+        where('date', '>=', Timestamp.fromDate(startOfDay)),
+        where('date', '<=', Timestamp.fromDate(endOfDay))
+      );
+
+      const querySnapshot = await getDocs(q);
+      const records: any[] = [];
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        records.push({
+          id: doc.id,
+          ...data,
+          checkInTime: data.checkInTime?.toDate(),
+          checkOutTime: data.checkOutTime?.toDate(),
+          date: data.date?.toDate(),
+        });
+      });
+
+      // Fetch all work locations
+      const workLocations = await getAllWorkLocations();
+
+      // Group by work location assignment
+      const groupedByLocation: { [key: string]: any[] } = {};
+      records.forEach(record => {
+        const emp = employees.find(e => e.employeeId === record.employeeId);
+        
+        // Find the work location this employee is assigned to
+        const assignedLocation = workLocations.find(loc => 
+          loc.assignedStaff?.includes(emp?.id)
+        );
+        
+        const locationName = assignedLocation?.name || 'Unassigned';
+        
+        if (!groupedByLocation[locationName]) {
+          groupedByLocation[locationName] = [];
+        }
+        groupedByLocation[locationName].push({
+          ...record,
+          employeeName: record.employeeName || emp?.fullName || 'Unknown',
+          workLocation: locationName,
+          position: emp?.position || emp?.jobTitle || emp?.designation || 'N/A',
+          lateArrival: record.lateArrival || false,
+        });
+      });
+
+      setDailyReportData(Object.entries(groupedByLocation).map(([location, data]) => ({
+        location,
+        employees: data.sort((a, b) => (a.employeeName || '').localeCompare(b.employeeName || ''))
+      })));
+      setShowDailyReport(true);
+    } catch (error) {
+      console.error('Error generating daily report:', error);
+      alert('Error generating daily report');
+    } finally {
+      setLoadingDailyReport(false);
+    }
+  };
+
+  const handlePrintDailyReport = () => {
+    window.print();
+  };
+
+  const handleEditStatus = (recordId: string) => {
+    setEditingStatus(recordId);
+  };
+
+  const handleSaveStatus = async (recordId: string, newStatus: boolean) => {
+    setSavingStatus(true);
+    try {
+      await updateDoc(doc(db, 'attendance', recordId), {
+        lateArrival: newStatus
+      });
+
+      // Update local data
+      setDailyReportData(prevData =>
+        prevData.map(locationGroup => ({
+          ...locationGroup,
+          employees: locationGroup.employees.map((emp: any) =>
+            emp.id === recordId ? { ...emp, lateArrival: newStatus } : emp
+          )
+        }))
+      );
+
+      setEditingStatus(null);
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert('Error updating status');
+    } finally {
+      setSavingStatus(false);
+    }
+  };
+
+  const handleCancelEditStatus = () => {
+    setEditingStatus(null);
+  };
+
   useEffect(() => {
     if (activeTab === 'history') {
       loadFirebaseAttendance();
@@ -360,6 +487,11 @@ export const Attendance = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!uploadDate) {
+      alert('Please select a date for the attendance data');
+      return;
+    }
+
     setLoadingAttendance(true);
 
     const reader = new FileReader();
@@ -372,7 +504,7 @@ export const Attendance = () => {
         const jsonData = XLSX.utils.sheet_to_json(sheet, { raw: false });
 
         // Process attendance data to group by employee and find first/last punch
-        const { attendanceRecords, missingStaff } = processAttendanceData(jsonData);
+        const { attendanceRecords, missingStaff } = processAttendanceData(jsonData, uploadDate);
         setAttendanceData(attendanceRecords);
         setMissingStaff(missingStaff);
       } catch (error) {
@@ -385,9 +517,20 @@ export const Attendance = () => {
     reader.readAsArrayBuffer(file);
   };
 
-const processAttendanceData = (rawData: any[]) => {
+const processAttendanceData = (rawData: any[], selectedDate: string) => {
   const employeeMap = new Map<string, any>();
   const punchedEmployeeIds = new Set<string>();
+
+  // Parse the selected date for filtering (use UTC to avoid timezone issues)
+  const targetDate = new Date(selectedDate + 'T00:00:00Z');
+  const targetDateKey = targetDate.toISOString().split('T')[0];
+
+  // Calculate next day for including early morning punches (before 4 AM)
+  const nextDate = new Date(targetDate);
+  nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+  const nextDateKey = nextDate.toISOString().split('T')[0];
+
+  let recordsFound = false;
 
   rawData.forEach((row: any) => {
     const empId = row['User No.']?.toString().trim() || row['Employee ID']?.toString().trim();
@@ -401,17 +544,71 @@ const processAttendanceData = (rawData: any[]) => {
     const dateStr = dateTimeParts[0];
     const timeStr = dateTimeParts[1] || '00:00';
 
-    // Infer status from time:
-    // - Check-in (0): before 12 PM (morning and early morning shifts)
-    // - Check-out (1): after 12 PM (afternoon and evening shifts)
-    const hour = parseInt(timeStr.split(':')[0]) || 0;
-    const status = hour < 12 ? 0 : 1;
+    // Parse date from Excel to check if it matches selected date
+    // Excel format can be either MM/DD/YY or DD/MM/YY - detect automatically
+    let isNextDayEarlyPunch = false;
+    if (dateStr && dateStr.includes('/')) {
+      const dateParts = dateStr.split('/');
+      let month, day, year;
+      year = parseInt(dateParts[2]);
 
-    if (!empId || !dateStr || !timeStr) return;
-    const punchDate = parseExcelDateString(`${dateStr} ${timeStr}`);
+      if (year < 100) {
+        year += 2000;
+      }
+
+      // Detect format: if first part > 12, it's DD/MM/YY; otherwise MM/DD/YY
+      const firstPart = parseInt(dateParts[0]);
+      const secondPart = parseInt(dateParts[1]);
+
+      if (firstPart > 12) {
+        // DD/MM/YY format
+        day = firstPart;
+        month = secondPart - 1; // JavaScript months are 0-indexed
+      } else {
+        // MM/DD/YY format
+        month = firstPart - 1; // JavaScript months are 0-indexed
+        day = secondPart;
+      }
+
+      // Use UTC methods to avoid timezone offset issues
+      const excelDate = new Date(Date.UTC(year, month, day));
+      const excelDateKey = excelDate.toISOString().split('T')[0];
+
+      // Check if it matches selected date
+      if (excelDateKey === targetDateKey) {
+        // Same day, include it
+      } else if (excelDateKey === nextDateKey) {
+        // Next day - only include if time is before 4 AM
+        const hour = parseInt(timeStr.split(':')[0]) || 0;
+        if (hour >= 4) {
+          return; // Skip if it's 4 AM or later on next day
+        }
+        isNextDayEarlyPunch = true;
+      } else {
+        // Not the selected day or next day, skip
+        return;
+      }
+    }
+
+    recordsFound = true;
+
+    // Infer status from time:
+    // - Check-in (0): before 12 PM on the same day
+    // - Check-out (1): after 12 PM on the same day, OR early morning next day (before 4 AM)
+    const hour = parseInt(timeStr.split(':')[0]) || 0;
+    const status = isNextDayEarlyPunch ? 1 : (hour < 12 ? 0 : 1);
+
+    if (!empId || !timeStr) return;
+
+    // Combine date with time from Excel
+    // For next day early punches, use the actual next day date for display
+    // but they are still grouped under the selected date for attendance calculation
+    const [timeHour, timeMinute] = timeStr.split(':');
+    const punchDate = isNextDayEarlyPunch ? new Date(nextDate) : new Date(targetDate);
+    punchDate.setHours(parseInt(timeHour), parseInt(timeMinute), 0, 0);
 
     // Get the date key (YYYY-MM-DD) for grouping
-    const dateKey = punchDate.toISOString().split('T')[0];
+    const dateKey = targetDate.toISOString().split('T')[0];
       if (!employeeMap.has(empId)) {
         employeeMap.set(empId, {
           empId,
@@ -452,6 +649,10 @@ const processAttendanceData = (rawData: any[]) => {
       // Update total punches
       empData.totalPunches++;
     });
+
+  if (!recordsFound) {
+    throw new Error(`No attendance data found for ${selectedDate} in the Excel file`);
+  }
 
     // For each employee, find first/last punch with time-based filters
     employeeMap.forEach((empData) => {
@@ -526,6 +727,13 @@ const processAttendanceData = (rawData: any[]) => {
       let employee = employees.find(emp =>
         (emp.employeeId?.trim() || emp.employeeId) === (empData.empId?.trim() || empData.empId)
       );
+
+      // Try partial ID match (e.g., "326" matches "MAD0326")
+      if (!employee && empData.empId) {
+        employee = employees.find(emp =>
+          emp.employeeId?.includes(empData.empId.trim()) || empData.empId.trim().includes(emp.employeeId || '')
+        );
+      }
 
       // Only use name matching if employee ID didn't match AND there's no ambiguity (only one employee with that name)
       if (!employee && empData.name) {
@@ -631,29 +839,6 @@ const processAttendanceData = (rawData: any[]) => {
     return { attendanceRecords, missingStaff };
   };
 
-  const parseExcelDateString = (dateStr: string): Date => {
-    // Parse format: MM/DD/YYYY or MM/DD/YY HH:mm (e.g., "10/31/2026 8:01" or "01/11/26 00:52")
-    const parts = dateStr.split(' ');
-    const dateParts = parts[0].split('/');
-    const timeParts = parts[1] ? parts[1].split(':') : ['0', '0'];
-
-    const month = parseInt(dateParts[0]) - 1; // JavaScript months are 0-indexed
-    const day = parseInt(dateParts[1]);
-    let year = parseInt(dateParts[2]);
-
-    // Handle 2-digit year (e.g., 26 -> 2026)
-    if (year < 100) {
-      year += 2000;
-    }
-
-    const hour = parseInt(timeParts[0]);
-    const minute = parseInt(timeParts[1]);
-
-    // Parse the date as-is (don't shift midnight-5 AM to previous day)
-    // The first/last punch logic will handle the time-based filtering
-    return new Date(year, month, day, hour, minute);
-  };
-
   const handleEditRow = (empId: string, firstPunch: Date | null, lastPunch: Date | null) => {
     setEditingRow(empId);
     setEditedFirstPunch(firstPunch ? new Date(firstPunch).toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '');
@@ -677,7 +862,13 @@ const processAttendanceData = (rawData: any[]) => {
 
       // Parse the edited dates
       const firstPunchDate = editedFirstPunch ? new Date(editedFirstPunch) : emp.firstPunch;
-      const lastPunchDate = editedLastPunch ? new Date(editedLastPunch) : emp.lastPunch;
+      let lastPunchDate = editedLastPunch ? new Date(editedLastPunch) : emp.lastPunch;
+
+      // Adjust check-out date if it's before check-in (crossed midnight)
+      if (lastPunchDate && firstPunchDate && lastPunchDate.getTime() < firstPunchDate.getTime()) {
+        lastPunchDate = new Date(lastPunchDate.getTime() + (24 * 60 * 60 * 1000));
+        console.log(`Adjusted check-out time (crossed midnight): ${lastPunchDate.toISOString()}`);
+      }
 
       // Check if attendance record exists for this employee on this date
       const attendanceDate = emp.firstPunch ? new Date(emp.firstPunch) : new Date();
@@ -749,16 +940,36 @@ const processAttendanceData = (rawData: any[]) => {
     try {
       for (const emp of attendanceData) {
         if (!emp.employeeId) {
+          console.error('Skipping employee - no employeeId:', emp.empId);
           errorCount++;
           continue;
         }
 
         try {
-          const attendanceDate = emp.firstPunch ? new Date(emp.firstPunch) : new Date();
-          const startOfDay = new Date(attendanceDate);
-          startOfDay.setHours(0, 0, 0, 0);
-          const endOfDay = new Date(attendanceDate);
-          endOfDay.setHours(23, 59, 59, 999);
+          // Use the selected upload date as the attendance date, not the first punch time
+          const attendanceDate = uploadDate ? new Date(uploadDate) : (emp.firstPunch ? new Date(emp.firstPunch) : new Date());
+          console.log(`Saving ${emp.name} (${emp.employeeId}):`, {
+            firstPunch: emp.firstPunch,
+            lastPunch: emp.lastPunch,
+            uploadDate: uploadDate,
+            attendanceDate: attendanceDate.toISOString()
+          });
+
+          // Use UTC methods to create date boundaries to avoid timezone shifts
+          const startOfDay = new Date(Date.UTC(
+            attendanceDate.getFullYear(),
+            attendanceDate.getMonth(),
+            attendanceDate.getDate(),
+            0, 0, 0, 0
+          ));
+          const endOfDay = new Date(Date.UTC(
+            attendanceDate.getFullYear(),
+            attendanceDate.getMonth(),
+            attendanceDate.getDate(),
+            23, 59, 59, 999
+          ));
+
+          console.log(`Query range: ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);
 
           const q = query(
             collection(db, 'attendance'),
@@ -768,24 +979,38 @@ const processAttendanceData = (rawData: any[]) => {
           );
 
           const querySnapshot = await getDocs(q);
+          console.log(`Found ${querySnapshot.size} existing records for ${emp.employeeId}`);
+
+          // Adjust check-out date if it's before check-in (crossed midnight)
+          let checkOutTime = emp.lastPunch ? new Date(emp.lastPunch) : null;
+          if (checkOutTime && emp.firstPunch) {
+            const checkInTime = new Date(emp.firstPunch);
+            // If check-out is before check-in, it crossed midnight - add 1 day
+            if (checkOutTime.getTime() < checkInTime.getTime()) {
+              checkOutTime = new Date(checkOutTime.getTime() + (24 * 60 * 60 * 1000));
+              console.log(`Adjusted check-out time (crossed midnight): ${checkOutTime.toISOString()}`);
+            }
+          }
 
           if (querySnapshot.empty) {
+            console.log(`Adding new record for ${emp.employeeId}`);
             await addDoc(collection(db, 'attendance'), {
               employeeId: emp.employeeId,
               employeeName: emp.name,
               date: Timestamp.fromDate(attendanceDate),
               checkInTime: emp.firstPunch ? Timestamp.fromDate(new Date(emp.firstPunch)) : null,
-              checkOutTime: emp.lastPunch ? Timestamp.fromDate(new Date(emp.lastPunch)) : null,
+              checkOutTime: checkOutTime ? Timestamp.fromDate(checkOutTime) : null,
               checkInMethod: 'biometric',
               status: 'present',
               lateArrival: emp.isLate || false,
             });
           } else {
             const docId = querySnapshot.docs[0].id;
+            console.log(`Updating existing record ${docId} for ${emp.employeeId}`);
             await updateDoc(doc(db, 'attendance', docId), {
               employeeName: emp.name,
               checkInTime: emp.firstPunch ? Timestamp.fromDate(new Date(emp.firstPunch)) : null,
-              checkOutTime: emp.lastPunch ? Timestamp.fromDate(new Date(emp.lastPunch)) : null,
+              checkOutTime: checkOutTime ? Timestamp.fromDate(checkOutTime) : null,
               lateArrival: emp.isLate || false,
             });
           }
@@ -816,6 +1041,12 @@ const processAttendanceData = (rawData: any[]) => {
           <p className="text-secondary-600 mt-1">Track employee attendance</p>
         </div>
         <div className="flex gap-2">
+          <input
+            type="date"
+            value={uploadDate}
+            onChange={(e) => setUploadDate(e.target.value)}
+            className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
           <input
             type="file"
             accept=".xls,.xlsx"
@@ -1065,6 +1296,13 @@ const processAttendanceData = (rawData: any[]) => {
               >
                 Firebase History
               </button>
+              <button
+                onClick={() => setShowDailyReport(!showDailyReport)}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                Daily Attendance
+              </button>
             </div>
           </div>
           {saveSuccess && (
@@ -1074,7 +1312,123 @@ const processAttendanceData = (rawData: any[]) => {
           )}
         </CardHeader>
         <CardContent>
-          {activeTab === 'upload' ? (
+          {showDailyReport ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 mb-4">
+                <div>
+                  <label className="block text-xs text-secondary-600 mb-1">Select Date</label>
+                  <input
+                    type="date"
+                    value={dailyReportDate}
+                    onChange={(e) => setDailyReportDate(e.target.value)}
+                    className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <Button
+                  onClick={handleGenerateDailyReport}
+                  loading={loadingDailyReport}
+                  className="mt-5"
+                >
+                  Generate Report
+                </Button>
+                {dailyReportData.length > 0 && (
+                  <Button
+                    onClick={handlePrintDailyReport}
+                    variant="secondary"
+                    className="mt-5 flex items-center gap-2"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Print
+                  </Button>
+                )}
+                <Button
+                  onClick={() => setShowDailyReport(false)}
+                  variant="secondary"
+                  className="mt-5"
+                >
+                  Close
+                </Button>
+              </div>
+
+              {dailyReportData.length > 0 && (
+                <div className="bg-white p-8 rounded-lg border border-secondary-200" id="daily-report-print">
+                  <div className="text-center mb-6">
+                    <h1 className="text-2xl font-bold text-secondary-900">Daily Attendance Report</h1>
+                    <p className="text-lg text-secondary-600 mt-2">
+                      Date: {dailyReportDate ? new Date(dailyReportDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+                    </p>
+                  </div>
+
+                  {dailyReportData.map((locationGroup) => (
+                    <div key={locationGroup.location} className="mb-8">
+                      <h2 className="text-xl font-semibold text-secondary-900 mb-4 border-b-2 border-secondary-300 pb-2">
+                        Location: {locationGroup.location}
+                      </h2>
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-secondary-100">
+                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">Employee ID</th>
+                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">Name</th>
+                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">Position</th>
+                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">First Punch Time</th>
+                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {locationGroup.employees.map((employee: any) => (
+                            <tr key={employee.id} className="hover:bg-secondary-50">
+                              <td className="border border-secondary-300 px-4 py-2 text-sm">{employee.employeeId}</td>
+                              <td className="border border-secondary-300 px-4 py-2 text-sm">{employee.employeeName}</td>
+                              <td className="border border-secondary-300 px-4 py-2 text-sm">{employee.position || 'N/A'}</td>
+                              <td className="border border-secondary-300 px-4 py-2 text-sm">
+                                {employee.checkInTime ? new Date(employee.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}
+                              </td>
+                              <td className="border border-secondary-300 px-4 py-2 text-sm">
+                                {editingStatus === employee.id ? (
+                                  <div className="flex gap-2 items-center">
+                                    <select
+                                      value={employee.lateArrival ? 'late' : 'ontime'}
+                                      onChange={(e) => handleSaveStatus(employee.id, e.target.value === 'late')}
+                                      className="px-2 py-1 border border-secondary-300 rounded text-sm"
+                                      disabled={savingStatus}
+                                    >
+                                      <option value="ontime">On Time</option>
+                                      <option value="late">Late</option>
+                                    </select>
+                                    <button
+                                      onClick={handleCancelEditStatus}
+                                      className="text-xs text-secondary-600 hover:text-secondary-900"
+                                      disabled={savingStatus}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    {employee.lateArrival ? (
+                                      <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-semibold">Late</span>
+                                    ) : (
+                                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold">On Time</span>
+                                    )}
+                                    <button
+                                      onClick={() => handleEditStatus(employee.id)}
+                                      className="text-xs text-blue-600 hover:text-blue-800 no-print"
+                                    >
+                                      Edit
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'upload' ? (
             <>
               {loadingAttendance ? (
                 <div className="text-center py-12 text-secondary-600">
@@ -1599,6 +1953,33 @@ const processAttendanceData = (rawData: any[]) => {
           )}
         </CardContent>
       </Card>
+
+      {/* Print Styles */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #daily-report-print,
+          #daily-report-print * {
+            visibility: visible;
+          }
+          #daily-report-print {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 20px;
+          }
+          .no-print {
+            display: none !important;
+          }
+          @page {
+            size: A4;
+            margin: 20mm;
+          }
+        }
+      `}</style>
     </div>
   );
 };

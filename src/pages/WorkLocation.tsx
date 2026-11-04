@@ -88,6 +88,10 @@ export const WorkLocationPage = () => {
     });
   }, [locationStats, searchTerm, employees]);
 
+  // Separate locations by assignment status
+  const locationsWithStaff = filteredLocations.filter(loc => loc.totalStaff > 0);
+  const locationsWithoutStaff = filteredLocations.filter(loc => loc.totalStaff === 0);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -312,125 +316,218 @@ export const WorkLocationPage = () => {
       </div>
 
       {/* Work Locations Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredLocations.map((location) => (
-          <Card key={location.id} className="group relative bg-gradient-to-br from-white to-gray-50 hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-primary-200 overflow-hidden">
-            {/* Decorative gradient accent */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary-500/10 to-primary-600/5 rounded-bl-full -mr-16 -mt-16 transition-all duration-300 group-hover:from-primary-500/20 group-hover:to-primary-600/10" />
-            
-            <CardHeader className="flex flex-row items-start justify-between relative">
-              <div className="flex items-center gap-4">
-                <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-primary-100 to-primary-200 rounded-2xl p-3 shadow-lg">
-                  <MapPin className="w-8 h-8 text-primary-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-xl font-bold text-secondary-900 group-hover:text-primary-600 transition-colors truncate">
-                    {location.name}
-                  </h3>
-                  {location.address && (
-                    <p className="text-sm text-secondary-600 mt-1 truncate">{location.address}</p>
+      {locationsWithStaff.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold text-secondary-900 mb-4">Locations with Staff Assigned</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {locationsWithStaff.map((location) => (
+              <Card key={location.id} className="group relative bg-gradient-to-br from-white to-gray-50 hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-primary-200 overflow-hidden">
+                {/* Decorative gradient accent */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary-500/10 to-primary-600/5 rounded-bl-full -mr-16 -mt-16 transition-all duration-300 group-hover:from-primary-500/20 group-hover:to-primary-600/10" />
+                
+                <CardHeader className="flex flex-row items-start justify-between relative">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-primary-100 to-primary-200 rounded-2xl p-3 shadow-lg">
+                      <MapPin className="w-8 h-8 text-primary-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl font-bold text-secondary-900 group-hover:text-primary-600 transition-colors truncate">
+                        {location.name}
+                      </h3>
+                      {location.address && (
+                        <p className="text-sm text-secondary-600 mt-1 truncate">{location.address}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleEdit(location)}
+                      className="p-2 hover:bg-secondary-100 rounded-lg transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4 text-secondary-600" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(location.id!)}
+                      className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </button>
+                  </div>
+                </CardHeader>
+                <CardContent className="relative">
+                  {location.description && (
+                    <p className="text-sm text-secondary-600 mb-4 line-clamp-2">{location.description}</p>
                   )}
-                </div>
-              </div>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => handleEdit(location)}
-                  className="p-2 hover:bg-secondary-100 rounded-lg transition-colors"
-                >
-                  <Edit2 className="w-4 h-4 text-secondary-600" />
-                </button>
-                <button
-                  onClick={() => handleDelete(location.id!)}
-                  className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                >
-                  <Trash2 className="w-4 h-4 text-red-600" />
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent className="relative">
-              {location.description && (
-                <p className="text-sm text-secondary-600 mb-4 line-clamp-2">{location.description}</p>
-              )}
-              
-              {/* Stats Row */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="flex items-center gap-2 bg-blue-50 rounded-lg p-3">
-                  <div className="p-1.5 bg-blue-100 rounded-lg">
-                    <Users className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-secondary-500 font-medium">Total Staff</p>
-                    <p className="text-lg font-bold text-secondary-900">{location.totalStaff}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 bg-purple-50 rounded-lg p-3">
-                  <div className="p-1.5 bg-purple-100 rounded-lg">
-                    <Briefcase className="w-4 h-4 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-secondary-500 font-medium">Positions</p>
-                    <p className="text-lg font-bold text-secondary-900">{Object.keys(location.positions).length}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Top Positions */}
-              {location.topPositions.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-xs text-secondary-500 font-medium mb-2">Top Positions:</p>
-                  <div className="space-y-2">
-                    {(location.topPositions as [string, number][]).map(([position, count]) => (
-                      <div key={position} className="flex items-center justify-between text-xs">
-                        <span className="text-secondary-700 truncate flex-1">{position}</span>
-                        <span className="text-secondary-900 font-semibold ml-2">{count}</span>
+                  
+                  {/* Stats Row */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="flex items-center gap-2 bg-blue-50 rounded-lg p-3">
+                      <div className="p-1.5 bg-blue-100 rounded-lg">
+                        <Users className="w-4 h-4 text-blue-600" />
                       </div>
-                    ))}
+                      <div>
+                        <p className="text-xs text-secondary-500 font-medium">Total Staff</p>
+                        <p className="text-lg font-bold text-secondary-900">{location.totalStaff}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 bg-purple-50 rounded-lg p-3">
+                      <div className="p-1.5 bg-purple-100 rounded-lg">
+                        <Briefcase className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-secondary-500 font-medium">Positions</p>
+                        <p className="text-lg font-bold text-secondary-900">{Object.keys(location.positions).length}</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
 
-              {/* Assigned Staff Names */}
-              {location.assignedStaff && location.assignedStaff.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-xs text-secondary-500 font-medium mb-2">Assigned Staff:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {location.assignedStaff.slice(0, 6).map((staffId) => {
-                      const employee = employees.find(emp => emp.id === staffId);
-                      if (!employee) return null;
-                      return (
-                        <div
-                          key={staffId}
-                          className="flex items-center gap-2 bg-gradient-to-r from-primary-50 to-primary-100 px-3 py-1.5 rounded-full border border-primary-200"
-                          title={employee.fullName}
-                        >
-                          <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-xs font-semibold text-primary-700">
-                            {employee.fullName?.charAt(0).toUpperCase() || '?'}
+                  {/* Top Positions */}
+                  {location.topPositions.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs text-secondary-500 font-medium mb-2">Top Positions:</p>
+                      <div className="space-y-2">
+                        {(location.topPositions as [string, number][]).map(([position, count]) => (
+                          <div key={position} className="flex items-center justify-between text-xs">
+                            <span className="text-secondary-700 truncate flex-1">{position}</span>
+                            <span className="text-secondary-900 font-semibold ml-2">{count}</span>
                           </div>
-                          <span className="text-xs font-medium text-primary-900 truncate max-w-[100px]">
-                            {employee.fullName}
-                          </span>
-                        </div>
-                      );
-                    })}
-                    {location.assignedStaff.length > 6 && (
-                      <div className="flex items-center gap-2 bg-secondary-100 px-3 py-1.5 rounded-full border border-secondary-200">
-                        <span className="text-xs font-medium text-secondary-700">
-                          +{location.assignedStaff.length - 6} more
-                        </span>
+                        ))}
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                    </div>
+                  )}
 
-              <div className="flex items-center justify-between pt-3 border-t border-gray-200 gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => handleAssignStaff(location)}
-                  className="shadow-sm flex-1"
-                >
-                  Assign Staff
+                  {/* Assigned Staff Names */}
+                  {location.assignedStaff && location.assignedStaff.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs text-secondary-500 font-medium mb-2">Assigned Staff:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {location.assignedStaff.slice(0, 6).map((staffId) => {
+                          const employee = employees.find(emp => emp.id === staffId);
+                          if (!employee) return null;
+                          return (
+                            <div
+                              key={staffId}
+                              className="flex items-center gap-2 bg-gradient-to-r from-primary-50 to-primary-100 px-3 py-1.5 rounded-full border border-primary-200"
+                              title={employee.fullName}
+                            >
+                              <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-xs font-semibold text-primary-700">
+                                {employee.fullName?.charAt(0).toUpperCase() || '?'}
+                              </div>
+                              <span className="text-xs font-medium text-primary-900 truncate max-w-[100px]">
+                                {employee.fullName}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {location.assignedStaff.length > 6 && (
+                          <div className="flex items-center gap-2 bg-secondary-100 px-3 py-1.5 rounded-full border border-secondary-200">
+                            <span className="text-xs font-medium text-secondary-700">
+                              +{location.assignedStaff.length - 6} more
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-200 gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleAssignStaff(location)}
+                      className="shadow-sm flex-1"
+                    >
+                      Assign Staff
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleViewDetails(location)}
+                      className="shadow-sm flex-1"
+                    >
+                      View Details
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {locationsWithoutStaff.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold text-secondary-900 mb-4">Locations Without Staff</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {locationsWithoutStaff.map((location) => (
+              <Card key={location.id} className="group relative bg-gradient-to-br from-white to-gray-50 hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-primary-200 overflow-hidden">
+                {/* Decorative gradient accent */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary-500/10 to-primary-600/5 rounded-bl-full -mr-16 -mt-16 transition-all duration-300 group-hover:from-primary-500/20 group-hover:to-primary-600/10" />
+                
+                <CardHeader className="flex flex-row items-start justify-between relative">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-primary-100 to-primary-200 rounded-2xl p-3 shadow-lg">
+                      <MapPin className="w-8 h-8 text-primary-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl font-bold text-secondary-900 group-hover:text-primary-600 transition-colors truncate">
+                        {location.name}
+                      </h3>
+                      {location.address && (
+                        <p className="text-sm text-secondary-600 mt-1 truncate">{location.address}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleEdit(location)}
+                      className="p-2 hover:bg-secondary-100 rounded-lg transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4 text-secondary-600" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(location.id!)}
+                      className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </button>
+                  </div>
+                </CardHeader>
+                <CardContent className="relative">
+                  {location.description && (
+                    <p className="text-sm text-secondary-600 mb-4 line-clamp-2">{location.description}</p>
+                  )}
+                  
+                  {/* Stats Row */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="flex items-center gap-2 bg-blue-50 rounded-lg p-3">
+                      <div className="p-1.5 bg-blue-100 rounded-lg">
+                        <Users className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-secondary-500 font-medium">Total Staff</p>
+                        <p className="text-lg font-bold text-secondary-900">{location.totalStaff}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 bg-purple-50 rounded-lg p-3">
+                      <div className="p-1.5 bg-purple-100 rounded-lg">
+                        <Briefcase className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-secondary-500 font-medium">Positions</p>
+                        <p className="text-lg font-bold text-secondary-900">{Object.keys(location.positions).length}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-200 gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleAssignStaff(location)}
+                      className="shadow-sm flex-1"
+                    >
+                      Assign Staff
                 </Button>
                 <Button
                   variant="secondary"
@@ -443,8 +540,16 @@ export const WorkLocationPage = () => {
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {filteredLocations.length === 0 && (
+        <div className="text-center py-12 text-secondary-600">
+          No work locations found
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       {showModal && (

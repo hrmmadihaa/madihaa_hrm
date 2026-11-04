@@ -32,15 +32,49 @@ export const Payroll = () => {
         getPayrollSummary(selectedMonth, selectedYear),
         getEmployees(),
       ]);
-      setPayrollData(data);
-      setSummary(summaryData);
       setEmployees(empData);
+
+      // Filter payroll data based on user role
+      // Only superadmin can view all salaries, others can only view their own
+      if (user?.role === 'super_admin') {
+        setPayrollData(data);
+        setSummary(summaryData);
+      } else if (user?.employeeId) {
+        // Filter to show only the user's own payroll
+        const userEmployee = empData.find(emp => emp.employeeId === user.employeeId);
+        if (userEmployee) {
+          const filteredData = data.filter(p => p.employeeId === userEmployee.id);
+          setPayrollData(filteredData);
+          // Calculate summary for just this user
+          const userSummary = {
+            totalEmployees: 1,
+            totalGrossSalary: filteredData.reduce((sum, p) => sum + p.grossSalary, 0),
+            totalNetSalary: filteredData.reduce((sum, p) => sum + p.netSalary, 0),
+            totalAllowances: filteredData.reduce((sum, p) => sum + p.allowances.reduce((as, a) => as + a.amount, 0), 0),
+            totalDeductions: filteredData.reduce((sum, p) => sum + p.deductions.reduce((ds, d) => ds + d.amount, 0), 0),
+            totalBonuses: filteredData.reduce((sum, p) => sum + p.bonuses.reduce((bs, b) => bs + b.amount, 0), 0),
+            status: {
+              draft: filteredData.filter(p => p.status === 'draft').length,
+              processed: filteredData.filter(p => p.status === 'processed').length,
+              approved: filteredData.filter(p => p.status === 'approved').length,
+              paid: filteredData.filter(p => p.status === 'paid').length,
+            },
+          };
+          setSummary(userSummary);
+        } else {
+          setPayrollData([]);
+          setSummary(null);
+        }
+      } else {
+        setPayrollData([]);
+        setSummary(null);
+      }
     } catch (error) {
       console.error('Error loading payroll data:', error);
     } finally {
       setLoading(false);
     }
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, user?.role, user?.employeeId]);
 
   useEffect(() => {
     loadPayrollData();
@@ -252,8 +286,8 @@ export const Payroll = () => {
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
-      {summary && (
+      {/* Summary Cards - Only show for superadmin */}
+      {summary && user?.role === 'super_admin' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4">

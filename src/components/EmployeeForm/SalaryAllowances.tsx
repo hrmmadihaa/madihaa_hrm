@@ -13,11 +13,28 @@ interface SalaryAllowancesProps {
 
 export const SalaryAllowances = ({ employee, onNext, onPrev, onCancel, onSave }: SalaryAllowancesProps) => {
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<SalaryAllowancesType>({});
+  const [formData, setFormData] = useState<SalaryAllowancesType>({
+    basicSalary: '',
+    otAllowances: '',
+    otherAllowances: '',
+    attendanceAllowance: '',
+    livingAllowance: '',
+    foodAllowance: '',
+    fridayAllowance: '',
+  });
 
   useEffect(() => {
     if (employee?.salaryAllowances) {
-      setFormData(employee.salaryAllowances);
+      const allowances = employee.salaryAllowances;
+      setFormData({
+        basicSalary: allowances.basicSalary?.toString() || '',
+        otAllowances: allowances.otAllowance?.toString() || '',
+        otherAllowances: allowances.otherAllowances?.toString() || '',
+        attendanceAllowance: allowances.attendanceAllowance?.toString() || '',
+        livingAllowance: allowances.livingAllowance?.toString() || '',
+        foodAllowance: allowances.foodAllowance?.toString() || '',
+        fridayAllowance: allowances.fridayAllowance?.toString() || '',
+      });
     }
   }, [employee]);
 
@@ -28,14 +45,33 @@ export const SalaryAllowances = ({ employee, onNext, onPrev, onCancel, onSave }:
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onNext({ salaryAllowances: formData });
+    // Convert string values back to numbers for storage
+    const allowancesForStorage = {
+      basicSalary: formData.basicSalary ? parseFloat(String(formData.basicSalary)) : 0,
+      otAllowance: formData.otAllowances ? parseFloat(String(formData.otAllowances)) : 0,
+      otherAllowances: formData.otherAllowances ? parseFloat(String(formData.otherAllowances)) : 0,
+      attendanceAllowance: formData.attendanceAllowance ? parseFloat(String(formData.attendanceAllowance)) : 0,
+      livingAllowance: formData.livingAllowance ? parseFloat(String(formData.livingAllowance)) : 0,
+      foodAllowance: formData.foodAllowance ? parseFloat(String(formData.foodAllowance)) : 0,
+      fridayAllowance: formData.fridayAllowance ? parseFloat(String(formData.fridayAllowance)) : 0,
+    };
+    onNext({ salaryAllowances: allowancesForStorage });
   };
 
   const handleSave = async () => {
     if (!onSave) return;
     setIsSaving(true);
     try {
-      await onSave({ salaryAllowances: formData });
+      const allowancesForStorage = {
+        basicSalary: formData.basicSalary ? parseFloat(String(formData.basicSalary)) : 0,
+        otAllowance: formData.otAllowances ? parseFloat(String(formData.otAllowances)) : 0,
+        otherAllowances: formData.otherAllowances ? parseFloat(String(formData.otherAllowances)) : 0,
+        attendanceAllowance: formData.attendanceAllowance ? parseFloat(String(formData.attendanceAllowance)) : 0,
+        livingAllowance: formData.livingAllowance ? parseFloat(String(formData.livingAllowance)) : 0,
+        foodAllowance: formData.foodAllowance ? parseFloat(String(formData.foodAllowance)) : 0,
+        fridayAllowance: formData.fridayAllowance ? parseFloat(String(formData.fridayAllowance)) : 0,
+      };
+      await onSave({ salaryAllowances: allowancesForStorage });
     } catch (error) {
       console.error('Error saving:', error);
       alert('Error saving. Please try again.');
@@ -129,6 +165,19 @@ export const SalaryAllowances = ({ employee, onNext, onPrev, onCancel, onSave }:
             value={formData.foodAllowance || ''}
             onChange={handleChange}
             placeholder="MVR 1,500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-secondary-700 mb-1">
+            Friday Allowance (MVR)
+          </label>
+          <Input
+            type="text"
+            name="fridayAllowance"
+            value={formData.fridayAllowance || ''}
+            onChange={handleChange}
+            placeholder="MVR 500"
           />
         </div>
       </div>

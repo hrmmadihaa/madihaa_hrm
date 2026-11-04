@@ -5,6 +5,7 @@ import { SalaryAllowances } from './SalaryAllowances';
 import { StaffEquipment } from './StaffEquipment';
 import { AccommodationSelection } from './AccommodationSelection';
 import { LeaveHistory } from './LeaveHistory';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Employee, EmployeeAccommodation } from '../../types';
 
 interface EmployeeFormWizardProps {
@@ -15,6 +16,7 @@ interface EmployeeFormWizardProps {
 }
 
 export const EmployeeFormWizard = ({ employee, onSave, onCancel, isEditing }: EmployeeFormWizardProps) => {
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Employee>>({});
@@ -58,7 +60,7 @@ export const EmployeeFormWizard = ({ employee, onSave, onCancel, isEditing }: Em
 
   const steps = [
     { title: 'Personal Information', icon: <User className="w-5 h-5" /> },
-    { title: 'Salary & Allowances', icon: <DollarSign className="w-5 h-5" /> },
+    ...(user?.role === 'super_admin' ? [{ title: 'Salary & Allowances', icon: <DollarSign className="w-5 h-5" /> }] : []),
     { title: 'Equipment & Items', icon: <Backpack className="w-5 h-5" /> },
     { title: 'Accommodation', icon: <Building2 className="w-5 h-5" /> },
     { title: 'Leave History', icon: <Calendar className="w-5 h-5" /> },
@@ -66,6 +68,7 @@ export const EmployeeFormWizard = ({ employee, onSave, onCancel, isEditing }: Em
 
   const handlePersonalInfoNext = (data: Partial<Employee>) => {
     setFormData(prev => ({ ...prev, ...data }));
+    // If salary step is available (superadmin), go to step 1, otherwise go to equipment step (step 1)
     setCurrentStep(1);
   };
 
@@ -76,13 +79,29 @@ export const EmployeeFormWizard = ({ employee, onSave, onCancel, isEditing }: Em
 
   const handleStaffEquipmentNext = (data: Partial<Employee>) => {
     setFormData(prev => ({ ...prev, ...data }));
-    setCurrentStep(3);
+    // If salary step exists, accommodation is step 3, otherwise step 2
+    setCurrentStep(user?.role === 'super_admin' ? 3 : 2);
   };
 
   const handleAccommodationNext = (accommodation: EmployeeAccommodation | undefined) => {
     setFormData(prev => ({ ...prev, accommodation }));
-    // This is the final step, submit the form
+    // Accommodation is the final step - complete the form
     handleComplete();
+  };
+
+  const handleComplete = async () => {
+    setIsSaving(true);
+    try {
+      await onSave({
+        ...formData,
+        fullName: `${formData.firstName} ${formData.lastName}`,
+      });
+    } catch (error) {
+      console.error('Error saving employee:', error);
+      alert('Error saving employee. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSaveCurrent = async (data?: Partial<Employee>) => {
@@ -108,22 +127,9 @@ export const EmployeeFormWizard = ({ employee, onSave, onCancel, isEditing }: Em
     }
   };
 
-  const handleComplete = async () => {
-    setIsSaving(true);
-    try {
-      await onSave({
-        ...formData,
-        fullName: `${formData.firstName} ${formData.lastName}`,
-      });
-    } catch (error) {
-      console.error('Error saving employee:', error);
-      alert('Error saving employee. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const renderStep = () => {
+    const hasSalaryStep = user?.role === 'super_admin';
+
     switch (currentStep) {
       case 0:
         return (
@@ -138,40 +144,71 @@ export const EmployeeFormWizard = ({ employee, onSave, onCancel, isEditing }: Em
           />
         );
       case 1:
+        if (hasSalaryStep) {
+          return (
+            <SalaryAllowances
+              employee={formData}
+              onNext={handleSalaryAllowancesNext}
+              onPrev={() => setCurrentStep(0)}
+              onCancel={onCancel}
+              onSave={handleSaveCurrent}
+            />
+          );
+        }
         return (
-          <SalaryAllowances
+          <StaffEquipment
             employee={formData}
-            onNext={handleSalaryAllowancesNext}
+            onNext={handleStaffEquipmentNext}
             onPrev={() => setCurrentStep(0)}
             onCancel={onCancel}
             onSave={handleSaveCurrent}
           />
         );
       case 2:
+        if (hasSalaryStep) {
+          return (
+            <StaffEquipment
+              employee={formData}
+              onNext={handleStaffEquipmentNext}
+              onPrev={() => setCurrentStep(1)}
+              onCancel={onCancel}
+              onSave={handleSaveCurrent}
+            />
+          );
+        }
         return (
-          <StaffEquipment
+          <AccommodationSelection
+            accommodation={formData.accommodation}
             employee={formData}
-            onNext={handleStaffEquipmentNext}
+            onNext={handleAccommodationNext}
             onPrev={() => setCurrentStep(1)}
             onCancel={onCancel}
             onSave={handleSaveCurrent}
           />
         );
       case 3:
+        if (hasSalaryStep) {
+          return (
+            <AccommodationSelection
+              accommodation={formData.accommodation}
+              employee={formData}
+              onNext={handleAccommodationNext}
+              onPrev={() => setCurrentStep(2)}
+              onCancel={onCancel}
+              onSave={handleSaveCurrent}
+            />
+          );
+        }
         return (
-          <AccommodationSelection
-            accommodation={formData.accommodation}
+          <LeaveHistory
             employee={formData}
-            onNext={handleAccommodationNext}
             onPrev={() => setCurrentStep(2)}
-            onCancel={onCancel}
-            onSave={handleSaveCurrent}
           />
         );
       case 4:
         return (
           <LeaveHistory
-            employee={employee}
+            employee={formData}
             onPrev={() => setCurrentStep(3)}
           />
         );

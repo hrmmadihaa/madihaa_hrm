@@ -114,9 +114,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     PERMISSIONS.LEAVE_IMPORT,
     PERMISSIONS.LEAVE_DELETE,
     
-    // Payroll - Full management
+    // Payroll - Full management (but can only view own salary, not all)
     PERMISSIONS.PAYROLL_VIEW,
-    PERMISSIONS.PAYROLL_VIEW_ALL,
     PERMISSIONS.PAYROLL_CREATE,
     PERMISSIONS.PAYROLL_EDIT,
     PERMISSIONS.PAYROLL_APPROVE,
@@ -169,8 +168,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     PERMISSIONS.LEAVE_APPROVE,
     PERMISSIONS.LEAVE_REJECT,
     
-    // Payroll - View department
-    PERMISSIONS.PAYROLL_VIEW,
+    // Payroll - Cannot view salaries (only superadmin can view all)
     
     // Overtime - View department, approve
     PERMISSIONS.OVERTIME_VIEW,
