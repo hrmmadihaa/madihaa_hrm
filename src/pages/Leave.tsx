@@ -14,6 +14,12 @@ import * as XLSX from 'xlsx';
 export const Leave = () => {
   const { user } = useAuth();
   const { can } = usePermissions();
+  
+  // Debug: Log user role and permissions
+  console.log('Leave - User:', user);
+  console.log('Leave - User role:', user?.role);
+  console.log('Leave - Can request leave:', can(PERMISSIONS.LEAVE_REQUEST));
+  
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
