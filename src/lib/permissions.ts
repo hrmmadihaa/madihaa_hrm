@@ -202,9 +202,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     // Attendance - View team
     PERMISSIONS.ATTENDANCE_VIEW,
     
-    // Leave - View team, approve team requests
+    // Leave - View team, approve team requests, and apply for leave
     PERMISSIONS.LEAVE_VIEW,
     PERMISSIONS.LEAVE_VIEW_ALL,
+    PERMISSIONS.LEAVE_REQUEST,
     PERMISSIONS.LEAVE_APPROVE,
     
     // Overtime - View team, approve team requests
