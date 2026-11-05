@@ -352,3 +352,53 @@ export const getAttendanceAllowanceEligibility = (presentDays: number) => {
   return 'Not eligible';
 };
 
+// Calculate attendance statistics for payroll
+export const getAttendanceStatsForPayroll = async (employeeId: string, month: number, year: number) => {
+  try {
+    // Get the first and last day of the month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0); // Last day of the month
+
+    const attendance = await getAttendance(employeeId, startDate, endDate);
+
+    let daysWorked = 0;
+    let absentDays = 0;
+    let fridaysWorked = 0;
+    let halfDays = 0;
+    let leaveDays = 0;
+
+    attendance.forEach(record => {
+      const dayOfWeek = record.date.getDay(); // 0 = Sunday, 5 = Friday
+
+      if (record.status === 'present') {
+        daysWorked++;
+        if (dayOfWeek === 5) { // Friday
+          fridaysWorked++;
+        }
+      } else if (record.status === 'absent') {
+        absentDays++;
+      } else if (record.status === 'half_day') {
+        halfDays++;
+        daysWorked += 0.5;
+        if (dayOfWeek === 5) {
+          fridaysWorked += 0.5;
+        }
+      } else if (record.status === 'leave') {
+        leaveDays++;
+      }
+    });
+
+    return {
+      daysWorked,
+      absentDays,
+      fridaysWorked,
+      halfDays,
+      leaveDays,
+      totalDaysInMonth: endDate.getDate(),
+    };
+  } catch (error) {
+    console.error('Error calculating attendance stats for payroll:', error);
+    throw error;
+  }
+};
+

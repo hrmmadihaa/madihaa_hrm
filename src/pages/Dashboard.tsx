@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { getEmployees } from '../lib/employees';
 import { getLeaveRequests } from '../lib/leave';
 import { useNavigate } from 'react-router-dom';
+import madihaaLogo from '/madihaa (1).jpg';
 
 export const Dashboard = () => {
   const [employees, setEmployees] = useState<any[]>([]);
@@ -135,9 +136,12 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-secondary-900">Dashboard</h1>
-        <p className="text-secondary-600 mt-1">Welcome back! Here's what's happening today.</p>
+      <div className="flex items-center gap-4">
+        <img src={madihaaLogo} alt="Madihaa Logo" className="w-16 h-14 object-contain" />
+        <div>
+          <h1 className="text-3xl font-bold text-secondary-900">Dashboard</h1>
+          <p className="text-secondary-600 mt-1">Welcome back! Here's what's happening today.</p>
+        </div>
       </div>
 
       {/* Stats Grid */}

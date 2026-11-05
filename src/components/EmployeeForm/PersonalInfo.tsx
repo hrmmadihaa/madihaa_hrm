@@ -13,7 +13,29 @@ interface PersonalInfoProps {
 
 export const PersonalInfo = ({ employee, onNext, onCancel, onSave }: PersonalInfoProps) => {
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<Employee>>({});
+  const [formData, setFormData] = useState<Partial<Employee>>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    department: '',
+    designation: '',
+    employeeId: '',
+    registrationNumber: '',
+    photo: '',
+    status: 'active',
+    country: '',
+    wpNo: '',
+    ppIdNumber: '',
+    insuranceNumber: '',
+    workSite: '',
+    workLocation: '',
+    jobLevel: '',
+    salary: '',
+    slot: '',
+    qtaPaid: '',
+    sn: '',
+  });
 
   // Update formData when employee prop changes
   useEffect(() => {

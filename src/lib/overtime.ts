@@ -563,20 +563,77 @@ export const getOvertimeFromAttendance = async (employeeId?: string) => {
       const checkOutTime = data.checkOutTime?.toDate();
       const checkInTime = data.checkInTime?.toDate();
 
-      // Calculate overtime from 19:00 to finish time
-      const overtimeStartHour = 19;
+      // Calculate overtime from 19:00 local time (Maldives UTC+5) to finish time
+      // 19:00 local = 14:00 UTC
+      const overtimeStartHour = 14;
       let overtimeHours = 0;
 
       if (checkOutTime) {
-        const finishHour = checkOutTime.getHours();
-        const finishMinute = checkOutTime.getMinutes();
+        // Firebase timestamps are already in UTC, no conversion needed
+        const checkOutTimeUTC = new Date(checkOutTime);
+        const finishHour = checkOutTimeUTC.getUTCHours();
 
-        if (finishHour > overtimeStartHour || (finishHour === overtimeStartHour && finishMinute > 0)) {
-          const overtimeStart = new Date(checkOutTime);
-          overtimeStart.setHours(overtimeStartHour, 0, 0, 0);
-          const diffMs = checkOutTime.getTime() - overtimeStart.getTime();
-          overtimeHours = diffMs / (1000 * 60 * 60);
+        // Use check-in time's date as the base for overtime start (same day as check-in)
+        const baseDate = checkInTime ? new Date(checkInTime) : checkOutTimeUTC;
+
+        console.log(`Employee ${data.employeeId} - CheckIn (UTC): ${baseDate.toISOString()}, CheckOut (UTC): ${checkOutTimeUTC.toISOString()}`);
+
+        // Calculate overtime start based on check-in date at 19:00 UTC
+        const overtimeStart = new Date(Date.UTC(
+          baseDate.getUTCFullYear(),
+          baseDate.getUTCMonth(),
+          baseDate.getUTCDate(),
+          overtimeStartHour,
+          0,
+          0,
+          0
+        ));
+
+        // Check if check-out is on a different day than check-in
+        const checkInDate = new Date(Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth(), baseDate.getUTCDate()));
+        const checkOutDate = new Date(Date.UTC(checkOutTimeUTC.getUTCFullYear(), checkOutTimeUTC.getUTCMonth(), checkOutTimeUTC.getUTCDate()));
+        const isNextDay = checkOutDate.getTime() > checkInDate.getTime();
+
+        // Convert UTC back to local time to check if it's before 6 AM
+        const localFinishHour = (finishHour + 5) % 24; // UTC+5 to local
+
+        let finishTimeForCalc = new Date(checkOutTimeUTC);
+        if (isNextDay && localFinishHour < 6) {
+          // Early morning check-out (before 6 AM local time)
+          // Treat as part of previous day's attendance - use next day date for calculation
+          finishTimeForCalc = new Date(Date.UTC(
+            baseDate.getUTCFullYear(),
+            baseDate.getUTCMonth(),
+            baseDate.getUTCDate() + 1,
+            checkOutTimeUTC.getUTCHours(),
+            checkOutTimeUTC.getUTCMinutes(),
+            checkOutTimeUTC.getUTCSeconds(),
+            checkOutTimeUTC.getUTCMilliseconds()
+          ));
+          console.log(`Next-day early morning check-out detected (local ${localFinishHour}:00), using next day date for calculation`);
+        } else if (isNextDay) {
+          // Check-out is on next day but not early morning (data anomaly)
+          // Cap overtime at end of check-in day (23:59:59 UTC)
+          finishTimeForCalc = new Date(Date.UTC(
+            baseDate.getUTCFullYear(),
+            baseDate.getUTCMonth(),
+            baseDate.getUTCDate(),
+            23, 59, 59, 999
+          ));
+          console.log(`Next-day evening check-out detected (data anomaly), capping at end of check-in day`);
         }
+
+        console.log(`Overtime start: ${overtimeStart.toISOString()}, Finish for calc: ${finishTimeForCalc.toISOString()}`);
+
+        if (finishTimeForCalc.getTime() > overtimeStart.getTime()) {
+          const diffMs = finishTimeForCalc.getTime() - overtimeStart.getTime();
+          overtimeHours = diffMs / (1000 * 60 * 60);
+          console.log(`Overtime calculated: ${overtimeHours.toFixed(2)} hours`);
+        } else {
+          console.log(`No overtime - finish time is before or at overtime start`);
+        }
+      } else {
+        console.log(`No check-out time for employee ${data.employeeId} on ${data.date?.toDate()?.toISOString()}`);
       }
 
       // Include all attendance records, not just those with overtime

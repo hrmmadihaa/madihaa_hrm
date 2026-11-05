@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { 
+import {
   Menu, X, Bell, User, LogOut, Settings,
-  LayoutDashboard, Users, Calendar, CalendarCheck, 
+  LayoutDashboard, Users, Calendar, CalendarCheck,
   DollarSign, Clock, BarChart, FileText, GraduationCap,
-  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays
+  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
+import madihaaLogo from '/madihaa (1).jpg';
 
 export const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -31,6 +32,7 @@ export const Layout: React.FC = () => {
     { name: 'Leave', href: '/leave', icon: CalendarCheck },
     { name: 'Friday Duty', href: '/friday-duty', icon: CalendarDays },
     { name: 'Payroll', href: '/payroll', icon: DollarSign },
+    { name: 'Bonus', href: '/bonus', icon: Gift },
     { name: 'Overtime', href: '/overtime', icon: Clock },
     { name: 'Reports', href: '/reports', icon: BarChart },
     { name: 'Recruitment', href: '/recruitment', icon: FileText },
@@ -75,9 +77,7 @@ export const Layout: React.FC = () => {
               {/* Logo */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-secondary-200">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-xl">M</span>
-                  </div>
+                  <img src={madihaaLogo} alt="Madihaa Logo" className="w-10 h-10 object-contain" />
                   <div>
                     <h1 className="text-lg font-bold text-secondary-900">Madihaa HRMS</h1>
                     <p className="text-xs text-secondary-600">Human Resource Management</p>
@@ -153,9 +153,7 @@ export const Layout: React.FC = () => {
           {/* Logo */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-secondary-200">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">M</span>
-              </div>
+              <img src={madihaaLogo} alt="Madihaa Logo" className="w-10 h-10 object-contain" />
               <div>
                 <h1 className="text-lg font-bold text-secondary-900">Madihaa HRMS</h1>
                 <p className="text-xs text-secondary-600">Human Resource Management</p>

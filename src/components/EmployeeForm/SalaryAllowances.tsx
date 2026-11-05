@@ -28,7 +28,7 @@ export const SalaryAllowances = ({ employee, onNext, onPrev, onCancel, onSave }:
       const allowances = employee.salaryAllowances;
       setFormData({
         basicSalary: allowances.basicSalary?.toString() || '',
-        otAllowances: allowances.otAllowance?.toString() || '',
+        otAllowances: allowances.otAllowances?.toString() || '',
         otherAllowances: allowances.otherAllowances?.toString() || '',
         attendanceAllowance: allowances.attendanceAllowance?.toString() || '',
         livingAllowance: allowances.livingAllowance?.toString() || '',
@@ -47,13 +47,13 @@ export const SalaryAllowances = ({ employee, onNext, onPrev, onCancel, onSave }:
     e.preventDefault();
     // Convert string values back to numbers for storage
     const allowancesForStorage = {
-      basicSalary: formData.basicSalary ? parseFloat(String(formData.basicSalary)) : 0,
-      otAllowance: formData.otAllowances ? parseFloat(String(formData.otAllowances)) : 0,
-      otherAllowances: formData.otherAllowances ? parseFloat(String(formData.otherAllowances)) : 0,
-      attendanceAllowance: formData.attendanceAllowance ? parseFloat(String(formData.attendanceAllowance)) : 0,
-      livingAllowance: formData.livingAllowance ? parseFloat(String(formData.livingAllowance)) : 0,
-      foodAllowance: formData.foodAllowance ? parseFloat(String(formData.foodAllowance)) : 0,
-      fridayAllowance: formData.fridayAllowance ? parseFloat(String(formData.fridayAllowance)) : 0,
+      basicSalary: formData.basicSalary || '0',
+      otAllowances: formData.otAllowances || '0',
+      otherAllowances: formData.otherAllowances || '0',
+      attendanceAllowance: formData.attendanceAllowance || '0',
+      livingAllowance: formData.livingAllowance || '0',
+      foodAllowance: formData.foodAllowance || '0',
+      fridayAllowance: formData.fridayAllowance || '0',
     };
     onNext({ salaryAllowances: allowancesForStorage });
   };
@@ -63,13 +63,13 @@ export const SalaryAllowances = ({ employee, onNext, onPrev, onCancel, onSave }:
     setIsSaving(true);
     try {
       const allowancesForStorage = {
-        basicSalary: formData.basicSalary ? parseFloat(String(formData.basicSalary)) : 0,
-        otAllowance: formData.otAllowances ? parseFloat(String(formData.otAllowances)) : 0,
-        otherAllowances: formData.otherAllowances ? parseFloat(String(formData.otherAllowances)) : 0,
-        attendanceAllowance: formData.attendanceAllowance ? parseFloat(String(formData.attendanceAllowance)) : 0,
-        livingAllowance: formData.livingAllowance ? parseFloat(String(formData.livingAllowance)) : 0,
-        foodAllowance: formData.foodAllowance ? parseFloat(String(formData.foodAllowance)) : 0,
-        fridayAllowance: formData.fridayAllowance ? parseFloat(String(formData.fridayAllowance)) : 0,
+        basicSalary: formData.basicSalary || '0',
+        otAllowances: formData.otAllowances || '0',
+        otherAllowances: formData.otherAllowances || '0',
+        attendanceAllowance: formData.attendanceAllowance || '0',
+        livingAllowance: formData.livingAllowance || '0',
+        foodAllowance: formData.foodAllowance || '0',
+        fridayAllowance: formData.fridayAllowance || '0',
       };
       await onSave({ salaryAllowances: allowancesForStorage });
     } catch (error) {

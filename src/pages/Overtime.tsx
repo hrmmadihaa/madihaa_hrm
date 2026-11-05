@@ -48,6 +48,7 @@ export const Overtime = () => {
   const [migrating, setMigrating] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [biometricSearchTerm, setBiometricSearchTerm] = useState('');
 
   const loadData = useCallback(async () => {
     try {
@@ -1001,6 +1002,16 @@ export const Overtime = () => {
                       ))}
                     </select>
                   </div>
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs text-secondary-600 mb-1">Search Employee</label>
+                    <input
+                      type="text"
+                      placeholder="Name or ID..."
+                      value={biometricSearchTerm}
+                      onChange={(e) => setBiometricSearchTerm(e.target.value)}
+                      className="w-full px-3 py-1 border border-secondary-300 rounded text-sm"
+                    />
+                  </div>
                   <div className="text-xs text-secondary-600">
                     <strong>Payroll Cycle:</strong> {getPayrollCycleDates(selectedMonth, selectedYear).startFormatted} to {getPayrollCycleDates(selectedMonth, selectedYear).endFormatted}
                   </div>
@@ -1034,7 +1045,16 @@ export const Overtime = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {employees.map(employee => {
+                      {employees
+                        .filter(employee => {
+                          if (!biometricSearchTerm) return true;
+                          const searchLower = biometricSearchTerm.toLowerCase();
+                          return (
+                            employee.fullName.toLowerCase().includes(searchLower) ||
+                            employee.employeeId.toLowerCase().includes(searchLower)
+                          );
+                        })
+                        .map(employee => {
                         const payrollCycle = getPayrollCycleDates(selectedMonth, selectedYear);
                         const dates = [];
                         const current = new Date(payrollCycle.start);
@@ -1103,15 +1123,6 @@ export const Overtime = () => {
                     </thead>
                     <tbody>
                       {(() => {
-                        const payrollCycle = getPayrollCycleDates(selectedMonth, selectedYear);
-                        const dates = [];
-                        const current = new Date(payrollCycle.start);
-                        const end = new Date(payrollCycle.end);
-                        while (current <= end) {
-                          dates.push(new Date(current));
-                          current.setUTCDate(current.getUTCDate() + 1);
-                        }
-
                         const employeeRecords = biometricData.filter(r => {
                           // Try exact match first
                           if (r.employeeId === user.employeeId) return true;
@@ -1120,16 +1131,25 @@ export const Overtime = () => {
                           if (employee && r.employeeId === employee.employeeId) return true;
                           return false;
                         });
-                        let totalHours = 0;
+                        console.log(`Employee records for ${user.employeeId}:`, employeeRecords.map(r => ({
+                          date: new Date(r.date).toISOString().split('T')[0],
+                          finishTime: r.finishTime,
+                          overtimeHours: r.overtimeHours
+                        })));
+                        
+                        // Sort records by date
+                        employeeRecords.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                        
+                        // Deduplicate records by date (keep the first one)
+                        const uniqueRecords = employeeRecords.filter((record, index, self) =>
+                          index === self.findIndex(r => new Date(r.date).toDateString() === new Date(record.date).toDateString())
+                        );
+                        
+                        let totalHours = uniqueRecords.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
 
-                        return dates.map((date, idx) => {
-                          const dateStr = date.toISOString().split('T')[0];
-                          const record = employeeRecords.find(r => {
-                            const recordDate = new Date(r.date).toISOString().split('T')[0];
-                            return recordDate === dateStr;
-                          });
-                          const hours = record?.overtimeHours || 0;
-                          totalHours += hours;
+                        return uniqueRecords.map((record, idx) => {
+                          const hours = record.overtimeHours || 0;
+                          const date = new Date(record.date);
 
                           return (
                             <tr key={idx} className="border-t border-secondary-200">
@@ -1137,7 +1157,7 @@ export const Overtime = () => {
                                 {date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                               </td>
                               <td className="px-3 py-2 text-center">
-                                {record?.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}
+                                {record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}
                               </td>
                               <td className="px-3 py-2 text-center">
                                 {record?.finishTime || '-'}
@@ -1152,9 +1172,13 @@ export const Overtime = () => {
                             </tr>
                           );
                         }).concat(
-                          <tr key="total" className="border-t-2 border-secondary-400 bg-primary-100">
-                            <td className="px-3 py-2 font-bold" colSpan={3}>Total Overtime Hours</td>
-                            <td className="px-3 py-2 text-center font-bold text-primary-700">{totalHours.toFixed(2)}</td>
+                          <tr key="total" className="border-t-2 border-secondary-400 bg-primary-100 font-bold">
+                            <td className="px-3 py-2 whitespace-nowrap" colSpan={3}>
+                              Total Overtime Hours
+                            </td>
+                            <td className="px-3 py-2 text-center font-bold text-primary-700 bg-primary-50">
+                              {totalHours.toFixed(2)}
+                            </td>
                           </tr>
                         );
                       })()}

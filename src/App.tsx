@@ -10,6 +10,7 @@ import { DigitalPersonnelFiles } from './pages/DigitalPersonnelFiles';
 import { Attendance } from './pages/Attendance';
 import { Leave } from './pages/Leave';
 import { Payroll } from './pages/Payroll';
+import { Bonus } from './pages/Bonus';
 import { Overtime } from './pages/Overtime';
 import { Reports } from './pages/Reports';
 import { Recruitment } from './pages/Recruitment';
@@ -51,6 +52,7 @@ function App() {
             <Route path="attendance" element={<Attendance />} />
             <Route path="leave" element={<Leave />} />
             <Route path="payroll" element={<Payroll />} />
+            <Route path="bonus" element={<Bonus />} />
             <Route path="overtime" element={<Overtime />} />
             <Route path="reports" element={<Reports />} />
             <Route path="recruitment" element={<Recruitment />} />

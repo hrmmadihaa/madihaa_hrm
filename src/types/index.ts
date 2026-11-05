@@ -66,6 +66,7 @@ export interface Employee {
   sn?: string;
   visaExpiryDate?: Date;
   biometricFingerprintUpdated?: Date;
+  bankAccountNumber?: string;
 }
 
 export interface EmployeeAccommodation {
@@ -90,12 +91,14 @@ export interface EmployeeAccommodation {
 }
 
 export interface SalaryAllowances {
-  basicSalary?: string;
-  otAllowances?: string;
-  otherAllowances?: string;
-  attendanceAllowance?: string;
-  livingAllowance?: string;
-  foodAllowance?: string;
+  basicSalary?: string | number;
+  otAllowances?: string | number;
+  otAllowance?: string | number;
+  otherAllowances?: string | number;
+  attendanceAllowance?: string | number;
+  livingAllowance?: string | number;
+  foodAllowance?: string | number;
+  fridayAllowance?: string | number;
 }
 
 export interface EquipmentItem {
@@ -312,6 +315,12 @@ export interface Payroll {
   status: PayrollStatus;
   processedDate?: Date;
   approvedBy?: string;
+  // Attendance-related fields
+  daysWorked?: number;
+  absentDays?: number;
+  fridays?: number;
+  halfDays?: number;
+  leaveDays?: number;
 }
 
 export type PayrollStatus = 'draft' | 'processed' | 'approved' | 'paid' | 'locked';

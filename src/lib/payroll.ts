@@ -326,6 +326,7 @@ export const generatePayrollFromEmployees = async (month: number, year: number) 
   try {
     const { getEmployees } = await import('./employees');
     const { getOvertimeRequests, calculateOvertimeRate } = await import('./overtime');
+    const { getAttendanceStatsForPayroll } = await import('./attendance');
     const employees = await getEmployees();
 
     const activeEmployees = employees.filter(emp => emp.status === 'active');
@@ -338,6 +339,20 @@ export const generatePayrollFromEmployees = async (month: number, year: number) 
       const attendanceAllowance = Number(salary.attendanceAllowance || 0);
       const livingAllowance = Number(salary.livingAllowance || 0);
       const foodAllowance = Number(salary.foodAllowance || 0);
+      const fridayAllowance = Number(salary.fridayAllowance || 0);
+
+      // Get attendance statistics for the month
+      const attendanceStats = await getAttendanceStatsForPayroll(employee.id, month, year);
+
+      // Calculate daily salary rate for deductions
+      const daysInMonth = attendanceStats.totalDaysInMonth;
+      const dailyRate = basicSalary / daysInMonth;
+
+      // Calculate absent day deductions
+      const absentDeduction = attendanceStats.absentDays * dailyRate;
+
+      // Calculate friday allowance based on fridays worked
+      const calculatedFridayAllowance = attendanceStats.fridaysWorked * fridayAllowance;
 
       // Get approved overtime for this employee
       const overtimeRequests = await getOvertimeRequests(employee.id);
@@ -360,6 +375,16 @@ export const generatePayrollFromEmployees = async (month: number, year: number) 
         { id: '5', name: 'Food Allowance', amount: foodAllowance, type: 'fixed' as const },
       ].filter(a => a.amount > 0);
 
+      // Add friday allowance if there are fridays worked
+      if (calculatedFridayAllowance > 0) {
+        allowances.push({
+          id: 'friday',
+          name: `Friday Allowance (${attendanceStats.fridaysWorked} days)`,
+          amount: calculatedFridayAllowance,
+          type: 'fixed' as const
+        });
+      }
+
       // Add overtime as allowance if there is any
       if (overtimePay > 0) {
         allowances.push({
@@ -372,8 +397,29 @@ export const generatePayrollFromEmployees = async (month: number, year: number) 
 
       const totalAllowances = allowances.reduce((sum, a) => sum + a.amount, 0);
       const grossSalary = basicSalary + totalAllowances;
+
+      // Calculate deductions
       const deductions: any[] = [];
-      const totalDeductions = 0;
+      if (absentDeduction > 0) {
+        deductions.push({
+          id: 'absent',
+          name: `Absent Days (${attendanceStats.absentDays} days)`,
+          amount: absentDeduction,
+          type: 'deduction' as const
+        });
+      }
+
+      // Add pension deduction if applicable (e.g., 8% of basic salary)
+      const pensionRate = 0.08;
+      const pensionDeduction = basicSalary * pensionRate;
+      deductions.push({
+        id: 'pension',
+        name: 'Pension (8%)',
+        amount: pensionDeduction,
+        type: 'deduction' as const
+      });
+
+      const totalDeductions = deductions.reduce((sum, d) => sum + d.amount, 0);
       const netSalary = grossSalary - totalDeductions;
 
       return {
@@ -389,6 +435,12 @@ export const generatePayrollFromEmployees = async (month: number, year: number) 
         netSalary,
         status: 'draft' as const,
         createdAt: new Date(),
+        // Attendance-related fields
+        daysWorked: attendanceStats.daysWorked,
+        absentDays: attendanceStats.absentDays,
+        fridays: attendanceStats.fridaysWorked,
+        halfDays: attendanceStats.halfDays,
+        leaveDays: attendanceStats.leaveDays,
       };
     }));
 

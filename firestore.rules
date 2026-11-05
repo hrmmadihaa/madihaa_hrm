@@ -163,5 +163,11 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create, update, delete: if isSuperAdmin() || isHRManager();
     }
+
+    // Bonuses collection
+    match /bonuses/{bonusId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isSuperAdmin() || isHRManager();
+    }
   }
 }

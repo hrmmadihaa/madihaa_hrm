@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { LogIn, Mail, Lock } from 'lucide-react';
+import { Mail, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../contexts/AuthContext';
+import madihaaLogo from '/madihaa (1).jpg';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -50,9 +51,7 @@ export const Login: React.FC = () => {
       >
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-4">
-              <LogIn className="w-8 h-8 text-primary-600" />
-            </div>
+            <img src={madihaaLogo} alt="Madihaa Logo" className="w-24 h-20 mx-auto mb-4 object-contain" />
             <h1 className="text-3xl font-bold text-secondary-900">Madihaa HRMS</h1>
             <p className="text-secondary-600 mt-2">Sign in to your account</p>
           </div>
