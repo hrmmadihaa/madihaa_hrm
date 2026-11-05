@@ -6,7 +6,7 @@ import { getEmployees } from '../lib/employees';
 import { getAllWorkLocations } from '../lib/workLocation';
 import { getLeaveRequests, createLeaveRequest, deleteLeaveRequest } from '../lib/leave';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 import type { WorkLocation } from '../types';
 
 interface Employee {
@@ -148,12 +148,17 @@ export const FridayDuty = () => {
   useEffect(() => {
     const loadScheduleData = async () => {
       try {
+        console.log('Friday Duty - Attempting to load schedule data from friday_schedules/current');
         const scheduleDoc = await getDoc(doc(db, 'friday_schedules', 'current'));
+        console.log('Friday Duty - Schedule doc exists:', scheduleDoc.exists());
         if (scheduleDoc.exists()) {
+          console.log('Friday Duty - Schedule data loaded:', scheduleDoc.data());
           setScheduleData(scheduleDoc.data() as FridayScheduleData);
         }
       } catch (error) {
-        console.error('Error loading schedule data:', error);
+        console.error('Friday Duty - Error loading schedule data:', error);
+        console.error('Friday Duty - Error code:', (error as any).code);
+        console.error('Friday Duty - Error message:', (error as any).message);
       }
     };
     loadScheduleData();
@@ -256,7 +261,20 @@ export const FridayDuty = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Debug: Check user auth token
+      const user = auth.currentUser;
+      if (user) {
+        const tokenResult = await user.getIdTokenResult();
+        console.log('Friday Duty - User email:', user.email);
+        console.log('Friday Duty - User UID:', user.uid);
+        console.log('Friday Duty - Auth token claims:', tokenResult.claims);
+        console.log('Friday Duty - Role in token:', tokenResult.claims.role);
+      }
+      
+      console.log('Friday Duty - Attempting to save schedule data:', scheduleData);
+      console.log('Friday Duty - Collection: friday_schedules, Document: current');
       await setDoc(doc(db, 'friday_schedules', 'current'), scheduleData, { merge: true });
+      console.log('Friday Duty - Schedule data saved successfully');
 
       // Refresh leave requests to get latest data
       const updatedLeaveRequests = await getLeaveRequests();

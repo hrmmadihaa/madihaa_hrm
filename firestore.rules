@@ -169,5 +169,10 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create, update, delete: if isSuperAdmin() || isHRManager();
     }
+
+    // Friday schedules collection
+    match /friday_schedules/{scheduleId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }
