@@ -29,6 +29,9 @@ export const Bonus = () => {
   const [editingBatch, setEditingBatch] = useState<any>(null);
   const [bulkSelectedEmployees, setBulkSelectedEmployees] = useState<Set<string>>(new Set());
   const [bulkAmount, setBulkAmount] = useState('');
+  const [customAmountMode, setCustomAmountMode] = useState(false);
+  const [customAmounts, setCustomAmounts] = useState<{ [key: string]: string }>({});
+  const [dontRedistribute, setDontRedistribute] = useState(false);
 
   useEffect(() => {
     loadEmployees();
@@ -180,50 +183,94 @@ export const Bonus = () => {
   };
 
   const calculatePreview = () => {
-    if (!bonusAmount || selectedEmployees.length === 0) {
+    if (selectedEmployees.length === 0) {
       setPreviewData([]);
       return;
     }
 
-    const totalAmount = parseFloat(bonusAmount);
-    const uniqueSelectedEmployees = [...new Set(selectedEmployees)];
-    const perEmployeeAmount = totalAmount / uniqueSelectedEmployees.length;
+    if (customAmountMode) {
+      // Custom amount mode - use individual amounts
+      const preview = selectedEmployees.map(empId => {
+        const emp = employees.find(e => e.id === empId);
+        const amount = parseFloat(customAmounts[empId] || '0');
+        return {
+          employeeId: emp?.employeeId,
+          name: emp?.fullName,
+          id: empId,
+          amount: amount.toFixed(2),
+          isAdjusted: true
+        };
+      });
+      setPreviewData(preview);
+    } else if (Object.keys(adjustedAmounts).length > 0) {
+      // If adjustedAmounts exist (edit mode or after adjustments), use them directly
+      const preview = selectedEmployees.map(empId => {
+        const emp = employees.find(e => e.id === empId);
+        const amount = adjustedAmounts[empId] !== undefined ? adjustedAmounts[empId] : 0;
+        return {
+          employeeId: emp?.employeeId,
+          name: emp?.fullName,
+          id: empId,
+          amount: amount.toFixed(2),
+          isAdjusted: adjustedAmounts[empId] !== undefined
+        };
+      });
+      setPreviewData(preview);
+    } else {
+      // Equal distribution mode
+      if (!bonusAmount) {
+        setPreviewData([]);
+        return;
+      }
+      const totalAmount = parseFloat(bonusAmount);
+      const uniqueSelectedEmployees = [...new Set(selectedEmployees)];
+      const perEmployeeAmount = totalAmount / uniqueSelectedEmployees.length;
 
-    const preview = uniqueSelectedEmployees.map(empId => {
-      const emp = employees.find(e => e.id === empId);
-      const adjustedAmount = adjustedAmounts[empId];
-      return {
-        employeeId: emp?.employeeId,
-        name: emp?.fullName,
-        id: empId,
-        amount: adjustedAmount !== undefined ? adjustedAmount.toFixed(2) : perEmployeeAmount.toFixed(2),
-        isAdjusted: adjustedAmount !== undefined
-      };
-    });
+      const preview = uniqueSelectedEmployees.map(empId => {
+        const emp = employees.find(e => e.id === empId);
+        const adjustedAmount = adjustedAmounts[empId];
+        return {
+          employeeId: emp?.employeeId,
+          name: emp?.fullName,
+          id: empId,
+          amount: adjustedAmount !== undefined ? adjustedAmount.toFixed(2) : perEmployeeAmount.toFixed(2),
+          isAdjusted: adjustedAmount !== undefined
+        };
+      });
 
-    setPreviewData(preview);
+      setPreviewData(preview);
+    }
   };
 
   useEffect(() => {
-    if (!adjustmentMode) {
-      setAdjustedAmounts({});
-      setReducedEmployees(new Set());
-    }
+    console.log('State changed:', { 
+      bonusAmount, 
+      selectedEmployeesLength: selectedEmployees.length, 
+      adjustmentMode, 
+      customAmountMode, 
+      adjustedAmountsKeys: Object.keys(adjustedAmounts).length,
+      previewDataLength: previewData.length 
+    });
     calculatePreview();
-  }, [bonusAmount, selectedEmployees, adjustmentMode]);
+  }, [bonusAmount, selectedEmployees, adjustmentMode, customAmountMode, customAmounts, adjustedAmounts]);
 
   const startAdjustment = () => {
     setAdjustmentMode(true);
     setAdjustedAmounts({});
     setReducedEmployees(new Set());
+    setDontRedistribute(true); // Default to not redistributing in adjustment mode
   };
 
   const handleAmountChange = (empId: string, newAmount: number) => {
+    console.log('handleAmountChange called:', { empId, newAmount, dontRedistribute });
+    
     const totalAmount = parseFloat(bonusAmount);
     const perEmployeeAmount = totalAmount / selectedEmployees.length;
     
     const oldAmount = adjustedAmounts[empId] !== undefined ? adjustedAmounts[empId] : perEmployeeAmount;
     const difference = newAmount - oldAmount;
+    
+    console.log('Amount change details:', { oldAmount, newAmount, difference });
     
     // If reducing, mark this employee as reduced
     if (newAmount < perEmployeeAmount) {
@@ -236,13 +283,19 @@ export const Bonus = () => {
       });
     }
 
-    setAdjustedAmounts(prev => ({
-      ...prev,
-      [empId]: newAmount
-    }));
+    setAdjustedAmounts(prev => {
+      const newAmounts = { ...prev, [empId]: newAmount };
+      console.log('Updated adjustedAmounts:', newAmounts);
+      return newAmounts;
+    });
 
-    // Redistribute the difference to non-reduced employees
-    redistributeDifference(empId, difference);
+    // Redistribute the difference to non-reduced employees (only if not in dontRedistribute mode)
+    if (!dontRedistribute) {
+      console.log('Redistributing difference:', difference);
+      redistributeDifference(empId, difference);
+    } else {
+      console.log('Skipping redistribution (dontRedistribute is true)');
+    }
   };
 
   const redistributeDifference = (changedEmpId: string, difference: number) => {
@@ -369,6 +422,35 @@ export const Bonus = () => {
 
       setViewMode('create');
       setAdjustmentMode(true);
+      setDontRedistribute(true); // Default to not redistributing when editing batch
+      
+      console.log('About to generate immediate preview');
+      
+      try {
+        // Immediately generate preview data from loaded amounts
+        console.log('Generating immediate preview:', { 
+          uniqueEmployeeIdsLength: uniqueEmployeeIds.length,
+          employeesLength: employees.length,
+          firstEmployeeId: uniqueEmployeeIds[0],
+          firstEmployee: employees.find(e => e.id === uniqueEmployeeIds[0])
+        });
+        
+        const immediatePreview = uniqueEmployeeIds.map(empId => {
+          const emp = employees.find(e => e.id === empId);
+          const amount = amounts[empId] !== undefined ? amounts[empId] : 0;
+          return {
+            employeeId: emp?.employeeId,
+            name: emp?.fullName,
+            id: empId,
+            amount: amount.toFixed(2),
+            isAdjusted: true
+          };
+        });
+        setPreviewData(immediatePreview);
+        console.log('Immediate preview set:', immediatePreview.length);
+      } catch (error) {
+        console.error('Error generating immediate preview:', error);
+      }
     } catch (error) {
       console.error('Error loading batch:', error);
       alert('Error loading bonus batch');
@@ -499,26 +581,6 @@ export const Bonus = () => {
     });
   };
 
-  const toggleBulkSelection = (empId: string) => {
-    setBulkSelectedEmployees(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(empId)) {
-        newSet.delete(empId);
-      } else {
-        newSet.add(empId);
-      }
-      return newSet;
-    });
-  };
-
-  const selectAllBulk = () => {
-    setBulkSelectedEmployees(new Set([...new Set(selectedEmployees)]));
-  };
-
-  const clearBulkSelection = () => {
-    setBulkSelectedEmployees(new Set());
-  };
-
   const applyBulkAmount = () => {
     if (!bulkAmount || bulkSelectedEmployees.size === 0) return;
     
@@ -528,34 +590,46 @@ export const Bonus = () => {
     // Calculate total for selected employees
     const selectedTotal = amount * bulkSelectedEmployees.size;
     
-    // Check if selected total exceeds total amount
-    if (selectedTotal > totalAmount) {
+    // Check if selected total exceeds total amount (only if redistributing)
+    if (!dontRedistribute && selectedTotal > totalAmount) {
       alert(`Selected total (MVR ${selectedTotal.toFixed(2)}) exceeds total bonus amount (MVR ${totalAmount.toFixed(2)}). Please reduce the bulk amount.`);
       return;
     }
     
-    // Calculate remaining amount for non-selected employees
-    const remainingAmount = totalAmount - selectedTotal;
-    const nonSelectedEmployees = selectedEmployees.filter(id => !bulkSelectedEmployees.has(id));
-    const amountPerNonSelected = nonSelectedEmployees.length > 0 ? remainingAmount / nonSelectedEmployees.length : 0;
+    if (dontRedistribute) {
+      // Only apply to selected employees, don't redistribute
+      setAdjustedAmounts(prev => {
+        const newAmounts = { ...prev };
+        bulkSelectedEmployees.forEach(empId => {
+          newAmounts[empId] = amount;
+        });
+        return newAmounts;
+      });
+    } else {
+      // Calculate remaining amount for non-selected employees
+      const remainingAmount = totalAmount - selectedTotal;
+      const nonSelectedEmployees = selectedEmployees.filter(id => !bulkSelectedEmployees.has(id));
+      const amountPerNonSelected = nonSelectedEmployees.length > 0 ? remainingAmount / nonSelectedEmployees.length : 0;
+      
+      setAdjustedAmounts(prev => {
+        const newAmounts = { ...prev };
+        
+        // Apply bulk amount to selected employees
+        bulkSelectedEmployees.forEach(empId => {
+          newAmounts[empId] = amount;
+        });
+        
+        // Apply calculated amount to non-selected employees
+        nonSelectedEmployees.forEach(empId => {
+          newAmounts[empId] = amountPerNonSelected;
+        });
+        
+        return newAmounts;
+      });
+    }
     
-    setAdjustedAmounts(prev => {
-      const newAmounts = { ...prev };
-      
-      // Apply bulk amount to selected employees
-      bulkSelectedEmployees.forEach(empId => {
-        newAmounts[empId] = amount;
-      });
-      
-      // Apply calculated amount to non-selected employees
-      nonSelectedEmployees.forEach(empId => {
-        newAmounts[empId] = amountPerNonSelected;
-      });
-      
-      return newAmounts;
-    });
     setBulkAmount('');
-    setTimeout(() => calculatePreview(), 0);
+    calculatePreview();
   };
 
   const recalculateRemaining = () => {
@@ -685,7 +759,78 @@ export const Bonus = () => {
   };
 
   const handlePrintReport = () => {
-    window.print();
+    const dataToUse = previewData.length > 0 ? previewData : (
+      Object.keys(adjustedAmounts).length > 0 ? selectedEmployees.map(empId => {
+        const emp = employees.find(e => e.id === empId);
+        const amount = adjustedAmounts[empId] !== undefined ? adjustedAmounts[empId] : 0;
+        return {
+          employeeId: emp?.employeeId,
+          name: emp?.fullName,
+          id: empId,
+          amount: amount.toFixed(2),
+          isAdjusted: adjustedAmounts[empId] !== undefined
+        };
+      }) : []
+    );
+
+    const groupedByLocation: { [key: string]: { locationName: string; employees: any[] } } = {};
+    
+    dataToUse.forEach((item: any) => {
+      const emp = employees.find(e => e.id === item.id);
+      const assignedLocation = workLocations.find(loc => 
+        loc.assignedStaff?.includes(emp?.id)
+      );
+      const locationName = assignedLocation?.name || 'Unassigned';
+      
+      if (!groupedByLocation[locationName]) {
+        groupedByLocation[locationName] = {
+          locationName,
+          employees: []
+        };
+      }
+      groupedByLocation[locationName].employees.push({ ...item, locationName });
+    });
+
+    const doc = new jsPDF();
+    
+    doc.setFontSize(20);
+    doc.text('Bonus Report', 14, 20);
+    
+    doc.setFontSize(12);
+    doc.text(`Date: ${bonusDate || 'N/A'}`, 14, 30);
+    doc.text(`Description: ${description || 'N/A'}`, 14, 38);
+    doc.text(`Total Amount: MVR ${bonusAmount || '0.00'}`, 14, 46);
+    doc.text(`Total Employees: ${dataToUse.length}`, 14, 54);
+
+    let yPos = 65;
+    
+    Object.entries(groupedByLocation).forEach(([, locationData]) => {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Location: ${locationData.locationName} (${locationData.employees.length} employees)`, 14, yPos);
+      yPos += 10;
+      
+      const tableData = locationData.employees.map((emp: any) => [
+        emp.employeeId || emp.id,
+        emp.name,
+        emp.locationName,
+        `MVR ${emp.amount}`
+      ]);
+      
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Employee ID', 'Name', 'Work Location', 'Amount']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246] },
+        styles: { fontSize: 9 }
+      });
+      
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+    });
+
+    doc.autoPrint();
+    window.open(doc.output('bloburl'), '_blank');
   };
 
   const handlePrintBatch = (bonus: any) => {
@@ -809,22 +954,43 @@ export const Bonus = () => {
   };
 
   const handleSave = async () => {
-    if (!bonusAmount || selectedEmployees.length === 0) {
-      alert('Please enter a bonus amount and select at least one employee');
+    if (selectedEmployees.length === 0) {
+      alert('Please select at least one employee');
       return;
+    }
+
+    if (customAmountMode) {
+      // Validate custom amounts
+      const hasInvalidAmount = selectedEmployees.some(empId => {
+        const amount = parseFloat(customAmounts[empId] || '0');
+        return isNaN(amount) || amount <= 0;
+      });
+      if (hasInvalidAmount) {
+        alert('Please enter valid amounts for all selected employees');
+        return;
+      }
+    } else {
+      if (!bonusAmount) {
+        alert('Please enter a bonus amount');
+        return;
+      }
     }
 
     setSaving(true);
     try {
-      const totalAmount = parseFloat(bonusAmount);
+      const totalAmount = customAmountMode 
+        ? selectedEmployees.reduce((sum, empId) => sum + parseFloat(customAmounts[empId] || '0'), 0)
+        : parseFloat(bonusAmount);
+      
       // Generate unique batch ID
       const batchId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Save bonus record for each employee with their adjusted amount
+      // Save bonus record for each employee
       for (const empId of selectedEmployees) {
         const emp = employees.find(e => e.id === empId);
-        const perEmployeeAmount = totalAmount / selectedEmployees.length;
-        const finalAmount = adjustedAmounts[empId] !== undefined ? adjustedAmounts[empId] : perEmployeeAmount;
+        const finalAmount = customAmountMode 
+          ? parseFloat(customAmounts[empId] || '0')
+          : (adjustedAmounts[empId] !== undefined ? adjustedAmounts[empId] : totalAmount / selectedEmployees.length);
         
         await addDoc(collection(db, 'bonuses'), {
           employeeId: empId,
@@ -836,7 +1002,7 @@ export const Bonus = () => {
           createdAt: Timestamp.now(),
           totalBonusAmount: totalAmount,
           distributedAmong: selectedEmployees.length,
-          wasAdjusted: adjustedAmounts[empId] !== undefined,
+          wasAdjusted: customAmountMode || adjustedAmounts[empId] !== undefined,
           batchId
         });
       }
@@ -849,6 +1015,8 @@ export const Bonus = () => {
       setAdjustmentMode(false);
       setAdjustedAmounts({});
       setReducedEmployees(new Set());
+      setCustomAmountMode(false);
+      setCustomAmounts({});
     } catch (error) {
       console.error('Error saving bonus:', error);
       alert('Error saving bonus. Please try again.');
@@ -1142,20 +1310,46 @@ export const Bonus = () => {
             <CardContent className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-1">
-                  Total Bonus Amount (MVR) *
+                  Distribution Mode
                 </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm font-medium text-secondary-400">MVR</span>
-                  <input
-                    type="number"
-                    value={bonusAmount}
-                    onChange={(e) => setBonusAmount(e.target.value)}
-                    className="w-full pl-12 pr-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="Enter total amount"
-                    step="0.01"
-                  />
+                <div className="flex gap-2">
+                  <Button
+                    variant={!customAmountMode ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => setCustomAmountMode(false)}
+                    className="flex-1"
+                  >
+                    Equal Distribution
+                  </Button>
+                  <Button
+                    variant={customAmountMode ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => setCustomAmountMode(true)}
+                    className="flex-1"
+                  >
+                    Custom Amounts
+                  </Button>
                 </div>
               </div>
+
+              {!customAmountMode && (
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">
+                    Total Bonus Amount (MVR) *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm font-medium text-secondary-400">MVR</span>
+                    <input
+                      type="number"
+                      value={bonusAmount}
+                      onChange={(e) => setBonusAmount(e.target.value)}
+                      className="w-full pl-12 pr-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      placeholder="Enter total amount"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-1">
@@ -1185,17 +1379,28 @@ export const Bonus = () => {
                 />
               </div>
 
-              {selectedEmployees.length > 0 && bonusAmount && (
+              {selectedEmployees.length > 0 && (
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <p className="text-sm font-medium text-secondary-900 mb-2">
                     Distribution Summary:
                   </p>
                   <div className="space-y-1 text-sm text-secondary-700">
-                    <p>Total Amount: MVR {parseFloat(bonusAmount).toFixed(2)}</p>
-                    <p>Employees: {selectedEmployees.length}</p>
-                    <p className="font-semibold text-primary-700">
-                      Amount per Employee: MVR {(parseFloat(bonusAmount) / selectedEmployees.length).toFixed(2)}
-                    </p>
+                    {!customAmountMode && bonusAmount ? (
+                      <>
+                        <p>Total Amount: MVR {parseFloat(bonusAmount).toFixed(2)}</p>
+                        <p>Employees: {selectedEmployees.length}</p>
+                        <p className="font-semibold text-primary-700">
+                          Amount per Employee: MVR {(parseFloat(bonusAmount) / selectedEmployees.length).toFixed(2)}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p>Employees: {selectedEmployees.length}</p>
+                        <p className="font-semibold text-primary-700">
+                          Total Amount: MVR {selectedEmployees.reduce((sum, empId) => sum + parseFloat(customAmounts[empId] || '0'), 0).toFixed(2)}
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -1215,7 +1420,7 @@ export const Bonus = () => {
               {!adjustmentMode && (
                 <Button
                   onClick={editingBatch ? handleUpdateBatch : handleSave}
-                  disabled={saving || !bonusAmount || selectedEmployees.length === 0}
+                  disabled={saving || (!customAmountMode && (!bonusAmount || selectedEmployees.length === 0)) || (customAmountMode && selectedEmployees.length === 0)}
                   className="w-full"
                 >
                   {saving ? (
@@ -1245,28 +1450,26 @@ export const Bonus = () => {
           </Card>
 
           {/* Preview */}
-          {previewData.length > 0 && (
+          {(previewData.length > 0 || editingBatch) && (
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-secondary-900">Preview</h2>
                   <div className="flex gap-2">
                     {!adjustmentMode && (
-                      <>
-                        <Button variant="secondary" size="sm" onClick={startAdjustment}>
-                          <Edit className="w-4 h-4 mr-2" />
-                          Adjust Amounts
-                        </Button>
-                        <Button variant="secondary" size="sm" onClick={handlePrintReport}>
-                          <Printer className="w-4 h-4 mr-2" />
-                          Print
-                        </Button>
-                        <Button variant="secondary" size="sm" onClick={handleDownloadPDF}>
-                          <Download className="w-4 h-4 mr-2" />
-                          PDF
-                        </Button>
-                      </>
+                      <Button variant="secondary" size="sm" onClick={startAdjustment}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Adjust Amounts
+                      </Button>
                     )}
+                    <Button variant="secondary" size="sm" onClick={handlePrintReport}>
+                      <Printer className="w-4 h-4 mr-2" />
+                      Print
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={handleDownloadPDF}>
+                      <Download className="w-4 h-4 mr-2" />
+                      PDF
+                    </Button>
                     {adjustmentMode && (
                       <div className="flex gap-2">
                         <Button variant="secondary" size="sm" onClick={resetAdjustments}>
@@ -1289,10 +1492,36 @@ export const Bonus = () => {
               <CardContent>
                 <div className="max-h-96 overflow-y-auto">
                   {(() => {
+                    console.log('Preview rendering:', { 
+                      previewDataLength: previewData.length, 
+                      adjustmentMode, 
+                      customAmountMode,
+                      firstPreviewItem: previewData[0],
+                      selectedEmployeesLength: selectedEmployees.length,
+                      adjustedAmountsKeys: Object.keys(adjustedAmounts).length
+                    });
+                    
+                    // Use previewData if available, otherwise generate from selectedEmployees and adjustedAmounts
+                    const dataToRender = previewData.length > 0 ? previewData : (
+                      Object.keys(adjustedAmounts).length > 0 ? selectedEmployees.map(empId => {
+                        const emp = employees.find(e => e.id === empId);
+                        const amount = adjustedAmounts[empId] !== undefined ? adjustedAmounts[empId] : 0;
+                        return {
+                          employeeId: emp?.employeeId,
+                          name: emp?.fullName,
+                          id: empId,
+                          amount: amount.toFixed(2),
+                          isAdjusted: adjustedAmounts[empId] !== undefined
+                        };
+                      }) : []
+                    );
+                    
+                    console.log('Data to render:', dataToRender.length);
+                    
                     // Group preview data by work location
                     const groupedByLocation: { [key: string]: { locationName: string; employees: any[] } } = {};
                     
-                    previewData.forEach((item) => {
+                    dataToRender.forEach((item) => {
                       const emp = employees.find(e => e.id === item.id);
                       const assignedLocation = workLocations.find(loc => 
                         loc.assignedStaff?.includes(emp?.id)
@@ -1317,16 +1546,6 @@ export const Bonus = () => {
                         <table className="w-full">
                           <thead>
                             <tr className="border-b border-secondary-200">
-                              {adjustmentMode && (
-                                <th className="text-center py-2 px-3 text-sm font-medium text-secondary-700 w-10">
-                                  <input
-                                    type="checkbox"
-                                    checked={bulkSelectedEmployees.size === [...new Set(selectedEmployees)].length && [...new Set(selectedEmployees)].length > 0}
-                                    onChange={(e) => e.target.checked ? selectAllBulk() : clearBulkSelection()}
-                                    className="w-4 h-4"
-                                  />
-                                </th>
-                              )}
                               <th className="text-left py-2 px-3 text-sm font-medium text-secondary-700">Employee ID</th>
                               <th className="text-left py-2 px-3 text-sm font-medium text-secondary-700">Name</th>
                               <th className="text-right py-2 px-3 text-sm font-medium text-secondary-700">Amount</th>
@@ -1338,36 +1557,52 @@ export const Bonus = () => {
                           <tbody>
                             {locationData.employees.map((item) => (
                               <tr key={item.id} className="border-b border-secondary-100">
-                                {adjustmentMode && (
-                                  <td className="py-2 px-3 text-sm text-center">
-                                    <input
-                                      type="checkbox"
-                                      checked={bulkSelectedEmployees.has(item.id)}
-                                      onChange={() => toggleBulkSelection(item.id)}
-                                      className="w-4 h-4"
-                                    />
-                                  </td>
-                                )}
                                 <td className="py-2 px-3 text-sm text-secondary-600">{item.employeeId}</td>
                                 <td className="py-2 px-3 text-sm text-secondary-900">{item.name}</td>
                                 <td className="py-2 px-3 text-sm text-secondary-900 text-right">
-                                  {adjustmentMode ? (
-                                    <input
-                                      type="number"
-                                      value={item.amount}
-                                      onChange={(e) => handleAmountChange(item.id, parseFloat(e.target.value) || 0)}
-                                      step="0.01"
-                                      className={`w-24 text-right px-2 py-1 border rounded ${
-                                        item.isAdjusted 
-                                          ? 'border-primary-500 bg-primary-50' 
-                                          : 'border-secondary-300'
-                                      }`}
-                                    />
-                                  ) : (
-                                    <span className={`font-medium ${item.isAdjusted ? 'text-primary-700' : ''}`}>
-                                      MVR {item.amount}
-                                    </span>
-                                  )}
+                                  {(() => {
+                                    console.log('Render check:', { 
+                                      customAmountMode, 
+                                      adjustmentMode, 
+                                      empId: item.id, 
+                                      adjustedAmount: adjustedAmounts[item.id],
+                                      itemAmount: item.amount 
+                                    });
+                                    
+                                    if (customAmountMode) {
+                                      return (
+                                        <input
+                                          type="number"
+                                          value={customAmounts[item.id] || ''}
+                                          onChange={(e) => setCustomAmounts(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                          step="0.01"
+                                          min="0"
+                                          className="w-24 text-right px-2 py-1 border border-secondary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                          placeholder="0.00"
+                                        />
+                                      );
+                                    } else if (adjustmentMode) {
+                                      return (
+                                        <input
+                                          type="number"
+                                          value={adjustedAmounts[item.id] !== undefined ? adjustedAmounts[item.id] : item.amount}
+                                          onChange={(e) => handleAmountChange(item.id, parseFloat(e.target.value) || 0)}
+                                          step="0.01"
+                                          className={`w-24 text-right px-2 py-1 border rounded ${
+                                            adjustedAmounts[item.id] !== undefined
+                                              ? 'border-primary-500 bg-primary-50' 
+                                              : 'border-secondary-300'
+                                          }`}
+                                        />
+                                      );
+                                    } else {
+                                      return (
+                                        <span className={`font-medium ${item.isAdjusted ? 'text-primary-700' : ''}`}>
+                                          MVR {item.amount}
+                                        </span>
+                                      );
+                                    }
+                                  })()}
                                 </td>
                                 {editingBatch && (
                                   <td className="py-2 px-3 text-sm text-right">
@@ -1395,6 +1630,18 @@ export const Bonus = () => {
                         <p className="text-sm font-medium text-purple-900 mb-3">
                           Bulk Adjustment ({bulkSelectedEmployees.size} selected)
                         </p>
+                        <div className="flex items-center gap-2 mb-3">
+                          <input
+                            type="checkbox"
+                            id="dontRedistribute"
+                            checked={dontRedistribute}
+                            onChange={(e) => setDontRedistribute(e.target.checked)}
+                            className="w-4 h-4 text-primary-600 rounded"
+                          />
+                          <label htmlFor="dontRedistribute" className="text-sm text-purple-800">
+                            Don't redistribute remaining amount to other employees
+                          </label>
+                        </div>
                         <div className="flex gap-2 items-center">
                           <div className="relative flex-1">
                             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm font-medium text-secondary-400">MVR</span>
