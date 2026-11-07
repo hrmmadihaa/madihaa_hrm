@@ -10,6 +10,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
 import type { LeaveRequest, LeaveType } from '../types';
 import * as XLSX from 'xlsx';
+import { auth } from '../lib/firebase';
 
 export const Leave = () => {
   const { user } = useAuth();
@@ -846,11 +847,31 @@ export const Leave = () => {
   const handleDeleteLeave = async (request: LeaveRequest) => {
     try {
       setDeleteSubmitting(true);
+      
+      console.log('Leave - Attempting to delete leave request:', {
+        leaveId: request.id,
+        employeeId: request.employeeId,
+        type: request.type,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        status: request.status,
+        user: auth.currentUser?.email,
+        userUid: auth.currentUser?.uid
+      });
+      
       await deleteLeaveRequest(request.id);
+      
+      console.log('Leave - Leave request deleted successfully:', {
+        leaveId: request.id
+      });
+      
       setDeleteModal({ show: false, request: null });
       loadData();
     } catch (error) {
-      console.error('Error deleting leave:', error);
+      console.error('Leave - Error deleting leave:', {
+        leaveId: request.id,
+        error: error
+      });
       alert('Error deleting leave request');
     } finally {
       setDeleteSubmitting(false);
@@ -860,13 +881,28 @@ export const Leave = () => {
   const handleBulkDeleteLeaves = async () => {
     setBulkDeleteSubmitting(true);
     try {
+      console.log('Leave - Attempting bulk delete of leave requests:', {
+        count: selectedRequests.size,
+        leaveIds: Array.from(selectedRequests),
+        user: auth.currentUser?.email,
+        userUid: auth.currentUser?.uid
+      });
+      
       await bulkDeleteLeaveRequests(Array.from(selectedRequests));
+      
+      console.log('Leave - Bulk delete completed successfully:', {
+        count: selectedRequests.size
+      });
+      
       await loadData();
       setSelectedRequests(new Set());
       setBulkDeleteModal({ show: false });
       alert('Leave requests deleted successfully!');
     } catch (error) {
-      console.error('Error deleting leave requests:', error);
+      console.error('Leave - Error deleting leave requests:', {
+        count: selectedRequests.size,
+        error: error
+      });
       alert('Failed to delete leave requests. Please try again.');
     } finally {
       setBulkDeleteSubmitting(false);

@@ -239,16 +239,47 @@ export const FridayDuty = () => {
   }, [getFridays, employees, leaveRequests]);
 
   const handleStatusChange = (dateString: string, empId: string, status: 'On' | 'Off' | 'Holiday') => {
+    const employee = employees.find(emp => emp.empId === empId);
+    const oldStatus = scheduleData[dateString]?.[empId]?.status || 'On';
+    
+    console.log('Friday Duty - Status change:', {
+      date: dateString,
+      employeeId: empId,
+      employeeName: employee?.fullName || 'Unknown',
+      oldStatus,
+      newStatus: status,
+      user: auth.currentUser?.email
+    });
+    
     setScheduleData(prev => {
       const updated = { ...prev };
       if (!updated[dateString]) updated[dateString] = {};
       if (!updated[dateString][empId]) updated[dateString][empId] = { status: 'On', remarks: '' };
       updated[dateString][empId].status = status;
+      
+      console.log('Friday Duty - Updated scheduleData for this change:', {
+        date: dateString,
+        empId,
+        entry: updated[dateString][empId]
+      });
+      
       return updated;
     });
   };
 
   const handleRemarksChange = (dateString: string, empId: string, remarks: string) => {
+    const employee = employees.find(emp => emp.empId === empId);
+    const oldRemarks = scheduleData[dateString]?.[empId]?.remarks || '';
+    
+    console.log('Friday Duty - Remarks change:', {
+      date: dateString,
+      employeeId: empId,
+      employeeName: employee?.fullName || 'Unknown',
+      oldRemarks,
+      newRemarks: remarks,
+      user: auth.currentUser?.email
+    });
+    
     setScheduleData(prev => {
       const updated = { ...prev };
       if (!updated[dateString]) updated[dateString] = {};
@@ -273,6 +304,26 @@ export const FridayDuty = () => {
       
       console.log('Friday Duty - Attempting to save schedule data:', scheduleData);
       console.log('Friday Duty - Collection: friday_schedules, Document: current');
+      
+      // Log summary of changes
+      const changeSummary = {
+        totalDates: Object.keys(scheduleData).length,
+        totalEntries: Object.values(scheduleData).reduce((sum, day) => sum + Object.keys(day).length, 0),
+        offCount: 0,
+        onCount: 0,
+        holidayCount: 0
+      };
+      
+      Object.values(scheduleData).forEach(day => {
+        Object.values(day).forEach(entry => {
+          if (entry.status === 'Off') changeSummary.offCount++;
+          else if (entry.status === 'On') changeSummary.onCount++;
+          else if (entry.status === 'Holiday') changeSummary.holidayCount++;
+        });
+      });
+      
+      console.log('Friday Duty - Change summary:', changeSummary);
+      
       await setDoc(doc(db, 'friday_schedules', 'current'), scheduleData, { merge: true });
       console.log('Friday Duty - Schedule data saved successfully');
 
@@ -310,6 +361,12 @@ export const FridayDuty = () => {
           if (entry.status === 'Off') {
             // Create leave request if it doesn't exist
             if (!existingLeave) {
+              console.log('Friday Duty - Creating leave request for:', {
+                employeeId: employee.id,
+                employeeName: employee.fullName,
+                date: dateString,
+                remarks: entry.remarks
+              });
               await createLeaveRequest({
                 employeeId: employee.id,
                 type: 'off_day',
@@ -329,10 +386,24 @@ export const FridayDuty = () => {
                   actionDate: new Date()
                 }]
               });
+              console.log('Friday Duty - Leave request created successfully');
+            } else {
+              console.log('Friday Duty - Leave request already exists for:', {
+                employeeId: employee.id,
+                employeeName: employee.fullName,
+                date: dateString
+              });
             }
           } else if (entry.status === 'On' && existingLeave) {
             // Delete leave request if employee is marked as "On"
+            console.log('Friday Duty - Deleting leave request for:', {
+              employeeId: employee.id,
+              employeeName: employee.fullName,
+              date: dateString,
+              leaveId: existingLeave.id
+            });
             await deleteLeaveRequest(existingLeave.id);
+            console.log('Friday Duty - Leave request deleted successfully');
           }
         }
       }
