@@ -180,5 +180,24 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create, update, delete: if isSuperAdmin() || isHRManager();
     }
+
+    // Petrol requests collection
+    match /petrol_requests {
+      allow list: if isSupervisor();
+    }
+    match /petrol_requests/{requestId} {
+      allow read: if isSupervisor();
+      allow create: if isSupervisor();
+      allow update, delete: if isSuperAdmin() || isHRManager();
+    }
+
+    // Vehicles collection
+    match /vehicles {
+      allow list: if isSupervisor();
+    }
+    match /vehicles/{vehicleId} {
+      allow read: if isSupervisor();
+      allow create, update, delete: if isSuperAdmin() || isHRManager();
+    }
   }
 }

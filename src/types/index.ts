@@ -930,3 +930,32 @@ export interface DisciplinaryAction {
 export type DisciplinaryType = 'verbal_warning' | 'written_warning_1' | 'written_warning_2' | 'written_warning_3' | 'final_warning' | 'termination';
 export type DisciplinarySeverity = 'minor' | 'moderate' | 'serious' | 'severe';
 export type DisciplinaryStatus = 'pending' | 'investigation' | 'confirmed' | 'appealed' | 'resolved';
+
+// Petrol Request Types
+export interface PetrolRequest {
+  id: string;
+  requestDate: Date;
+  vehicleNumber: string;
+  vehicleType: string;
+  driverName: string;
+  driverEmployeeId?: string;
+  kmStart: number;
+  kmEnd: number;
+  drivenKm: number;
+  petrolAmount: number;
+  receiptNumber?: string;
+  requestedBy: string;
+  approvedBy?: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export interface Vehicle {
+  regNo: string;
+  type: string;
+  make?: string;
+  model?: string;
+  year?: string;
+  status?: 'active' | 'inactive' | 'maintenance';
+}
