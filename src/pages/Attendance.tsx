@@ -59,6 +59,7 @@ export const Attendance = () => {
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
   const [uploadDate, setUploadDate] = useState('');
+  const [uploadType, setUploadType] = useState<'regular' | 'friday'>('regular');
   const [dailyReportDate, setDailyReportDate] = useState('');
   const [showDailyReport, setShowDailyReport] = useState(false);
   const [dailyReportData, setDailyReportData] = useState<any[]>([]);
@@ -503,8 +504,9 @@ export const Attendance = () => {
         const sheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(sheet, { raw: false });
 
-        // Process attendance data to group by employee and find first/last punch
-        const { attendanceRecords, missingStaff } = processAttendanceData(jsonData, uploadDate);
+        // Process attendance data based on upload type
+        const processor = uploadType === 'friday' ? processFridayAttendanceData : processAttendanceData;
+        const { attendanceRecords, missingStaff } = processor(jsonData, uploadDate);
         setAttendanceData(attendanceRecords);
         setMissingStaff(missingStaff);
       } catch (error) {
@@ -531,8 +533,9 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
   const nextDateKey = nextDate.toISOString().split('T')[0];
 
   let recordsFound = false;
+  const availableDates = new Set<string>();
 
-  rawData.forEach((row: any) => {
+    rawData.forEach((row: any) => {
     const empId = row['User No.']?.toString().trim() || row['Employee ID']?.toString().trim();
     const name = row['Name']?.toString().trim();
     const dateTimeStr = row['Date/Time']?.toString().trim();
@@ -573,10 +576,12 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
       // Use UTC methods to avoid timezone offset issues
       const excelDate = new Date(Date.UTC(year, month, day));
       const excelDateKey = excelDate.toISOString().split('T')[0];
+      availableDates.add(excelDateKey);
 
       // Check if it matches selected date
       if (excelDateKey === targetDateKey) {
         // Same day, include it
+        recordsFound = true;
       } else if (excelDateKey === nextDateKey) {
         // Next day - only include if time is before 4 AM
         const hour = parseInt(timeStr.split(':')[0]) || 0;
@@ -584,13 +589,14 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
           return; // Skip if it's 4 AM or later on next day
         }
         isNextDayEarlyPunch = true;
+        recordsFound = true;
       } else {
         // Not the selected day or next day, skip
         return;
       }
+    } else {
+      return; // Skip if no valid date format
     }
-
-    recordsFound = true;
 
     // Infer status from time:
     // - Check-in (0): before 12 PM on the same day
@@ -651,7 +657,8 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
     });
 
   if (!recordsFound) {
-    throw new Error(`No attendance data found for ${selectedDate} in the Excel file`);
+    const datesList = Array.from(availableDates).sort().join(', ');
+    throw new Error(`No attendance data found for ${selectedDate} in the Excel file. Available dates in file: ${datesList || 'none'}`);
   }
 
     // For each employee, find first/last punch with time-based filters
@@ -662,8 +669,8 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
       sortedDates.forEach((dateKey, index) => {
         const dailyRecord = empData.dailyRecords.get(dateKey);
 
-        // Find first check-in of the day (only at or after 5 AM)
-        const allCheckIns = dailyRecord.punches.filter((p: any) => p.status === 0 && p.time.getHours() >= 5);
+        // Find first check-in of the day (no time filter for display - show earliest punch)
+        const allCheckIns = dailyRecord.punches.filter((p: any) => p.status === 0);
         allCheckIns.sort((a: any, b: any) => a.time.getTime() - b.time.getTime());
         const firstCheckIn = allCheckIns.length > 0 ? allCheckIns[0].time : null;
 
@@ -700,20 +707,22 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
       });
 
       // After processing all days, set overall first/last punch
-      // First punch: earliest check-in across all days (at or after 5 AM)
+      // First punch: earliest check-in across all days (no time filter)
       let earliestCheckIn: Date | null = null;
-      empData.dailyAttendance.forEach((dayRecord: any) => {
-        if (dayRecord.firstCheckIn && (!earliestCheckIn || dayRecord.firstCheckIn < earliestCheckIn)) {
-          earliestCheckIn = dayRecord.firstCheckIn;
-        }
+      empData.dailyRecords.forEach((dailyRecord: any) => {
+        dailyRecord.punches.forEach((punch: any) => {
+          if (punch.status === 0 && (!earliestCheckIn || punch.time < earliestCheckIn)) {
+            earliestCheckIn = punch.time;
+          }
+        });
       });
       empData.firstPunch = earliestCheckIn;
 
-      // Last punch: find the latest check-out after 5 PM (17:00) or before 5 AM next day
+      // Last punch: find the latest check-out (no time filter for display)
       let latestCheckOut: Date | null = null;
       empData.dailyRecords.forEach((dailyRecord: any) => {
         dailyRecord.punches.forEach((punch: any) => {
-          if (punch.status === 1 && (punch.time.getHours() >= 17 || punch.time.getHours() < 5) && (!latestCheckOut || punch.time > latestCheckOut)) {
+          if (punch.status === 1 && (!latestCheckOut || punch.time > latestCheckOut)) {
             latestCheckOut = punch.time;
           }
         });
@@ -839,6 +848,267 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
     return { attendanceRecords, missingStaff };
   };
 
+const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
+  const employeeMap = new Map<string, any>();
+  const punchedEmployeeIds = new Set<string>();
+
+  // Parse the selected date for filtering (use UTC to avoid timezone issues)
+  const targetDate = new Date(selectedDate + 'T00:00:00Z');
+  const targetDateKey = targetDate.toISOString().split('T')[0];
+
+  let recordsFound = false;
+  const availableDates = new Set<string>();
+
+  rawData.forEach((row: any) => {
+    const empId = row['User No.']?.toString().trim() || row['Employee ID']?.toString().trim();
+    const name = row['Name']?.toString().trim();
+    const dateTimeStr = row['Date/Time']?.toString().trim();
+
+    // Parse combined date/time (e.g., "11/1/26 8:03")
+    if (!dateTimeStr) return;
+
+    const dateTimeParts = dateTimeStr.split(' ');
+    const dateStr = dateTimeParts[0];
+    const timeStr = dateTimeParts[1] || '00:00';
+
+    // Parse date from Excel to check if it matches selected date
+    // Excel format can be either MM/DD/YY or DD/MM/YY - detect automatically
+    if (dateStr && dateStr.includes('/')) {
+      const dateParts = dateStr.split('/');
+      let month, day, year;
+      year = parseInt(dateParts[2]);
+
+      if (year < 100) {
+        year += 2000;
+      }
+
+      // Detect format: if first part > 12, it's DD/MM/YY; otherwise MM/DD/YY
+      const firstPart = parseInt(dateParts[0]);
+      const secondPart = parseInt(dateParts[1]);
+
+      if (firstPart > 12) {
+        // DD/MM/YY format
+        day = firstPart;
+        month = secondPart - 1; // JavaScript months are 0-indexed
+      } else {
+        // MM/DD/YY format
+        month = firstPart - 1; // JavaScript months are 0-indexed
+        day = secondPart;
+      }
+
+      // Use UTC methods to avoid timezone offset issues
+      const excelDate = new Date(Date.UTC(year, month, day));
+      const excelDateKey = excelDate.toISOString().split('T')[0];
+      availableDates.add(excelDateKey);
+
+      // Check if it matches selected date (Friday)
+      if (excelDateKey === targetDateKey) {
+        // Same day (Friday), check if time is >= 13:00
+        const hour = parseInt(timeStr.split(':')[0]) || 0;
+        if (hour < 13) {
+          return; // Skip if before 13:00 on Friday (belongs to Saturday)
+        }
+        recordsFound = true;
+      } else {
+        // Not the selected date, skip
+        return;
+      }
+    } else {
+      return; // Skip if no valid date format
+    }
+
+    // Parse time
+    const [timeHour, timeMinute] = timeStr.split(':').map(Number);
+    const hour = timeHour || 0;
+
+    // Infer status from time:
+    // - Check-in (0): before 6 PM on Friday
+    // - Check-out (1): after 6 PM on Friday
+    const status = hour < 18 ? 0 : 1;
+
+    if (!empId || !timeStr) return;
+
+    // Combine date with time from Excel
+    const punchDate = new Date(targetDate);
+    punchDate.setHours(parseInt(timeHour), parseInt(timeMinute), 0, 0);
+
+    // Get the date key (YYYY-MM-DD) for grouping
+    const dateKey = targetDate.toISOString().split('T')[0];
+      if (!employeeMap.has(empId)) {
+        employeeMap.set(empId, {
+          empId,
+          name: name,
+          department: row['Department'],
+          dailyRecords: new Map<string, any>(),
+          firstPunch: null,
+          lastPunch: null,
+          totalPunches: 0,
+          isLate: false
+        });
+      }
+
+      const empData = employeeMap.get(empId);
+
+      // Initialize daily record if not exists
+      if (!empData.dailyRecords.has(dateKey)) {
+        empData.dailyRecords.set(dateKey, {
+          firstCheckIn: null,
+          lastCheckOut: null,
+          punches: []
+        });
+      }
+
+      const dailyRecord = empData.dailyRecords.get(dateKey);
+      dailyRecord.punches.push({ time: punchDate, status });
+
+      // Update first check-in (status 0)
+      if (status === 0 && (!dailyRecord.firstCheckIn || punchDate < dailyRecord.firstCheckIn)) {
+        dailyRecord.firstCheckIn = punchDate;
+      }
+
+      // Update last check-out (status 1)
+      if (status === 1 && (!dailyRecord.lastCheckOut || punchDate > dailyRecord.lastCheckOut)) {
+        dailyRecord.lastCheckOut = punchDate;
+      }
+
+      // Update total punches
+      empData.totalPunches++;
+    });
+
+  if (!recordsFound) {
+    const datesList = Array.from(availableDates).sort().join(', ');
+    throw new Error(`No attendance data found for ${selectedDate} in the Excel file. Available dates in file: ${datesList || 'none'}`);
+  }
+
+  // For each employee, find first/last punch with Friday-specific filters
+  employeeMap.forEach((empData) => {
+    const sortedDates = Array.from(empData.dailyRecords.keys()).sort();
+    empData.dailyAttendance = [];
+
+    sortedDates.forEach((dateKey) => {
+      const dailyRecord = empData.dailyRecords.get(dateKey);
+
+      // Find first check-in of the day (no time filter for display - show earliest punch)
+      const allCheckIns = dailyRecord.punches.filter((p: any) => p.status === 0);
+      allCheckIns.sort((a: any, b: any) => a.time.getTime() - b.time.getTime());
+      const firstCheckIn = allCheckIns.length > 0 ? allCheckIns[0].time : null;
+
+      // Find last check-out after 6 PM on Friday (18:00)
+      const eveningCheckOuts = dailyRecord.punches.filter((p: any) => 
+        p.status === 1 && 
+        p.time.getHours() >= 18
+      );
+      eveningCheckOuts.sort((a: any, b: any) => b.time.getTime() - a.time.getTime());
+      let lastCheckOut = eveningCheckOuts.length > 0 ? eveningCheckOuts[0].time : null;
+
+      empData.dailyAttendance.push({
+        date: dateKey,
+        firstCheckIn,
+        lastCheckOut,
+        punches: dailyRecord.punches
+      });
+    });
+
+    // After processing, set overall first/last punch
+    // First punch: earliest check-in across all days (no time filter)
+    let earliestCheckIn: Date | null = null;
+    empData.dailyRecords.forEach((dailyRecord: any) => {
+      dailyRecord.punches.forEach((punch: any) => {
+        if (punch.status === 0 && (!earliestCheckIn || punch.time < earliestCheckIn)) {
+          earliestCheckIn = punch.time;
+        }
+      });
+    });
+    empData.firstPunch = earliestCheckIn;
+
+    // Last punch: find the latest check-out (no time filter for display)
+    let latestCheckOut: Date | null = null;
+    empData.dailyRecords.forEach((dailyRecord: any) => {
+      dailyRecord.punches.forEach((punch: any) => {
+        if (punch.status === 1 && (!latestCheckOut || punch.time > latestCheckOut)) {
+          latestCheckOut = punch.time;
+        }
+      });
+    });
+    empData.lastPunch = latestCheckOut;
+  });
+
+  // Check if first punch is late based on Friday threshold (14:00 default)
+  employeeMap.forEach((empData) => {
+    let employee = employees.find(emp =>
+      (emp.employeeId?.trim() || emp.employeeId) === (empData.empId?.trim() || empData.empId)
+    );
+
+    if (!employee && empData.empId) {
+      employee = employees.find(emp =>
+        emp.employeeId?.includes(empData.empId)
+      );
+    }
+
+    if (employee) {
+      punchedEmployeeIds.add(employee.id);
+      empData.employeeId = employee.employeeId || empData.empId; // Use actual employeeId, not Firebase document ID
+      empData.firebaseEmployeeId = employee.id; // Store Firebase ID separately
+      
+      const location = workLocations.find(loc => loc.assignedStaff?.includes(employee.id));
+      if (location) {
+        empData.workLocation = location.name;
+        empData.workLocationId = location.id;
+
+        // Friday late threshold (default 14:00)
+        const threshold = location.lateThresholdFriday || '14:00';
+        const [thresholdHour, thresholdMinute] = threshold.split(':').map(Number);
+        
+        if (empData.firstPunch) {
+          const hours = empData.firstPunch.getHours();
+          const minutes = empData.firstPunch.getMinutes();
+          
+          // Check if time is after the Friday late threshold
+          if (hours > thresholdHour || (hours === thresholdHour && minutes > thresholdMinute)) {
+            empData.isLate = true;
+          }
+        }
+      } else {
+        empData.workLocation = 'Not Found';
+        empData.workLocationId = null;
+      }
+    } else {
+      empData.workLocation = 'Not Found';
+      empData.workLocationId = null;
+      empData.employeeId = null;
+    }
+  });
+    
+  // Find missing staff (employees assigned to work locations who didn't punch)
+  // On Friday, missing staff might be OFF - mark them appropriately
+  const missingStaff = employees
+    .filter(emp => {
+      if (emp.status !== 'active') return false;
+      const hasLocation = workLocations.some(loc => loc.assignedStaff?.includes(emp.id));
+      if (!hasLocation) return false;
+      return !punchedEmployeeIds.has(emp.id);
+    })
+    .map(emp => {
+      const location = workLocations.find(loc => loc.assignedStaff?.includes(emp.id));
+      return {
+        empId: emp.employeeId,
+        name: emp.fullName,
+        department: emp.department || 'N/A',
+        workLocation: location?.name || 'Unassigned',
+        workLocationId: location?.id,
+        employeeId: emp.id,
+        isMissing: true,
+        firstPunch: null,
+        lastPunch: null,
+        totalPunches: 0,
+        isOff: true // Mark as potentially OFF on Friday
+      };
+    });
+    
+  const attendanceRecords = Array.from(employeeMap.values());
+  return { attendanceRecords, missingStaff };
+};
+
   const handleEditRow = (empId: string, firstPunch: Date | null, lastPunch: Date | null) => {
     setEditingRow(empId);
     setEditedFirstPunch(firstPunch ? new Date(firstPunch).toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '');
@@ -929,6 +1199,10 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
   };
 
   const handleSaveAllToFirebase = async () => {
+    console.log(`[Save to Firebase] Starting save for ${attendanceData.length} records`);
+    console.log(`[Save to Firebase] Upload type: ${uploadType}`);
+    console.log(`[Save to Firebase] Upload date: ${uploadDate}`);
+
     if (!confirm(`Are you sure you want to save ${attendanceData.length} attendance records to Firebase?`)) {
       return;
     }
@@ -947,7 +1221,8 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
 
         try {
           // Use the selected upload date as the attendance date, not the first punch time
-          const attendanceDate = uploadDate ? new Date(uploadDate) : (emp.firstPunch ? new Date(emp.firstPunch) : new Date());
+          // Use UTC to ensure consistent storage
+          const attendanceDate = uploadDate ? new Date(uploadDate + 'T00:00:00Z') : (emp.firstPunch ? new Date(emp.firstPunch) : new Date());
           console.log(`Saving ${emp.name} (${emp.employeeId}):`, {
             firstPunch: emp.firstPunch,
             lastPunch: emp.lastPunch,
@@ -955,17 +1230,17 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
             attendanceDate: attendanceDate.toISOString()
           });
 
-          // Use UTC methods to create date boundaries to avoid timezone shifts
+          // Use UTC methods to create date boundaries
           const startOfDay = new Date(Date.UTC(
-            attendanceDate.getFullYear(),
-            attendanceDate.getMonth(),
-            attendanceDate.getDate(),
+            attendanceDate.getUTCFullYear(),
+            attendanceDate.getUTCMonth(),
+            attendanceDate.getUTCDate(),
             0, 0, 0, 0
           ));
           const endOfDay = new Date(Date.UTC(
-            attendanceDate.getFullYear(),
-            attendanceDate.getMonth(),
-            attendanceDate.getDate(),
+            attendanceDate.getUTCFullYear(),
+            attendanceDate.getUTCMonth(),
+            attendanceDate.getUTCDate(),
             23, 59, 59, 999
           ));
 
@@ -1047,6 +1322,14 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
             onChange={(e) => setUploadDate(e.target.value)}
             className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
+          <select
+            value={uploadType}
+            onChange={(e) => setUploadType(e.target.value as 'regular' | 'friday')}
+            className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="regular">Regular Day</option>
+            <option value="friday">Friday</option>
+          </select>
           <input
             type="file"
             accept=".xls,.xlsx"

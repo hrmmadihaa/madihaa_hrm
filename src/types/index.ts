@@ -901,3 +901,32 @@ export interface WorkLocation {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+// Disciplinary Action Types
+export interface DisciplinaryAction {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeDepartment: string;
+  employeeDesignation: string;
+  type: DisciplinaryType;
+  severity: DisciplinarySeverity;
+  incidentDate: Date;
+  reportedDate: Date;
+  description: string;
+  actionTaken: string;
+  reportedBy: string;
+  approvedBy?: string;
+  status: DisciplinaryStatus;
+  warningLetterIssued: boolean;
+  suspensionDays?: number;
+  fineAmount?: number;
+  notes?: string;
+  attachments?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type DisciplinaryType = 'verbal_warning' | 'written_warning_1' | 'written_warning_2' | 'written_warning_3' | 'final_warning' | 'termination';
+export type DisciplinarySeverity = 'minor' | 'moderate' | 'serious' | 'severe';
+export type DisciplinaryStatus = 'pending' | 'investigation' | 'confirmed' | 'appealed' | 'resolved';

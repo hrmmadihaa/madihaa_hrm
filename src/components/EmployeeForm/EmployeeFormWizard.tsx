@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { User, DollarSign, Backpack, Building2, Calendar } from 'lucide-react';
+import { User, DollarSign, Backpack, Building2, Calendar, AlertTriangle } from 'lucide-react';
 import { PersonalInfo } from './PersonalInfo';
 import { SalaryAllowances } from './SalaryAllowances';
 import { StaffEquipment } from './StaffEquipment';
 import { AccommodationSelection } from './AccommodationSelection';
 import { LeaveHistory } from './LeaveHistory';
+import { DisciplinaryHistory } from './DisciplinaryHistory';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Employee, EmployeeAccommodation } from '../../types';
 
@@ -64,6 +65,7 @@ export const EmployeeFormWizard = ({ employee, onSave, onCancel, isEditing }: Em
     { title: 'Equipment & Items', icon: <Backpack className="w-5 h-5" /> },
     { title: 'Accommodation', icon: <Building2 className="w-5 h-5" /> },
     { title: 'Leave History', icon: <Calendar className="w-5 h-5" /> },
+    { title: 'Disciplinary History', icon: <AlertTriangle className="w-5 h-5" /> },
   ];
 
   const handlePersonalInfoNext = (data: Partial<Employee>) => {
@@ -85,7 +87,17 @@ export const EmployeeFormWizard = ({ employee, onSave, onCancel, isEditing }: Em
 
   const handleAccommodationNext = (accommodation: EmployeeAccommodation | undefined) => {
     setFormData(prev => ({ ...prev, accommodation }));
-    // Accommodation is the final step - complete the form
+    // Move to Leave History step
+    setCurrentStep(user?.role === 'super_admin' ? 4 : 3);
+  };
+
+  const handleLeaveHistoryNext = () => {
+    // Move to Disciplinary History step
+    setCurrentStep(user?.role === 'super_admin' ? 5 : 4);
+  };
+
+  const handleDisciplinaryHistoryNext = () => {
+    // Disciplinary History is the final step - complete the form
     handleComplete();
   };
 
@@ -203,13 +215,32 @@ export const EmployeeFormWizard = ({ employee, onSave, onCancel, isEditing }: Em
           <LeaveHistory
             employee={formData}
             onPrev={() => setCurrentStep(2)}
+            onNext={handleLeaveHistoryNext}
           />
         );
       case 4:
+        if (hasSalaryStep) {
+          return (
+            <LeaveHistory
+              employee={formData}
+              onPrev={() => setCurrentStep(3)}
+              onNext={handleLeaveHistoryNext}
+            />
+          );
+        }
         return (
-          <LeaveHistory
+          <DisciplinaryHistory
             employee={formData}
-            onPrev={() => setCurrentStep(3)}
+            onPrev={() => setCurrentStep(2)}
+            onNext={handleDisciplinaryHistoryNext}
+          />
+        );
+      case 5:
+        return (
+          <DisciplinaryHistory
+            employee={formData}
+            onPrev={() => setCurrentStep(4)}
+            onNext={handleDisciplinaryHistoryNext}
           />
         );
       default:

@@ -4,7 +4,7 @@ import {
   Menu, X, Bell, User, LogOut, Settings,
   LayoutDashboard, Users, Calendar, CalendarCheck,
   DollarSign, Clock, BarChart, FileText, GraduationCap,
-  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift
+  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
@@ -22,6 +22,7 @@ export const Layout: React.FC = () => {
     { name: 'My Leaves', href: '/leave', icon: CalendarCheck },
     { name: 'My Overtime', href: '/overtime', icon: Clock },
     { name: 'My Payslips', href: '/staff-payslips', icon: DollarSign },
+    { name: 'My Disciplinary', href: '/staff-disciplinary', icon: AlertTriangle },
   ] as const;
 
   // Full navigation for admin/manager roles
@@ -31,6 +32,7 @@ export const Layout: React.FC = () => {
     { name: 'Attendance', href: '/attendance', icon: Calendar },
     { name: 'Leave', href: '/leave', icon: CalendarCheck },
     { name: 'Friday Duty', href: '/friday-duty', icon: CalendarDays },
+    { name: 'Disciplinary', href: '/disciplinary', icon: AlertTriangle },
     { name: 'Payroll', href: '/payroll', icon: DollarSign },
     { name: 'Bonus', href: '/bonus', icon: Gift },
     { name: 'Overtime', href: '/overtime', icon: Clock },

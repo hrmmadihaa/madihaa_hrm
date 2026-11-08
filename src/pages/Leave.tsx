@@ -1092,12 +1092,24 @@ export const Leave = () => {
   };
 
   const handleBulkApprovalSubmit = async () => {
-    if (!user?.employeeId || selectedRequests.size === 0) return;
+    console.log('Bulk approval - User:', user);
+    console.log('Bulk approval - User employeeId:', user?.employeeId);
+    console.log('Bulk approval - Selected requests:', selectedRequests);
+    console.log('Bulk approval - Selected requests size:', selectedRequests.size);
+    console.log('Bulk approval - Action:', bulkModal.action);
+    
+    if (!user?.employeeId || selectedRequests.size === 0) {
+      console.log('Bulk approval - Cannot proceed: missing user.employeeId or no selected requests');
+      alert('Cannot proceed: Missing user ID or no requests selected');
+      return;
+    }
 
     try {
       setBulkSubmitting(true);
       
+      console.log('Bulk approval - Processing', selectedRequests.size, 'requests');
       for (const requestId of selectedRequests) {
+        console.log('Bulk approval - Processing request:', requestId);
         if (bulkModal.action === 'approve') {
           await approveLeaveRequest(
             requestId,
@@ -1106,6 +1118,7 @@ export const Leave = () => {
             0,
             bulkComments || undefined
           );
+          console.log('Bulk approval - Approved request:', requestId);
         } else {
           await rejectLeaveRequest(
             requestId,
@@ -1114,15 +1127,17 @@ export const Leave = () => {
             0,
             bulkComments || undefined
           );
+          console.log('Bulk approval - Rejected request:', requestId);
         }
       }
 
       handleCloseBulkApproval();
       setSelectedRequests(new Set());
       loadData();
+      console.log('Bulk approval - Completed successfully');
     } catch (error) {
       console.error('Error processing bulk approval:', error);
-      alert('Failed to process bulk approval');
+      alert('Failed to process bulk approval: ' + (error as Error).message);
     } finally {
       setBulkSubmitting(false);
     }
@@ -1274,6 +1289,27 @@ export const Leave = () => {
                 <option value="off_day">Off Day</option>
               </select>
             </div>
+
+            {selectedRequests.size > 0 && activeTab === 'pending' && can(PERMISSIONS.LEAVE_APPROVE) && (
+              <div className="flex gap-2 ml-auto">
+                <Button
+                  onClick={() => setBulkModal({ show: true, action: 'approve' })}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  Approve Selected ({selectedRequests.size})
+                </Button>
+                {can(PERMISSIONS.LEAVE_REJECT) && (
+                  <Button
+                    onClick={() => setBulkModal({ show: true, action: 'reject' })}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    <XIcon className="w-4 h-4 mr-2" />
+                    Reject Selected ({selectedRequests.size})
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

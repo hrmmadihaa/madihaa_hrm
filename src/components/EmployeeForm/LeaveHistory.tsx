@@ -6,9 +6,10 @@ import type { LeaveRequest, Employee, LeaveType } from '../../types';
 interface LeaveHistoryProps {
   employee?: Partial<Employee>;
   onPrev?: () => void;
+  onNext?: () => void;
 }
 
-export const LeaveHistory = ({ employee, onPrev }: LeaveHistoryProps) => {
+export const LeaveHistory = ({ employee, onPrev, onNext }: LeaveHistoryProps) => {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewModal, setViewModal] = useState<{ show: boolean; request: LeaveRequest | null }>({ show: false, request: null });
@@ -153,14 +154,24 @@ export const LeaveHistory = ({ employee, onPrev }: LeaveHistoryProps) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-secondary-900">Leave History</h2>
-        {onPrev && (
-          <button
-            onClick={onPrev}
-            className="px-4 py-2 bg-secondary-200 text-secondary-700 rounded-lg hover:bg-secondary-300 transition"
-          >
-            Previous
-          </button>
-        )}
+        <div className="flex gap-2">
+          {onPrev && (
+            <button
+              onClick={onPrev}
+              className="px-4 py-2 bg-secondary-200 text-secondary-700 rounded-lg hover:bg-secondary-300 transition"
+            >
+              Previous
+            </button>
+          )}
+          {onNext && (
+            <button
+              onClick={onNext}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
+            >
+              Next
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Leave Stats Cards */}

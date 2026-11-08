@@ -22,6 +22,8 @@ import { Accommodation } from './pages/Accommodation';
 import { WorkLocationPage } from './pages/WorkLocation';
 import { OrganizationChart } from './pages/OrganizationChart';
 import { FridayDuty } from './pages/FridayDuty';
+import { Disciplinary } from './pages/Disciplinary';
+import { StaffDisciplinary } from './pages/StaffDisciplinary';
 import { StaffDashboard } from './pages/StaffDashboard';
 import { StaffPayslip } from './pages/StaffPayslip';
 import { StaffAttendance } from './pages/StaffAttendance';
@@ -45,6 +47,7 @@ function App() {
             <Route path="staff-dashboard" element={<StaffDashboard />} />
             <Route path="staff-attendance" element={<StaffAttendance />} />
             <Route path="staff-payslips" element={<StaffPayslip />} />
+            <Route path="staff-disciplinary" element={<StaffDisciplinary />} />
             <Route path="employees" element={<Employees />} />
             <Route path="employees/new" element={<EmployeeProfilePage />} />
             <Route path="employees/:name" element={<EmployeeProfilePage isEditing={true} />} />
@@ -63,6 +66,7 @@ function App() {
             <Route path="work-locations" element={<WorkLocationPage />} />
             <Route path="organization-chart" element={<OrganizationChart />} />
             <Route path="friday-duty" element={<FridayDuty />} />
+            <Route path="disciplinary" element={<Disciplinary />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="settings" element={<div className="p-4">Settings Module - Coming Soon</div>} />
           </Route>

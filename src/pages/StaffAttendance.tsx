@@ -46,10 +46,20 @@ export const StaffAttendance = () => {
         checkOutTime: doc.data().checkOutTime?.toDate(),
       }));
 
-      console.log('Records loaded:', records);
+      // Deduplicate records by date (keep the most recent one based on document ID or timestamp)
+      const uniqueRecords = new Map<string, any>();
+      records.forEach(record => {
+        if (!record.date) return;
+        const dateKey = record.date.toISOString().split('T')[0]; // YYYY-MM-DD
+        if (!uniqueRecords.has(dateKey) || record.id > uniqueRecords.get(dateKey).id) {
+          uniqueRecords.set(dateKey, record);
+        }
+      });
+      const deduplicatedRecords = Array.from(uniqueRecords.values());
+
       // Sort by date descending
-      records.sort((a, b) => b.date - a.date);
-      setAttendanceRecords(records);
+      deduplicatedRecords.sort((a, b) => b.date - a.date);
+      setAttendanceRecords(deduplicatedRecords);
 
       // Load stats
       const stats = await getAttendanceStats(new Date());
@@ -62,11 +72,11 @@ export const StaffAttendance = () => {
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: '2-digit', 
-      day: '2-digit' 
-    });
+    // Use UTC methods to ensure consistent date display regardless of timezone
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${month}/${day}/${year}`;
   };
 
   const formatTime = (date: Date) => {

@@ -174,5 +174,11 @@ service cloud.firestore {
     match /friday_schedules/{scheduleId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Disciplinary actions collection
+    match /disciplinaryActions/{actionId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isSuperAdmin() || isHRManager();
+    }
   }
 }
