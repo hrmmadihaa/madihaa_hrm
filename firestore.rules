@@ -199,5 +199,24 @@ service cloud.firestore {
       allow read: if isSupervisor();
       allow create, update, delete: if isSuperAdmin() || isHRManager();
     }
+
+    // Salary records collection
+    match /salary_records {
+      allow list: if isAuthenticated();
+    }
+    match /salary_records/{recordId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isSuperAdmin() || isHRManager();
+    }
+
+    // Salary increments collection
+    match /salary_increments {
+      allow list: if isAuthenticated();
+    }
+    match /salary_increments/{incrementId} {
+      allow read: if isAuthenticated();
+      allow create: if isHRManager();
+      allow update, delete: if isSuperAdmin();
+    }
   }
 }

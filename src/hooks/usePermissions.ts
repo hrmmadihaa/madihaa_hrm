@@ -39,6 +39,11 @@ export const usePermissions = () => {
       return userRole === 'super_admin';
     },
     
+    // Check if user is HR Manager
+    isHRManager: () => {
+      return userRole === 'hr_manager';
+    },
+    
     // Check if user is HR Manager or above
     isHRManagerOrAbove: () => {
       return ['super_admin', 'hr_manager'].includes(userRole);

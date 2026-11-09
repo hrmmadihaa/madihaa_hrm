@@ -28,6 +28,7 @@ import { StaffDashboard } from './pages/StaffDashboard';
 import { StaffPayslip } from './pages/StaffPayslip';
 import { StaffAttendance } from './pages/StaffAttendance';
 import { PetrolRequests } from './pages/PetrolRequests';
+import { Salary } from './pages/Salary';
 
 function App() {
   return (
@@ -69,6 +70,7 @@ function App() {
             <Route path="friday-duty" element={<FridayDuty />} />
             <Route path="disciplinary" element={<Disciplinary />} />
             <Route path="petrol-requests" element={<PetrolRequests />} />
+            <Route path="salary" element={<Salary />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="settings" element={<div className="p-4">Settings Module - Coming Soon</div>} />
           </Route>

@@ -959,3 +959,36 @@ export interface Vehicle {
   year?: string;
   status?: 'active' | 'inactive' | 'maintenance';
 }
+
+export interface SalaryRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  basicSalary: number;
+  otAllowances: number;
+  otherAllowances: number;
+  attendanceAllowance: number;
+  livingAllowance: number;
+  foodAllowance: number;
+  fridayAllowance: number;
+  currency: string;
+  effectiveDate: Date;
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export interface SalaryIncrement {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  previousSalary: number;
+  newSalary: number;
+  incrementAmount: number;
+  incrementPercentage: number;
+  reason: string;
+  effectiveDate: Date;
+  approvedBy?: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  createdAt: Date;
+  updatedAt?: Date;
+}
