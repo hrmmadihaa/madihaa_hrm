@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Button } from '../components/ui/Button';
-import { Printer, Download, Search } from 'lucide-react';
+import { Printer, Download, Search, Save } from 'lucide-react';
 import { getEmployees } from '../lib/employees';
 import { getLeaveRequests } from '../lib/leave';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export const HolidayStatusLetter: React.FC = () => {
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
@@ -90,6 +92,34 @@ export const HolidayStatusLetter: React.FC = () => {
 
   const handleDownloadPDF = () => {
     window.print();
+  };
+
+  const handleSaveToFirebase = async () => {
+    try {
+      const signatory = signatories.find(s => s.id === selectedSignatory);
+      
+      for (const employeeId of selectedEmployees) {
+        const employee = employees.find(e => e.id === employeeId);
+        
+        await addDoc(collection(db, 'holiday_notices'), {
+          employeeId,
+          employeeName: employee?.fullName,
+          holidayStartDate: new Date(holidayStartDate),
+          holidayEndDate: new Date(holidayEndDate),
+          reportDate: new Date(reportDate),
+          actualReturnDate: actualReturnDate ? new Date(actualReturnDate) : null,
+          signatoryName: signatory?.name,
+          signatoryTitle: signatory?.title,
+          createdAt: new Date(),
+          status: 'sent'
+        });
+      }
+      
+      alert('Holiday notice(s) saved successfully!');
+    } catch (error) {
+      console.error('Error saving to Firebase:', error);
+      alert('Failed to save holiday notice. Please try again.');
+    }
   };
 
   const selectedEmployeeNames = selectedEmployees
@@ -235,6 +265,10 @@ export const HolidayStatusLetter: React.FC = () => {
               ← Back to Edit
             </Button>
             <div className="flex gap-3">
+              <Button onClick={handleSaveToFirebase}>
+                <Save className="w-4 h-4 mr-2" />
+                Save to Firebase
+              </Button>
               <Button onClick={handlePrint}>
                 <Printer className="w-4 h-4 mr-2" />
                 Print

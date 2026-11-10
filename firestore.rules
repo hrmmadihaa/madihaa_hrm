@@ -53,7 +53,7 @@ service cloud.firestore {
     // Employees collection
     match /employees/{employeeId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isSuperAdmin() || isHRManager();
+      allow create, update, delete: if isSuperAdmin() || isHRManager() || isSupervisor();
     }
     
     // Attendance collection
@@ -178,7 +178,21 @@ service cloud.firestore {
     // Disciplinary actions collection
     match /disciplinaryActions/{actionId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isSuperAdmin() || isHRManager();
+      allow create: if isSuperAdmin() || isHRManager() || isSupervisor();
+      allow update, delete: if isSuperAdmin() || isHRManager();
+    }
+
+    // Holiday notices collection
+    match /holiday_notices/{noticeId} {
+      allow read: if isAuthenticated();
+      allow create: if isSuperAdmin() || isHRManager() || isSupervisor();
+      allow update, delete: if isSuperAdmin() || isHRManager();
+    }
+
+    // Recruitment candidates collection
+    match /recruitment_candidates/{candidateId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isSuperAdmin() || isHRManager() || isSupervisor();
     }
 
     // Petrol requests collection
