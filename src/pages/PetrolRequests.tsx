@@ -19,6 +19,7 @@ interface PetrolRequest {
   kmEnd: number;
   drivenKm: number;
   petrolAmount: number;
+  mvrAmount?: number;
   receiptNumber?: string;
   requestedBy: string;
   approvedBy?: string;
@@ -254,11 +255,11 @@ export const PetrolRequests: React.FC = () => {
   };
 
   const handleDriverChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const employeeId = e.target.value;
-    const employee = employees.find(emp => emp.id === employeeId);
+    const firestoreId = e.target.value;
+    const employee = employees.find(emp => emp.id === firestoreId);
     setFormData({
       ...formData,
-      driverEmployeeId: employeeId,
+      driverEmployeeId: employee?.employeeId || '',
       driverName: employee?.fullName || '',
     });
   };
@@ -430,7 +431,7 @@ export const PetrolRequests: React.FC = () => {
                   />
                   <select
                     required
-                    value={formData.driverEmployeeId}
+                    value={employees.find(emp => emp.employeeId === formData.driverEmployeeId)?.id || ''}
                     onChange={handleDriverChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
@@ -487,7 +488,7 @@ export const PetrolRequests: React.FC = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Petrol Amount (Liters)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Petrol Amount (MVR)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -672,94 +673,141 @@ export const PetrolRequests: React.FC = () => {
             </div>
 
             {/* Printable Slip */}
-            <div id="print-slip" className="border-2 border-gray-300 p-6 bg-white">
+            <div id="print-slip" style={{ width: '148mm', height: '210mm', fontFamily: 'Arial, sans-serif', border: '2px solid #d1d5db', padding: '16px', backgroundColor: 'white', boxSizing: 'border-box' }}>
               {/* Letterhead */}
-              <div className="text-center mb-6 border-b-2 border-gray-300 pb-4">
-                <div className="flex items-center justify-center mb-2">
-                  <img src="/madihaa (1).jpg" alt="Madihaa Logo" className="h-16 object-contain" />
+              <div style={{ textAlign: 'center', marginBottom: '12px', borderBottom: '2px solid #1f2937', paddingBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px' }}>
+                  <img src={`${window.location.origin}/madihaa (1).jpg`} alt="Madihaa Logo" style={{ height: '60px', objectFit: 'contain' }} />
                 </div>
-                <h1 className="text-2xl font-bold text-gray-900">Madihaa Pvt Ltd</h1>
-                <p className="text-sm text-gray-600">Human Resource Management System</p>
-                <p className="text-xs text-gray-500 mt-1">Petrol Request Slip</p>
+                <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827', letterSpacing: '0.05em', margin: '0 0 2px 0' }}>Madihaa Pvt Ltd</h1>
+                <p style={{ fontSize: '12px', color: '#4b5563', fontWeight: '500', margin: '0 0 6px 0' }}>Human Resource Management System</p>
+                <div style={{ marginTop: '6px', display: 'inline-block', backgroundColor: '#2563eb', color: 'white', padding: '3px 12px', borderRadius: '9999px', fontSize: '12px', fontWeight: '600' }}>
+                  Petrol Request Slip
+                </div>
               </div>
 
-              {/* Request Details */}
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-gray-500">Slip Number:</p>
-                    <p className="font-bold text-lg text-primary-600">{(lastSubmittedRequest as any).slipNumber || 'N/A'}</p>
+              {/* Slip Number & Date */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', backgroundColor: '#f9fafb', padding: '8px', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                <div>
+                  <p style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px 0' }}>Slip Number</p>
+                  <p style={{ fontSize: '16px', fontWeight: 'bold', color: '#2563eb', margin: '0' }}>{(lastSubmittedRequest as any).slipNumber || 'N/A'}</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px 0' }}>Request Date</p>
+                  <p style={{ fontSize: '12px', fontWeight: '600', color: '#111827', margin: '0' }}>{new Date(lastSubmittedRequest.requestDate).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              {/* Vehicle Information Section */}
+              <div style={{ marginBottom: '10px' }}>
+                <h2 style={{ fontSize: '11px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px', borderBottom: '1px solid #d1d5db', paddingBottom: '3px', margin: '0 0 6px 0' }}>Vehicle Information</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div style={{ backgroundColor: '#f9fafb', padding: '6px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                    <p style={{ fontSize: '10px', color: '#6b7280', margin: '0 0 2px 0' }}>Vehicle Number</p>
+                    <p style={{ fontSize: '12px', fontWeight: '600', color: '#111827', margin: '0' }}>{lastSubmittedRequest.vehicleNumber}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Request Date:</p>
-                    <p className="font-semibold">{new Date(lastSubmittedRequest.requestDate).toLocaleDateString()}</p>
+                  <div style={{ backgroundColor: '#f9fafb', padding: '6px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                    <p style={{ fontSize: '10px', color: '#6b7280', margin: '0 0 2px 0' }}>Vehicle Type</p>
+                    <p style={{ fontSize: '12px', fontWeight: '600', color: '#111827', margin: '0' }}>{lastSubmittedRequest.vehicleType}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Vehicle Number:</p>
-                    <p className="font-semibold">{lastSubmittedRequest.vehicleNumber}</p>
+                </div>
+              </div>
+
+              {/* Driver Information Section */}
+              <div style={{ marginBottom: '10px' }}>
+                <h2 style={{ fontSize: '11px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px', borderBottom: '1px solid #d1d5db', paddingBottom: '3px', margin: '0 0 6px 0' }}>Driver Information</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div style={{ backgroundColor: '#f9fafb', padding: '6px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                    <p style={{ fontSize: '10px', color: '#6b7280', margin: '0 0 2px 0' }}>Driver Name</p>
+                    <p style={{ fontSize: '12px', fontWeight: '600', color: '#111827', margin: '0' }}>{lastSubmittedRequest.driverName}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Vehicle Type:</p>
-                    <p className="font-semibold">{lastSubmittedRequest.vehicleType}</p>
+                  <div style={{ backgroundColor: '#f9fafb', padding: '6px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                    <p style={{ fontSize: '10px', color: '#6b7280', margin: '0 0 2px 0' }}>Driver ID</p>
+                    <p style={{ fontSize: '12px', fontWeight: '600', color: '#111827', margin: '0' }}>
+                      {(() => {
+                        const storedId = lastSubmittedRequest.driverEmployeeId;
+                        // Check if it's a Firestore ID (starts with letter, longer than 10 chars)
+                        if (storedId && /^[a-zA-Z]/.test(storedId) && storedId.length > 10) {
+                          // Look up employee by Firestore ID and return actual employeeId
+                          const employee = employees.find(emp => emp.id === storedId);
+                          return employee?.employeeId || storedId;
+                        }
+                        return storedId || 'N/A';
+                      })()}
+                    </p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Driver Name:</p>
-                    <p className="font-semibold">{lastSubmittedRequest.driverName}</p>
+                </div>
+              </div>
+
+              {/* Kilometer Details Section */}
+              <div style={{ marginBottom: '10px' }}>
+                <h2 style={{ fontSize: '11px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px', borderBottom: '1px solid #d1d5db', paddingBottom: '3px', margin: '0 0 6px 0' }}>Kilometer Details</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div style={{ backgroundColor: '#f9fafb', padding: '6px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                    <p style={{ fontSize: '10px', color: '#6b7280', margin: '0 0 2px 0' }}>Previous KM End</p>
+                    <p style={{ fontSize: '12px', fontWeight: '600', color: '#4b5563', margin: '0' }}>{(lastSubmittedRequest as any).previousKmEnd || 'N/A'}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Driver ID:</p>
-                    <p className="font-semibold">{lastSubmittedRequest.driverEmployeeId}</p>
+                  <div style={{ backgroundColor: '#f9fafb', padding: '6px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                    <p style={{ fontSize: '10px', color: '#6b7280', margin: '0 0 2px 0' }}>KM Start</p>
+                    <p style={{ fontSize: '12px', fontWeight: '600', color: '#111827', margin: '0' }}>{lastSubmittedRequest.kmStart}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Previous KM End:</p>
-                    <p className="font-semibold text-gray-600">{(lastSubmittedRequest as any).previousKmEnd || 'N/A'}</p>
+                  <div style={{ backgroundColor: '#f9fafb', padding: '6px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                    <p style={{ fontSize: '10px', color: '#6b7280', margin: '0 0 2px 0' }}>KM End</p>
+                    <p style={{ fontSize: '12px', fontWeight: '600', color: '#111827', margin: '0' }}>{lastSubmittedRequest.kmEnd}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">KM Start:</p>
-                    <p className="font-semibold">{lastSubmittedRequest.kmStart}</p>
+                  <div style={{ backgroundColor: '#eff6ff', padding: '6px', borderRadius: '4px', border: '1px solid #bfdbfe' }}>
+                    <p style={{ fontSize: '10px', color: '#2563eb', fontWeight: '500', margin: '0 0 2px 0' }}>Driven KM</p>
+                    <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#1d4ed8', margin: '0' }}>{lastSubmittedRequest.drivenKm}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">KM End:</p>
-                    <p className="font-semibold">{lastSubmittedRequest.kmEnd}</p>
+                </div>
+              </div>
+
+              {/* Petrol Details Section */}
+              <div style={{ marginBottom: '10px' }}>
+                <h2 style={{ fontSize: '11px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px', borderBottom: '1px solid #d1d5db', paddingBottom: '3px', margin: '0 0 6px 0' }}>Petrol Details</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div style={{ backgroundColor: '#f0fdf4', padding: '6px', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+                    <p style={{ fontSize: '10px', color: '#16a34a', fontWeight: '500', margin: '0 0 2px 0' }}>Petrol Amount (MVR)</p>
+                    <p style={{ fontSize: '16px', fontWeight: 'bold', color: '#15803d', margin: '0' }}>{lastSubmittedRequest.petrolAmount}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Driven KM:</p>
-                    <p className="font-semibold">{lastSubmittedRequest.drivenKm}</p>
+                  <div style={{ backgroundColor: '#f9fafb', padding: '6px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                    <p style={{ fontSize: '10px', color: '#6b7280', margin: '0 0 2px 0' }}>Receipt Number</p>
+                    <p style={{ fontSize: '12px', fontWeight: '600', color: '#111827', margin: '0' }}>{lastSubmittedRequest.receiptNumber || 'N/A'}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Petrol Amount (Liters):</p>
-                    <p className="font-semibold">{lastSubmittedRequest.petrolAmount}</p>
+                </div>
+              </div>
+
+              {/* Approval Section */}
+              <div style={{ marginBottom: '10px' }}>
+                <h2 style={{ fontSize: '11px', fontWeight: 'bold', color: '#1f2937', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px', borderBottom: '1px solid #d1d5db', paddingBottom: '3px', margin: '0 0 6px 0' }}>Approval Status</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div style={{ backgroundColor: '#f9fafb', padding: '6px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                    <p style={{ fontSize: '10px', color: '#6b7280', margin: '0 0 2px 0' }}>Requested By</p>
+                    <p style={{ fontSize: '12px', fontWeight: '600', color: '#111827', margin: '0' }}>{lastSubmittedRequest.requestedBy}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Receipt Number:</p>
-                    <p className="font-semibold">{lastSubmittedRequest.receiptNumber || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Requested By:</p>
-                    <p className="font-semibold">{lastSubmittedRequest.requestedBy}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Status:</p>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      lastSubmittedRequest.status === 'Approved' ? 'bg-green-100 text-green-800' :
-                      lastSubmittedRequest.status === 'Rejected' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
+                  <div style={{ backgroundColor: '#f9fafb', padding: '6px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                    <p style={{ fontSize: '10px', color: '#6b7280', margin: '0 0 2px 0' }}>Status</p>
+                    <span style={{ display: 'inline-block', padding: '3px 10px', fontSize: '10px', fontWeight: 'bold', borderRadius: '9999px', backgroundColor: lastSubmittedRequest.status === 'Approved' ? '#dcfce7' : lastSubmittedRequest.status === 'Rejected' ? '#fee2e2' : '#fef9c3', color: lastSubmittedRequest.status === 'Approved' ? '#166534' : lastSubmittedRequest.status === 'Rejected' ? '#991b1b' : '#854d0e' }}>
                       {lastSubmittedRequest.status}
                     </span>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Approved By:</p>
-                    <p className="font-semibold">{lastSubmittedRequest.approvedBy || 'N/A'}</p>
+                  <div style={{ gridColumn: 'span 2', backgroundColor: '#f9fafb', padding: '6px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                    <p style={{ fontSize: '10px', color: '#6b7280', margin: '0 0 2px 0' }}>Approved By</p>
+                    <p style={{ fontSize: '12px', fontWeight: '600', color: '#111827', margin: '0' }}>{lastSubmittedRequest.approvedBy || 'N/A'}</p>
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="mt-8 pt-4 border-t border-gray-300">
-                <p className="text-xs text-gray-500 text-center">
-                  Generated on: {new Date().toLocaleString()}
-                </p>
+              <div style={{ marginTop: '16px', paddingTop: '8px', borderTop: '2px solid #1f2937' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <p style={{ fontSize: '10px', color: '#6b7280', margin: '0' }}>
+                    Generated: {new Date().toLocaleString()}
+                  </p>
+                  <p style={{ fontSize: '10px', color: '#9ca3af', margin: '0' }}>
+                    Madihaa HRMS - Petrol Management
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -776,15 +824,29 @@ export const PetrolRequests: React.FC = () => {
                           <head>
                             <title>Petrol Request Slip</title>
                             <style>
-                              body { font-family: Arial, sans-serif; padding: 20px; }
-                              @media print { body { padding: 0; } }
+                              @page {
+                                size: A5;
+                                margin: 10mm;
+                              }
+                              body {
+                                font-family: Arial, sans-serif;
+                                margin: 0;
+                                padding: 0;
+                                -webkit-print-color-adjust: exact;
+                                print-color-adjust: exact;
+                              }
+                              @media print {
+                                body { padding: 0; }
+                              }
                             </style>
                           </head>
                           <body>${printContent.innerHTML}</body>
                         </html>
                       `);
                       printWindow.document.close();
-                      printWindow.print();
+                      setTimeout(() => {
+                        printWindow.print();
+                      }, 100);
                     }
                   }
                 }}

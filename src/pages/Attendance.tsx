@@ -640,7 +640,7 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
       }
 
       const dailyRecord = empData.dailyRecords.get(dateKey);
-      dailyRecord.punches.push({ time: punchDate, status });
+      dailyRecord.punches.push({ time: punchDate, status, isNextDayEarlyPunch });
 
       // Update first check-in (status 0)
       if (status === 0 && (!dailyRecord.firstCheckIn || punchDate < dailyRecord.firstCheckIn)) {
@@ -707,26 +707,43 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
       });
 
       // After processing all days, set overall first/last punch
-      // First punch: earliest check-in across all days (no time filter)
+      // First punch: earliest check-in on the selected date (not including next day early punches)
+      // Also exclude early morning punches (before 4 AM) on the same day as they are likely check-outs from previous day
       let earliestCheckIn: Date | null = null;
       empData.dailyRecords.forEach((dailyRecord: any) => {
         dailyRecord.punches.forEach((punch: any) => {
-          if (punch.status === 0 && (!earliestCheckIn || punch.time < earliestCheckIn)) {
+          // Only consider check-ins that are on the selected date and not early morning (before 4 AM)
+          // Early morning punches (before 4 AM) are likely check-outs from previous day
+          const punchHour = punch.time.getHours();
+          if (punch.status === 0 && !punch.isNextDayEarlyPunch && punchHour >= 4 && (!earliestCheckIn || punch.time < earliestCheckIn)) {
             earliestCheckIn = punch.time;
           }
         });
       });
       empData.firstPunch = earliestCheckIn;
 
-      // Last punch: find the latest check-out (no time filter for display)
+      // Last punch: find the latest check-out after 17:00 (5 PM) on the selected date
+      // If no check-out after 17:00, look for next-day early check-outs (before 5 AM)
       let latestCheckOut: Date | null = null;
       empData.dailyRecords.forEach((dailyRecord: any) => {
         dailyRecord.punches.forEach((punch: any) => {
-          if (punch.status === 1 && (!latestCheckOut || punch.time > latestCheckOut)) {
+          if (punch.status === 1 && punch.time.getHours() >= 17 && (!latestCheckOut || punch.time > latestCheckOut)) {
             latestCheckOut = punch.time;
           }
         });
       });
+
+      // If no check-out after 17:00, look for next-day early check-outs (before 5 AM)
+      if (!latestCheckOut) {
+        empData.dailyRecords.forEach((dailyRecord: any) => {
+          dailyRecord.punches.forEach((punch: any) => {
+            if (punch.status === 1 && punch.time.getHours() < 5 && (!latestCheckOut || punch.time > latestCheckOut)) {
+              latestCheckOut = punch.time;
+            }
+          });
+        });
+      }
+
       empData.lastPunch = latestCheckOut;
     });
 
@@ -873,6 +890,7 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
 
     // Parse date from Excel to check if it matches selected date
     // Excel format can be either MM/DD/YY or DD/MM/YY - detect automatically
+    let isNextDayEarlyPunch = false;
     if (dateStr && dateStr.includes('/')) {
       const dateParts = dateStr.split('/');
       let month, day, year;
@@ -959,7 +977,7 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
       }
 
       const dailyRecord = empData.dailyRecords.get(dateKey);
-      dailyRecord.punches.push({ time: punchDate, status });
+      dailyRecord.punches.push({ time: punchDate, status, isNextDayEarlyPunch });
 
       // Update first check-in (status 0)
       if (status === 0 && (!dailyRecord.firstCheckIn || punchDate < dailyRecord.firstCheckIn)) {
