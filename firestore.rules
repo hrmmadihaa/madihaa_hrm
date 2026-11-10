@@ -195,6 +195,20 @@ service cloud.firestore {
       allow create, update, delete: if isSuperAdmin() || isHRManager() || isSupervisor();
     }
 
+    // Daily report comments collection
+    match /daily_report_comments/{commentId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isSuperAdmin() || isHRManager() || isSupervisor();
+      allow delete: if isSuperAdmin() || isHRManager();
+    }
+
+    // Daily report staff comments collection
+    match /daily_report_staff_comments/{commentId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isSuperAdmin() || isHRManager() || isSupervisor();
+      allow delete: if isSuperAdmin() || isHRManager();
+    }
+
     // Petrol requests collection
     match /petrol_requests {
       allow list: if isSupervisor();

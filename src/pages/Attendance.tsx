@@ -66,6 +66,12 @@ export const Attendance = () => {
   const [loadingDailyReport, setLoadingDailyReport] = useState(false);
   const [editingStatus, setEditingStatus] = useState<string | null>(null);
   const [savingStatus, setSavingStatus] = useState(false);
+  const [supervisorComment, setSupervisorComment] = useState('');
+  const [savingComment, setSavingComment] = useState(false);
+  const [savedComment, setSavedComment] = useState('');
+  const [staffComments, setStaffComments] = useState<{ [key: string]: string }>({});
+  const [staffCommentText, setStaffCommentText] = useState('');
+  const [savingStaffComment, setSavingStaffComment] = useState(false);
 
   const loadTodayStats = useCallback(async () => {
     try {
@@ -361,6 +367,34 @@ export const Attendance = () => {
         location,
         employees: data.sort((a, b) => (a.employeeName || '').localeCompare(b.employeeName || ''))
       })));
+
+      // Load saved comment for this date
+      const commentQuery = query(
+        collection(db, 'daily_report_comments'),
+        where('date', '==', dailyReportDate)
+      );
+      const commentSnapshot = await getDocs(commentQuery);
+      if (!commentSnapshot.empty) {
+        setSavedComment(commentSnapshot.docs[0].data().comment || '');
+        setSupervisorComment(commentSnapshot.docs[0].data().comment || '');
+      } else {
+        setSavedComment('');
+        setSupervisorComment('');
+      }
+
+      // Load staff comments for this date
+      const staffCommentQuery = query(
+        collection(db, 'daily_report_staff_comments'),
+        where('date', '==', dailyReportDate)
+      );
+      const staffCommentSnapshot = await getDocs(staffCommentQuery);
+      const commentsMap: { [key: string]: string } = {};
+      staffCommentSnapshot.forEach(doc => {
+        const data = doc.data();
+        commentsMap[data.attendanceId] = data.comment || '';
+      });
+      setStaffComments(commentsMap);
+
       setShowDailyReport(true);
     } catch (error) {
       console.error('Error generating daily report:', error);
@@ -372,6 +406,45 @@ export const Attendance = () => {
 
   const handlePrintDailyReport = () => {
     window.print();
+  };
+
+  const handleSaveComment = async () => {
+    if (!dailyReportDate) return;
+    
+    setSavingComment(true);
+    try {
+      const commentQuery = query(
+        collection(db, 'daily_report_comments'),
+        where('date', '==', dailyReportDate)
+      );
+      const commentSnapshot = await getDocs(commentQuery);
+      
+      if (!commentSnapshot.empty) {
+        // Update existing comment
+        await updateDoc(doc(db, 'daily_report_comments', commentSnapshot.docs[0].id), {
+          comment: supervisorComment,
+          updatedAt: Timestamp.now()
+        });
+      } else {
+        // Create new comment
+        await addDoc(collection(db, 'daily_report_comments'), {
+          date: dailyReportDate,
+          comment: supervisorComment,
+          supervisorId: user?.id,
+          supervisorName: user?.displayName || user?.email || 'Supervisor',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
+        });
+      }
+      
+      setSavedComment(supervisorComment);
+      alert('Comment saved successfully');
+    } catch (error) {
+      console.error('Error saving comment:', error);
+      alert('Failed to save comment');
+    } finally {
+      setSavingComment(false);
+    }
   };
 
   const handleEditStatus = (recordId: string) => {
@@ -406,6 +479,51 @@ export const Attendance = () => {
 
   const handleCancelEditStatus = () => {
     setEditingStatus(null);
+  };
+
+  const handleSaveStaffComment = async (attendanceId: string) => {
+    if (!dailyReportDate) return;
+    
+    setSavingStaffComment(true);
+    try {
+      const staffCommentQuery = query(
+        collection(db, 'daily_report_staff_comments'),
+        where('date', '==', dailyReportDate),
+        where('attendanceId', '==', attendanceId)
+      );
+      const staffCommentSnapshot = await getDocs(staffCommentQuery);
+      
+      if (!staffCommentSnapshot.empty) {
+        // Update existing comment
+        await updateDoc(doc(db, 'daily_report_staff_comments', staffCommentSnapshot.docs[0].id), {
+          comment: staffCommentText,
+          updatedAt: Timestamp.now()
+        });
+      } else {
+        // Create new comment
+        await addDoc(collection(db, 'daily_report_staff_comments'), {
+          date: dailyReportDate,
+          attendanceId,
+          comment: staffCommentText,
+          supervisorId: user?.id,
+          supervisorName: user?.displayName || user?.email || 'Supervisor',
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
+        });
+      }
+      
+      setStaffComments(prev => ({ ...prev, [attendanceId]: staffCommentText }));
+      setStaffCommentText('');
+    } catch (error) {
+      console.error('Error saving staff comment:', error);
+      alert('Failed to save comment');
+    } finally {
+      setSavingStaffComment(false);
+    }
+  };
+
+  const handleCancelStaffComment = () => {
+    setStaffCommentText('');
   };
 
   useEffect(() => {
@@ -1660,6 +1778,42 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                     </p>
                   </div>
 
+                  {/* Supervisor Comment Section */}
+                  <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Supervisor Comment
+                    </label>
+                    <textarea
+                      value={supervisorComment}
+                      onChange={(e) => setSupervisorComment(e.target.value)}
+                      placeholder="Enter your comments for this daily report..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                      rows={3}
+                    />
+                    <div className="flex gap-2 mt-2 no-print">
+                      <Button
+                        onClick={handleSaveComment}
+                        loading={savingComment}
+                        className="text-sm"
+                      >
+                        Save Comment
+                      </Button>
+                      {savedComment && (
+                        <span className="text-xs text-green-600 flex items-center mt-2">
+                          ✓ Comment saved
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Display saved comment in print view */}
+                  {savedComment && (
+                    <div className="mb-6 p-4 bg-white border-2 border-gray-300 rounded-lg print-only">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2">Supervisor Comment:</h3>
+                      <p className="text-sm text-gray-900 whitespace-pre-wrap">{savedComment}</p>
+                    </div>
+                  )}
+
                   {dailyReportData.map((locationGroup) => (
                     <div key={locationGroup.location} className="mb-8">
                       <h2 className="text-xl font-semibold text-secondary-900 mb-4 border-b-2 border-secondary-300 pb-2">
@@ -1673,6 +1827,7 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                             <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">Position</th>
                             <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">First Punch Time</th>
                             <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">Status</th>
+                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">Comment</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1686,7 +1841,7 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                               </td>
                               <td className="border border-secondary-300 px-4 py-2 text-sm">
                                 {editingStatus === employee.id ? (
-                                  <div className="flex gap-2 items-center">
+                                  <div className="flex flex-col gap-2">
                                     <select
                                       value={employee.lateArrival ? 'late' : 'ontime'}
                                       onChange={(e) => handleSaveStatus(employee.id, e.target.value === 'late')}
@@ -1696,13 +1851,29 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                                       <option value="ontime">On Time</option>
                                       <option value="late">Late</option>
                                     </select>
-                                    <button
-                                      onClick={handleCancelEditStatus}
-                                      className="text-xs text-secondary-600 hover:text-secondary-900"
-                                      disabled={savingStatus}
-                                    >
-                                      Cancel
-                                    </button>
+                                    <textarea
+                                      value={staffCommentText}
+                                      onChange={(e) => setStaffCommentText(e.target.value)}
+                                      placeholder="Add comment..."
+                                      className="w-full px-2 py-1 border border-secondary-300 rounded text-sm resize-y"
+                                      rows={2}
+                                    />
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => handleSaveStaffComment(employee.id)}
+                                        className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+                                        disabled={savingStaffComment}
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => { handleCancelEditStatus(); handleCancelStaffComment(); }}
+                                        className="text-xs text-secondary-600 hover:text-secondary-900"
+                                        disabled={savingStatus || savingStaffComment}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-2">
@@ -1718,6 +1889,13 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                                       Edit
                                     </button>
                                   </div>
+                                )}
+                              </td>
+                              <td className="border border-secondary-300 px-4 py-2 text-sm">
+                                {staffComments[employee.id] ? (
+                                  <span className="text-xs text-gray-700">{staffComments[employee.id]}</span>
+                                ) : (
+                                  <span className="text-xs text-gray-400 italic">No comment</span>
                                 )}
                               </td>
                             </tr>
