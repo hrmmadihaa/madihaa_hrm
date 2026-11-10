@@ -917,6 +917,9 @@ export interface DisciplinaryAction {
   actionTaken: string;
   reportedBy: string;
   approvedBy?: string;
+  preparedBy?: string;
+  employeeSignature?: string;
+  signatureDate?: Date;
   status: DisciplinaryStatus;
   warningLetterIssued: boolean;
   suspensionDays?: number;

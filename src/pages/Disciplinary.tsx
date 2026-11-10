@@ -6,9 +6,9 @@ import { Input } from '../components/ui/Input';
 import { Card, CardContent } from '../components/ui/Card';
 import { getEmployees } from '../lib/employees';
 import { getDisciplinaryActions, createDisciplinaryAction, updateDisciplinaryAction, deleteDisciplinaryAction } from '../lib/disciplinary';
+import { getAllWorkLocations } from '../lib/workLocation';
+import { printDisciplinaryReport } from '../lib/printDisciplinaryReport';
 import type { DisciplinaryAction, DisciplinaryType, DisciplinarySeverity, DisciplinaryStatus, Employee } from '../types';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 
 export const Disciplinary = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -19,6 +19,8 @@ export const Disciplinary = () => {
   const [editingAction, setEditingAction] = useState<DisciplinaryAction | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
+  const [hrStaff, setHrStaff] = useState<any[]>([]);
+  const [headOfficeStaff, setHeadOfficeStaff] = useState<any[]>([]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -34,6 +36,8 @@ export const Disciplinary = () => {
     suspensionDays: '',
     fineAmount: '',
     notes: '',
+    preparedBy: '',
+    approvedBy: '',
   });
 
   useEffect(() => {
@@ -43,9 +47,51 @@ export const Disciplinary = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [empData, discData] = await Promise.all([getEmployees(), getDisciplinaryActions()]);
+      const [empData, discData, locations] = await Promise.all([getEmployees(), getDisciplinaryActions(), getAllWorkLocations()]);
       setEmployees(empData);
       setDisciplinaryActions(discData);
+
+      console.log('=== Disciplinary Page Debug ===');
+      console.log('All work locations:', locations);
+      console.log('All employees:', empData);
+      console.log('First employee structure:', empData[0]);
+
+      // Filter HR staff from Human Resources location (case-insensitive)
+      const hrLocation = locations.find(loc => loc.name.toLowerCase() === 'human resources');
+      console.log('HR Location found:', hrLocation);
+      console.log('HR assignedStaff:', hrLocation?.assignedStaff);
+      
+      let finalHrStaff;
+      if (hrLocation && hrLocation.assignedStaff && hrLocation.assignedStaff.length > 0) {
+        const hrEmployees = empData.filter(emp => hrLocation.assignedStaff.includes(emp.id));
+        console.log('HR Employees matched:', hrEmployees);
+        finalHrStaff = hrEmployees;
+        setHrStaff(hrEmployees);
+      } else {
+        console.log('Using all employees as HR fallback');
+        finalHrStaff = empData;
+        setHrStaff(empData);
+      }
+
+      // Filter Head Office staff from Head Office location (case-insensitive)
+      const headOfficeLocation = locations.find(loc => loc.name.toLowerCase() === 'head office');
+      console.log('Head Office Location found:', headOfficeLocation);
+      console.log('Head Office assignedStaff:', headOfficeLocation?.assignedStaff);
+      
+      let finalHeadOfficeStaff;
+      if (headOfficeLocation && headOfficeLocation.assignedStaff && headOfficeLocation.assignedStaff.length > 0) {
+        const headOfficeEmployees = empData.filter(emp => headOfficeLocation.assignedStaff.includes(emp.id));
+        console.log('Head Office Employees matched:', headOfficeEmployees);
+        finalHeadOfficeStaff = headOfficeEmployees;
+        setHeadOfficeStaff(headOfficeEmployees);
+      } else {
+        console.log('Using all employees as Head Office fallback');
+        finalHeadOfficeStaff = empData;
+        setHeadOfficeStaff(empData);
+      }
+
+      console.log('Final HR staff count:', finalHrStaff.length);
+      console.log('Final Head Office staff count:', finalHeadOfficeStaff.length);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -67,7 +113,7 @@ export const Disciplinary = () => {
 
     try {
       const actionData = {
-        employeeId: selectedEmployee.id,
+        employeeId: selectedEmployee.employeeId,
         employeeName: selectedEmployee.fullName,
         employeeDepartment: selectedEmployee.department,
         employeeDesignation: selectedEmployee.designation,
@@ -83,6 +129,8 @@ export const Disciplinary = () => {
         suspensionDays: formData.suspensionDays ? parseInt(formData.suspensionDays) : undefined,
         fineAmount: formData.fineAmount ? parseFloat(formData.fineAmount) : undefined,
         notes: formData.notes,
+        preparedBy: formData.preparedBy,
+        approvedBy: formData.approvedBy,
       };
 
       if (editingAction) {
@@ -115,6 +163,8 @@ export const Disciplinary = () => {
       suspensionDays: action.suspensionDays?.toString() || '',
       fineAmount: action.fineAmount?.toString() || '',
       notes: action.notes || '',
+      preparedBy: action.preparedBy || '',
+      approvedBy: action.approvedBy || '',
     });
     const employee = employees.find(emp => emp.id === action.employeeId);
     setSelectedEmployee(employee || null);
@@ -146,159 +196,14 @@ export const Disciplinary = () => {
       suspensionDays: '',
       fineAmount: '',
       notes: '',
+      preparedBy: '',
+      approvedBy: '',
     });
     setSelectedEmployee(null);
   };
 
   const handlePrint = (action: DisciplinaryAction) => {
-    const doc = new jsPDF();
-    
-    // Add Logo
-    const logo = new Image();
-    logo.src = '/madihaa (1).jpg';
-    logo.onload = () => {
-      doc.addImage(logo, 'JPEG', 20, 10, 30, 30);
-      
-      // Company Letterhead
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('MADIHAA COMPANY (PTE) LTD', 105, 20, { align: 'center' });
-    
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text('M.Madihaa, Shaheed Ali Higun, Malè, Republic of Maldives', 105, 28, { align: 'center' });
-      doc.text('Tel: 3328827 | Fax: 3313936 | Email: madicom@dhivehinet.net.mv | Web: www.madihaaa.com', 105, 34, { align: 'center' });
-      
-      // Line separator
-      doc.setLineWidth(0.5);
-      doc.line(20, 40, 190, 40);
-      
-      // Title
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 0, 0);
-      doc.text('Disciplinary Action Report', 105, 55, { align: 'center' });
-      
-      // Line separator
-      doc.setLineWidth(0.3);
-      doc.line(20, 60, 190, 60);
-      
-      // Employee Information
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Employee Information', 20, 70);
-      doc.setFont('helvetica', 'normal');
-      
-      const employeeInfo = [
-        ['Name:', action.employeeName],
-        ['Department:', action.employeeDepartment],
-        ['Designation:', action.employeeDesignation],
-        ['Employee ID:', action.employeeId],
-      ];
-      
-      let yPos = 80;
-      employeeInfo.forEach(([label, value]) => {
-        doc.text(label, 20, yPos);
-        doc.text(value, 60, yPos);
-        yPos += 8;
-      });
-      
-      // Incident Details
-      yPos += 5;
-      doc.setFont('helvetica', 'bold');
-      doc.text('Incident Details', 20, yPos);
-      doc.setFont('helvetica', 'normal');
-      yPos += 10;
-      
-      const incidentInfo = [
-        ['Type:', action.type === 'verbal_warning' ? 'Verbal Warning' :
-                   action.type === 'written_warning_1' ? 'Written Warning 1' :
-                   action.type === 'written_warning_2' ? 'Written Warning 2' :
-                   action.type === 'written_warning_3' ? 'Written Warning 3' :
-                   action.type === 'final_warning' ? 'Final Warning' :
-                   action.type === 'termination' ? 'Termination' : action.type],
-        ['Severity:', action.severity.toUpperCase()],
-        ['Incident Date:', action.incidentDate instanceof Date ? action.incidentDate.toLocaleDateString() : 'N/A'],
-        ['Reported Date:', action.reportedDate instanceof Date ? action.reportedDate.toLocaleDateString() : 'N/A'],
-        ['Status:', action.status.toUpperCase()],
-      ];
-      
-      incidentInfo.forEach(([label, value]) => {
-        doc.text(label, 20, yPos);
-        doc.text(value, 60, yPos);
-        yPos += 8;
-      });
-      
-      // Description
-      yPos += 5;
-      doc.setFont('helvetica', 'bold');
-      doc.text('Description:', 20, yPos);
-      doc.setFont('helvetica', 'normal');
-      yPos += 8;
-      const descriptionLines = doc.splitTextToSize(action.description, 170);
-      doc.text(descriptionLines, 20, yPos);
-      yPos += descriptionLines.length * 7 + 5;
-      
-      // Action Taken
-      doc.setFont('helvetica', 'bold');
-      doc.text('Action Taken:', 20, yPos);
-      doc.setFont('helvetica', 'normal');
-      yPos += 8;
-      const actionLines = doc.splitTextToSize(action.actionTaken, 170);
-      doc.text(actionLines, 20, yPos);
-      yPos += actionLines.length * 7 + 5;
-      
-      // Additional Details
-      yPos += 5;
-      doc.setFont('helvetica', 'bold');
-      doc.text('Additional Details', 20, yPos);
-      doc.setFont('helvetica', 'normal');
-      yPos += 10;
-      
-      const additionalInfo = [
-        ['Reported By:', action.reportedBy],
-        ['Approved By:', action.approvedBy || 'N/A'],
-        ['Warning Letter Issued:', action.warningLetterIssued ? 'Yes' : 'No'],
-      ];
-      
-      if (action.suspensionDays) {
-        additionalInfo.push(['Suspension Days:', action.suspensionDays.toString()]);
-      }
-      if (action.fineAmount) {
-        additionalInfo.push(['Fine Amount:', `$${action.fineAmount}`]);
-      }
-      
-      additionalInfo.forEach(([label, value]) => {
-        doc.text(label, 20, yPos);
-        doc.text(value, 70, yPos);
-        yPos += 8;
-      });
-      
-      // Notes
-      if (action.notes) {
-        yPos += 5;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Notes:', 20, yPos);
-        doc.setFont('helvetica', 'normal');
-        yPos += 8;
-        const notesLines = doc.splitTextToSize(action.notes, 170);
-        doc.text(notesLines, 20, yPos);
-      }
-      
-      // Footer
-      doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 280, { align: 'center' });
-      
-      // Open PDF in new tab for printing instead of downloading
-      const pdfBlob = doc.output('blob');
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      const printWindow = window.open(pdfUrl, '_blank');
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-        };
-      }
-    };
+    printDisciplinaryReport(action);
   };
 
   const filteredActions = disciplinaryActions.filter(action =>
@@ -621,6 +526,44 @@ export const Disciplinary = () => {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                       placeholder="Any additional notes or comments..."
                     />
+                  </div>
+
+                  {/* Prepared By Selector */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Prepared By (Human Resources)
+                    </label>
+                    <select
+                      value={formData.preparedBy}
+                      onChange={(e) => setFormData({ ...formData, preparedBy: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="">Select HR Staff</option>
+                      {hrStaff.map(emp => (
+                        <option key={emp.id} value={emp.fullName}>
+                          {emp.fullName} - {emp.designation || emp.position}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Approved By Selector */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Approved By (Head Office)
+                    </label>
+                    <select
+                      value={formData.approvedBy}
+                      onChange={(e) => setFormData({ ...formData, approvedBy: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="">Select Head Office Staff</option>
+                      {headOfficeStaff.map(emp => (
+                        <option key={emp.id} value={emp.fullName}>
+                          {emp.fullName} - {emp.designation || emp.position}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>

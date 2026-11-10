@@ -179,7 +179,8 @@ service cloud.firestore {
     match /disciplinaryActions/{actionId} {
       allow read: if isAuthenticated();
       allow create: if isSuperAdmin() || isHRManager() || isSupervisor();
-      allow update, delete: if isSuperAdmin() || isHRManager();
+      allow update: if isSuperAdmin() || isHRManager() || isSupervisor();
+      allow delete: if isSuperAdmin() || isHRManager();
     }
 
     // Holiday notices collection

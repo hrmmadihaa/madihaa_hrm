@@ -1,17 +1,41 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { AlertTriangle, Eye, Printer } from 'lucide-react';
+import { AlertTriangle, Eye, Printer, PenTool, Edit } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { getDisciplinaryActionsByEmployee } from '../lib/disciplinary';
+import { getDisciplinaryActionsByEmployee, updateDisciplinaryAction } from '../lib/disciplinary';
 import { getEmployees } from '../lib/employees';
+import { getAllWorkLocations } from '../lib/workLocation';
+import { printDisciplinaryReport } from '../lib/printDisciplinaryReport';
 import type { DisciplinaryAction } from '../types';
-import jsPDF from 'jspdf';
+import { updateDoc, doc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { usePermissions } from '../hooks/usePermissions';
 
 export const StaffDisciplinary = () => {
   const { user } = useAuth();
+  const { } = usePermissions();
   const [disciplinaryActions, setDisciplinaryActions] = useState<DisciplinaryAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewModal, setViewModal] = useState<{ show: boolean; action: DisciplinaryAction | null }>({ show: false, action: null });
+  const [signatureModal, setSignatureModal] = useState<{ show: boolean; action: DisciplinaryAction | null }>({ show: false, action: null });
+  const [editModal, setEditModal] = useState<{ show: boolean; action: DisciplinaryAction | null }>({ show: false, action: null });
+  const [_employees, setEmployees] = useState<any[]>([]);
+  const [_workLocations, setWorkLocations] = useState<any[]>([]);
+  const [preparedBy, setPreparedBy] = useState('');
+  const [approvedBy, setApprovedBy] = useState('');
+  const [hrStaff, setHrStaff] = useState<any[]>([]);
+  const [headOfficeStaff, setHeadOfficeStaff] = useState<any[]>([]);
+  const [signatureData, setSignatureData] = useState<string | undefined>(undefined);
+  const [isSigning, setIsSigning] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    description: '',
+    actionTaken: '',
+    notes: '',
+    preparedBy: '',
+    approvedBy: '',
+    employeeSignature: undefined as string | undefined
+  });
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -24,13 +48,48 @@ export const StaffDisciplinary = () => {
         setLoading(true);
         
         // Get all employees to find the one matching the logged-in user
-        const employees = await getEmployees();
-        const currentEmployee = employees.find(emp => emp.email === user.email);
+        const employeesData = await getEmployees();
+        setEmployees(employeesData);
+        
+        const currentEmployee = employeesData.find(emp => emp.email === user.email);
         
         if (currentEmployee) {
           // Load disciplinary actions for this employee
-          const actions = await getDisciplinaryActionsByEmployee(currentEmployee.id);
+          const actions = await getDisciplinaryActionsByEmployee(currentEmployee.employeeId);
           setDisciplinaryActions(actions);
+        }
+
+        // Get work locations
+        const locations = await getAllWorkLocations();
+        setWorkLocations(locations);
+
+        console.log('Work locations:', locations);
+        console.log('Employees:', employeesData);
+
+        // Filter HR staff from Human Resources location (case-insensitive)
+        const hrLocation = locations.find(loc => loc.name.toLowerCase() === 'human resources');
+        console.log('HR Location:', hrLocation);
+        if (hrLocation && hrLocation.assignedStaff && hrLocation.assignedStaff.length > 0) {
+          const hrEmployees = employeesData.filter(emp => hrLocation.assignedStaff.includes(emp.id));
+          console.log('HR Employees:', hrEmployees);
+          setHrStaff(hrEmployees);
+        } else {
+          // Fallback: show all employees if HR location not found or empty
+          console.log('HR location not found or empty, showing all employees as fallback');
+          setHrStaff(employeesData);
+        }
+
+        // Filter Head Office staff from Head Office location (case-insensitive)
+        const headOfficeLocation = locations.find(loc => loc.name.toLowerCase() === 'head office');
+        console.log('Head Office Location:', headOfficeLocation);
+        if (headOfficeLocation && headOfficeLocation.assignedStaff && headOfficeLocation.assignedStaff.length > 0) {
+          const headOfficeEmployees = employeesData.filter(emp => headOfficeLocation.assignedStaff.includes(emp.id));
+          console.log('Head Office Employees:', headOfficeEmployees);
+          setHeadOfficeStaff(headOfficeEmployees);
+        } else {
+          // Fallback: show all employees if Head Office location not found or empty
+          console.log('Head Office location not found or empty, showing all employees as fallback');
+          setHeadOfficeStaff(employeesData);
         }
       } catch (error) {
         console.error('Error loading disciplinary actions:', error);
@@ -65,155 +124,99 @@ export const StaffDisciplinary = () => {
     setViewModal({ show: false, action: null });
   };
 
+  const handleOpenSignatureModal = (action: DisciplinaryAction) => {
+    setSignatureModal({ show: true, action });
+    setPreparedBy(action.preparedBy || '');
+    setApprovedBy(action.approvedBy || '');
+    setSignatureData(action.employeeSignature || undefined);
+  };
+
+  const handleCloseSignatureModal = () => {
+    setSignatureModal({ show: false, action: null });
+    setPreparedBy('');
+    setApprovedBy('');
+    setSignatureData(undefined);
+  };
+
+  const handleSaveSignatories = async () => {
+    if (!signatureModal.action) return;
+    
+    try {
+      setIsSigning(true);
+      await updateDoc(doc(db, 'disciplinaryActions', signatureModal.action.id), {
+        preparedBy,
+        approvedBy,
+        employeeSignature: signatureData || undefined,
+        signatureDate: signatureData ? new Date() : null
+      });
+      
+      // Update local state
+      setDisciplinaryActions(prev => prev.map(action => 
+        action.id === signatureModal.action?.id 
+          ? { ...action, preparedBy, approvedBy, employeeSignature: signatureData || undefined }
+          : action
+      ));
+      
+      handleCloseSignatureModal();
+      alert('Signatories and signature saved successfully');
+    } catch (error) {
+      console.error('Error saving signatories:', error);
+      alert('Failed to save signatories');
+    } finally {
+      setIsSigning(false);
+    }
+  };
+
+  const handleOpenEditModal = (action: DisciplinaryAction) => {
+    setEditModal({ show: true, action });
+    setEditFormData({
+      description: action.description,
+      actionTaken: action.actionTaken,
+      notes: action.notes || '',
+      preparedBy: action.preparedBy || '',
+      approvedBy: action.approvedBy || '',
+      employeeSignature: action.employeeSignature || undefined
+    });
+  };
+
+  const handleCloseEditModal = () => {
+    setEditModal({ show: false, action: null });
+    setEditFormData({ description: '', actionTaken: '', notes: '', preparedBy: '', approvedBy: '', employeeSignature: undefined });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editModal.action) return;
+    
+    try {
+      setIsSaving(true);
+      await updateDisciplinaryAction(editModal.action.id, {
+        description: editFormData.description,
+        actionTaken: editFormData.actionTaken,
+        notes: editFormData.notes,
+        preparedBy: editFormData.preparedBy,
+        approvedBy: editFormData.approvedBy,
+        employeeSignature: editFormData.employeeSignature
+      });
+      
+      // Update local state
+      setDisciplinaryActions(prev => prev.map(action => 
+        action.id === editModal.action?.id 
+          ? { ...action, ...editFormData }
+          : action
+      ));
+      
+      handleCloseEditModal();
+      alert('Disciplinary action updated successfully');
+    } catch (error) {
+      console.error('Error updating disciplinary action:', error);
+      alert('Failed to update disciplinary action');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handlePrint = (action: DisciplinaryAction) => {
-    const doc = new jsPDF();
-    
-    // Add Logo
-    const logo = new Image();
-    logo.src = '/madihaa (1).jpg';
-    logo.onload = () => {
-      doc.addImage(logo, 'JPEG', 20, 10, 30, 30);
-      
-      // Company Letterhead
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('MADIHAA COMPANY (PTE) LTD', 105, 20, { align: 'center' });
-    
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text('M.Madihaa, Shaheed Ali Higun, Malè, Republic of Maldives', 105, 28, { align: 'center' });
-      doc.text('Tel: 3328827 | Fax: 3313936 | Email: madicom@dhivehinet.net.mv | Web: www.madihaaa.com', 105, 34, { align: 'center' });
-      
-      // Line separator
-      doc.setLineWidth(0.5);
-      doc.line(20, 40, 190, 40);
-      
-      // Title
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 0, 0);
-      doc.text('Disciplinary Action Report', 105, 55, { align: 'center' });
-      
-      // Line separator
-      doc.setLineWidth(0.3);
-      doc.line(20, 60, 190, 60);
-      
-      // Employee Information
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Employee Information', 20, 70);
-      doc.setFont('helvetica', 'normal');
-      
-      const employeeInfo = [
-        ['Name:', action.employeeName],
-        ['Department:', action.employeeDepartment],
-        ['Designation:', action.employeeDesignation],
-        ['Employee ID:', action.employeeId],
-      ];
-      
-      let yPos = 80;
-      employeeInfo.forEach(([label, value]) => {
-        doc.text(label, 20, yPos);
-        doc.text(value, 60, yPos);
-        yPos += 8;
-      });
-      
-      // Incident Details
-      yPos += 5;
-      doc.setFont('helvetica', 'bold');
-      doc.text('Incident Details', 20, yPos);
-      doc.setFont('helvetica', 'normal');
-      yPos += 10;
-      
-      const incidentInfo = [
-        ['Type:', action.type === 'verbal_warning' ? 'Verbal Warning' :
-                   action.type === 'written_warning_1' ? 'Written Warning 1' :
-                   action.type === 'written_warning_2' ? 'Written Warning 2' :
-                   action.type === 'written_warning_3' ? 'Written Warning 3' :
-                   action.type === 'final_warning' ? 'Final Warning' :
-                   action.type === 'termination' ? 'Termination' : action.type],
-        ['Severity:', action.severity.toUpperCase()],
-        ['Incident Date:', action.incidentDate instanceof Date ? action.incidentDate.toLocaleDateString() : 'N/A'],
-        ['Reported Date:', action.reportedDate instanceof Date ? action.reportedDate.toLocaleDateString() : 'N/A'],
-        ['Status:', action.status.toUpperCase()],
-      ];
-      
-      incidentInfo.forEach(([label, value]) => {
-        doc.text(label, 20, yPos);
-        doc.text(value, 60, yPos);
-        yPos += 8;
-      });
-      
-      // Description
-      yPos += 5;
-      doc.setFont('helvetica', 'bold');
-      doc.text('Description:', 20, yPos);
-      doc.setFont('helvetica', 'normal');
-      yPos += 8;
-      const descriptionLines = doc.splitTextToSize(action.description, 170);
-      doc.text(descriptionLines, 20, yPos);
-      yPos += descriptionLines.length * 7 + 5;
-      
-      // Action Taken
-      doc.setFont('helvetica', 'bold');
-      doc.text('Action Taken:', 20, yPos);
-      doc.setFont('helvetica', 'normal');
-      yPos += 8;
-      const actionLines = doc.splitTextToSize(action.actionTaken, 170);
-      doc.text(actionLines, 20, yPos);
-      yPos += actionLines.length * 7 + 5;
-      
-      // Additional Details
-      yPos += 5;
-      doc.setFont('helvetica', 'bold');
-      doc.text('Additional Details', 20, yPos);
-      doc.setFont('helvetica', 'normal');
-      yPos += 10;
-      
-      const additionalInfo = [
-        ['Reported By:', action.reportedBy],
-        ['Approved By:', action.approvedBy || 'N/A'],
-        ['Warning Letter Issued:', action.warningLetterIssued ? 'Yes' : 'No'],
-      ];
-      
-      if (action.suspensionDays) {
-        additionalInfo.push(['Suspension Days:', action.suspensionDays.toString()]);
-      }
-      if (action.fineAmount) {
-        additionalInfo.push(['Fine Amount:', `$${action.fineAmount}`]);
-      }
-      
-      additionalInfo.forEach(([label, value]) => {
-        doc.text(label, 20, yPos);
-        doc.text(value, 70, yPos);
-        yPos += 8;
-      });
-      
-      // Notes
-      if (action.notes) {
-        yPos += 5;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Notes:', 20, yPos);
-        doc.setFont('helvetica', 'normal');
-        yPos += 8;
-        const notesLines = doc.splitTextToSize(action.notes, 170);
-        doc.text(notesLines, 20, yPos);
-      }
-      
-      // Footer
-      doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 280, { align: 'center' });
-      
-      // Open PDF in new tab for printing instead of downloading
-      const pdfBlob = doc.output('blob');
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      const printWindow = window.open(pdfUrl, '_blank');
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-        };
-      }
-    };
+    printDisciplinaryReport(action);
   };
 
   if (loading) {
@@ -305,6 +308,20 @@ export const StaffDisciplinary = () => {
                           title="View Details"
                         >
                           <Eye className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenEditModal(action)}
+                          className="text-green-600 hover:text-green-900"
+                          title="Edit"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenSignatureModal(action)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Add Signature & Signatories"
+                        >
+                          <PenTool className="w-5 h-5" />
                         </button>
                         <button
                           onClick={() => handlePrint(action)}
@@ -426,6 +443,244 @@ export const StaffDisciplinary = () => {
                 className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Signature & Signatories Modal */}
+      {signatureModal.show && signatureModal.action && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg max-w-3xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-secondary-900 mb-4">Add Signature & Signatories</h3>
+            
+            <div className="space-y-4">
+              {/* Prepared By Selector */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Prepared By (Human Resources)
+                </label>
+                <select
+                  value={preparedBy}
+                  onChange={(e) => setPreparedBy(e.target.value)}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">Select HR Staff</option>
+                  {hrStaff.map(emp => (
+                    <option key={emp.id} value={emp.fullName}>
+                      {emp.fullName} - {emp.designation || emp.position}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Approved By Selector */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Approved By (Head Office)
+                </label>
+                <select
+                  value={approvedBy}
+                  onChange={(e) => setApprovedBy(e.target.value)}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">Select Head Office Staff</option>
+                  {headOfficeStaff.map(emp => (
+                    <option key={emp.id} value={emp.fullName}>
+                      {emp.fullName} - {emp.designation || emp.position}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Employee Signature */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Employee Signature
+                </label>
+                <div className="border-2 border-secondary-300 rounded-lg p-2 bg-white">
+                  {signatureData ? (
+                    <div className="relative">
+                      <img src={signatureData} alt="Signature" className="max-h-32" />
+                      <button
+                        onClick={() => setSignatureData(undefined)}
+                        className="absolute top-0 right-0 bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-secondary-400 text-sm">
+                      <p>Click below to add signature</p>
+                      <button
+                        onClick={() => {
+                          // Simple signature input using prompt for now
+                          const signature = prompt('Enter signature (text):');
+                          if (signature) {
+                            setSignatureData(signature);
+                          }
+                        }}
+                        className="mt-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
+                      >
+                        Add Signature
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={handleSaveSignatories}
+                disabled={isSigning}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition disabled:opacity-50"
+              >
+                {isSigning ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                onClick={handleCloseSignatureModal}
+                className="px-4 py-2 bg-secondary-600 text-white rounded-lg hover:bg-secondary-700 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editModal.show && editModal.action && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg max-w-3xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-secondary-900 mb-4">Edit Disciplinary Action</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  rows={4}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Action Taken
+                </label>
+                <textarea
+                  value={editFormData.actionTaken}
+                  onChange={(e) => setEditFormData({ ...editFormData, actionTaken: e.target.value })}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={editFormData.notes}
+                  onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  rows={3}
+                  placeholder="Additional notes..."
+                />
+              </div>
+
+              {/* Prepared By Selector */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Prepared By (Human Resources)
+                </label>
+                <select
+                  value={editFormData.preparedBy}
+                  onChange={(e) => setEditFormData({ ...editFormData, preparedBy: e.target.value })}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">Select HR Staff</option>
+                  {hrStaff.map(emp => (
+                    <option key={emp.id} value={emp.fullName}>
+                      {emp.fullName} - {emp.designation || emp.position}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Approved By Selector */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Approved By (Head Office)
+                </label>
+                <select
+                  value={editFormData.approvedBy}
+                  onChange={(e) => setEditFormData({ ...editFormData, approvedBy: e.target.value })}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">Select Head Office Staff</option>
+                  {headOfficeStaff.map(emp => (
+                    <option key={emp.id} value={emp.fullName}>
+                      {emp.fullName} - {emp.designation || emp.position}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Employee Signature */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Employee Signature
+                </label>
+                <div className="border-2 border-secondary-300 rounded-lg p-2 bg-white">
+                  {editFormData.employeeSignature ? (
+                    <div className="relative">
+                      <img src={editFormData.employeeSignature} alt="Signature" className="max-h-32" />
+                      <button
+                        onClick={() => setEditFormData({ ...editFormData, employeeSignature: undefined })}
+                        className="absolute top-0 right-0 bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-secondary-400 text-sm">
+                      <p>Click below to add signature</p>
+                      <button
+                        onClick={() => {
+                          const signature = prompt('Enter signature (text):');
+                          if (signature) {
+                            setEditFormData({ ...editFormData, employeeSignature: signature });
+                          }
+                        }}
+                        className="mt-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
+                      >
+                        Add Signature
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={handleSaveEdit}
+                disabled={isSaving}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button
+                onClick={handleCloseEditModal}
+                className="px-4 py-2 bg-secondary-600 text-white rounded-lg hover:bg-secondary-700 transition"
+              >
+                Cancel
               </button>
             </div>
           </div>
