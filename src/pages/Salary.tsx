@@ -5,7 +5,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { useAuth } from '../contexts/AuthContext';
 import { getEmployees } from '../lib/employees';
 import { Button } from '../components/ui/Button';
-import { DollarSign, History, Plus } from 'lucide-react';
+import { DollarSign, Plus, Search } from 'lucide-react';
 
 interface SalaryRecord {
   id: string;
@@ -54,6 +54,8 @@ export const Salary: React.FC = () => {
   const [selectedIncrement, setSelectedIncrement] = useState<SalaryIncrement | null>(null);
   const [selectedApprover, setSelectedApprover] = useState('chairman');
   const [historyEmployeeId, setHistoryEmployeeId] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('salaries'); // 'salaries' or 'increments'
 
   const [incrementForm, setIncrementForm] = useState({
     employeeId: '',
@@ -241,62 +243,6 @@ export const Salary: React.FC = () => {
     }
   };
 
-  const handleApproveIncrement = async (incrementId: string) => {
-    try {
-      const increment = salaryIncrements.find(i => i.id === incrementId);
-      if (!increment) return;
-
-      await updateDoc(doc(db, 'salary_increments', incrementId), {
-        status: 'Approved',
-        approvedBy: user?.displayName || user?.email,
-        updatedAt: new Date(),
-      });
-
-      // Update salary record
-      const existingRecord = salaryRecords.find(r => r.employeeId === increment.employeeId);
-      if (existingRecord) {
-        await updateDoc(doc(db, 'salary_records', existingRecord.id), {
-          currentSalary: increment.newSalary,
-          effectiveDate: increment.effectiveDate,
-          updatedAt: new Date(),
-        });
-      } else {
-        await addDoc(collection(db, 'salary_records'), {
-          employeeId: increment.employeeId,
-          employeeName: increment.employeeName,
-          currentSalary: increment.newSalary,
-          currency: 'MVR',
-          effectiveDate: increment.effectiveDate,
-          createdAt: new Date(),
-        });
-      }
-
-      alert('Salary increment approved');
-      loadData();
-    } catch (error) {
-      console.error('Error approving increment:', error);
-      alert('Failed to approve increment');
-    }
-  };
-
-  const handleRejectIncrement = async (incrementId: string) => {
-    if (!confirm('Are you sure you want to reject this increment?')) return;
-
-    try {
-      await updateDoc(doc(db, 'salary_increments', incrementId), {
-        status: 'Rejected',
-        approvedBy: user?.displayName || user?.email,
-        updatedAt: new Date(),
-      });
-
-      alert('Salary increment rejected');
-      loadData();
-    } catch (error) {
-      console.error('Error rejecting increment:', error);
-      alert('Failed to reject increment');
-    }
-  };
-
   const getEmployeeSalary = (employeeId: string) => {
     return salaryRecords.find(r => r.employeeId === employeeId);
   };
@@ -304,6 +250,34 @@ export const Salary: React.FC = () => {
   const getEmployeeIncrements = (employeeId: string) => {
     return salaryIncrements.filter(i => i.employeeId === employeeId);
   };
+
+  // Filter employees based on search term
+  const filteredEmployees = employees.filter(employee =>
+    employee.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.employeeId?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Filter increments based on search term
+  const filteredIncrements = salaryIncrements.filter(increment =>
+    increment.employeeName?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Group increments by employee
+  const groupedIncrements = filteredIncrements.reduce((acc, increment) => {
+    if (!acc[increment.employeeId]) {
+      acc[increment.employeeId] = {
+        employeeId: increment.employeeId,
+        employeeName: increment.employeeName,
+        increments: []
+      };
+    }
+    acc[increment.employeeId].increments.push(increment);
+    return acc;
+  }, {} as Record<string, { employeeId: string; employeeName: string; increments: SalaryIncrement[] }>);
+
+  const groupedIncrementsArray = Object.values(groupedIncrements).sort((a, b) =>
+    a.employeeName.localeCompare(b.employeeName)
+  );
 
   if (!isSupervisorOrAbove()) {
     return (
@@ -328,44 +302,80 @@ export const Salary: React.FC = () => {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Salary Management</h1>
         <p className="text-gray-600 mt-2">View and manage employee salaries and increments</p>
-        <div className="flex gap-3 mt-4">
-          {(isHRManager() || isSuperAdmin()) && (
-            <Button onClick={() => setShowIncrementForm(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Salary Increment
-            </Button>
-          )}
-          <Button onClick={() => setShowHistoryModal(true)} variant="secondary">
-            <History className="w-4 h-4 mr-2" />
-            View Increment History
-          </Button>
+        
+        {/* Search and Actions */}
+        <div className="flex flex-col sm:flex-row gap-3 mt-4 items-start sm:items-center justify-between">
+          <div className="flex gap-3">
+            {(isHRManager() || isSuperAdmin()) && (
+              <Button onClick={() => setShowIncrementForm(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                New Salary Increment
+              </Button>
+            )}
+          </div>
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Search by name or ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mt-4 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('salaries')}
+            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+              activeTab === 'salaries'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Current Salaries
+          </button>
+          <button
+            onClick={() => setActiveTab('increments')}
+            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+              activeTab === 'increments'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Increment History
+          </button>
         </div>
       </div>
 
       {/* Salary Records Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-lg font-semibold">Current Salaries</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">Employee</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Basic Salary</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OT Allowances</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Other Allowances</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Living</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Food</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Friday</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {employees.map((employee) => {
+      {activeTab === 'salaries' && (
+        <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 className="text-lg font-semibold">Current Salaries</h3>
+            <span className="text-sm text-gray-500">{filteredEmployees.length} employees</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">Employee</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Basic Salary</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OT Allowances</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Other Allowances</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Living</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Food</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Friday</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredEmployees.map((employee) => {
                 const salary = getEmployeeSalary(employee.id);
                 const totalSalary = salary ?
                   salary.basicSalary + salary.otAllowances + salary.otherAllowances +
@@ -421,6 +431,89 @@ export const Salary: React.FC = () => {
           </table>
         </div>
       </div>
+      )}
+
+      {/* Salary Increment History */}
+      {activeTab === 'increments' && (
+        <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold">Salary Increment History</h3>
+            <span className="text-sm text-gray-500 ml-2">{groupedIncrementsArray.length} employees</span>
+          </div>
+          <div className="overflow-x-auto">
+            {groupedIncrementsArray.map((group) => (
+              <div key={group.employeeId} className="border-b border-gray-200">
+                <div className="bg-gray-50 px-6 py-3 font-semibold text-gray-900">
+                  {group.employeeName} ({group.increments.length} increments)
+                </div>
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Previous Salary</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Salary</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Increment</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {group.increments
+                      .sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime())
+                      .map((increment) => (
+                      <tr key={increment.id}>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(increment.effectiveDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          MVR {increment.previousSalary.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          MVR {increment.newSalary.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          <span className="text-green-600">
+                            +MVR {increment.incrementAmount.toLocaleString()} ({increment.incrementPercentage.toFixed(1)}%)
+                          </span>
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {increment.reason}
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            increment.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                            increment.status === 'Rejected' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {increment.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3 whitespace-nowrap">
+                          {increment.status === 'Approved' && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => handlePrintIncrementLetter(increment)}
+                            >
+                              Print Letter
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+            {groupedIncrementsArray.length === 0 && (
+              <div className="px-6 py-4 text-center text-sm text-gray-500">
+                No increment history found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Salary History Modal */}
       {showHistoryModal && (
@@ -514,80 +607,6 @@ export const Salary: React.FC = () => {
                 </table>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Pending Increments (for HR Manager and Super Admin) */}
-      {(isHRManager() || isSuperAdmin()) && (
-        <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold">Pending Salary Increments</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Salary</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Salary</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Increment</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {salaryIncrements.filter(i => i.status === 'Pending').map((increment) => (
-                  <tr key={increment.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {increment.employeeName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      MVR {increment.previousSalary.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      MVR {increment.newSalary.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <span className="text-green-600">
-                        +MVR {increment.incrementAmount.toLocaleString()} ({increment.incrementPercentage.toFixed(1)}%)
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {increment.reason}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {isSuperAdmin() && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleApproveIncrement(increment.id)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => handleRejectIncrement(increment.id)}
-                            className="bg-red-600 hover:bg-red-700 text-white"
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {salaryIncrements.filter(i => i.status === 'Pending').length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-                      No pending increments
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
           </div>
         </div>
       )}
@@ -846,7 +865,7 @@ export const Salary: React.FC = () => {
                 <div className="mb-4">
                   <p className="font-semibold">To,</p>
                   <p className="font-semibold">{selectedIncrement.employeeName}</p>
-                  <p className="text-sm text-gray-600">Employee ID: {selectedIncrement.employeeId}</p>
+                  <p className="text-sm text-gray-600">Employee ID: {employees.find(e => e.id === selectedIncrement.employeeId)?.employeeId || selectedIncrement.employeeId}</p>
                 </div>
 
                 <div className="mb-4">

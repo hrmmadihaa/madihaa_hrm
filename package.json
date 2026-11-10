@@ -12,6 +12,7 @@
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
     "date-fns": "^4.4.0",
+    "exceljs": "^4.4.0",
     "firebase": "^12.15.0",
     "firebase-admin": "^12.7.0",
     "framer-motion": "^12.42.0",

@@ -1,0 +1,518 @@
+=== Excel Comments with Employee Names ===
+
+Cell O5 (Row 5) - Employee: MOHAMMED FAIS HAMSA LEBBE
+Author: Fais
+Comment: Fais:
+MVR 1,000 increased from JAN 26
+---
+Cell O7 (Row 7) - Employee: JANAKIRAMAN SANKARALINGAM
+Author: Mahir
+Comment: Mahir:
+Rf 1542/- increment given from Jan 26
+Rf 1000/- increment given from April 26
+---
+Cell P7 (Row 7) - Employee: JANAKIRAMAN SANKARALINGAM
+Author: Fais
+Comment: Fais:
+INCREASED USD 100 JULY 25
+USD 200 increment given from Sep 2026
+---
+Cell O8 (Row 8) - Employee: NAZU AHMED 
+Author: Mahir
+Comment: Mahir:
+Rf 1000/- increment given from April 26
+---
+Cell P8 (Row 8) - Employee: NAZU AHMED 
+Author: Mahir
+Comment: Mahir:
+Increment of rf 1393/- given from Aug 25
+---
+Cell O9 (Row 9) - Employee: ABDUR RASHID
+Author: Mahir
+Comment: Mahir:
+Rf 1000/- increment given from April 26
+---
+Cell O10 (Row 10) - Employee: ABDUL AMEEN 
+Author: Fais
+Comment: Fais:
+MVR 1,000.00 increased from Aug 25
+---
+Cell N11 (Row 11) - Employee: Malini Balakrishnan
+Author: Mahir
+Comment: Mahir:
+Rf 1500/- increment given from Oct  2026
+---
+Cell P11 (Row 11) - Employee: Malini Balakrishnan
+Author: Fais
+Comment: Fais:
+MVR 1,000.00 added from Aug 25
+---
+Cell N12 (Row 12) - Employee: Adnan Abdul Majeed
+Author: Mahir
+Comment: Mahir:
+USD 100 increment given from May 2026
+Rf 500 increment given from July 2026
+Rf 1000/- increment given from Oct 2026
+
+---
+Cell P12 (Row 12) - Employee: Adnan Abdul Majeed
+Author: Fais
+Comment: Fais:
+MVR 1,000.00 added from Aug 25
+---
+Cell N14 (Row 14) - Employee: SURIYA KRISHNAN
+Author: Mahir
+Comment: Mahir:
+USD 50 increment given from March 26 onward
+Rf 1000/- increment given from Oct 2026
+---
+Cell O14 (Row 14) - Employee: SURIYA KRISHNAN
+Author: Mahir
+Comment: Mahir:
+Rf 500/- Increment given from Oct 25
+
+Rf 1000/- increment given from Dec 2025
+
+Rf 500/- increment given from April 26
+---
+Cell O17 (Row 17) - Employee: Subail Ahmed
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Nov 2025
+
+Rf 500/- increment given from June 2026
+---
+Cell O18 (Row 18) - Employee: Vigneshwaran kanagaraj
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from May 2026
+
+Rf 1000/- increment given from June 2026
+---
+Cell N22 (Row 22) - Employee: KARIM
+Author: Mahir
+Comment: Mahir
+Rf 500/- increment given from Nov 2025
+---
+Cell O22 (Row 22) - Employee: KARIM
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Jan 26
+---
+Cell N23 (Row 23) - Employee: ABUL HOSSAIN
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Nov 2025
+---
+Cell O24 (Row 24) - Employee: MIR HOSSAIN 
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from April 26
+---
+Cell N25 (Row 25) - Employee: Abdul Kareem
+Author: Mahir
+Comment: Mahir:
+Rf 1000/- increment given from Oct 2026
+---
+Cell N26 (Row 26) - Employee: Mohammed  Kalifa  
+Author: Mahir
+Comment: Mahir:
+Rf 1000/- increment given from Oct 2026
+---
+Cell N28 (Row 28) - Employee: DUKHU MIAH
+Author: Mahir
+Comment: Mahir:
+MVR 500/- increment given from July 2026
+---
+Cell O32 (Row 32) - Employee: MOHAMED AKKASH MIAH
+Author: Mahir
+Comment: Mahir:
+MVR 500/- increment given from May 2026
+
+MVR 500/- increment given from July 2026
+---
+Cell O33 (Row 33) - Employee: MD Hafizur Rahman
+Author: Mahir
+Comment: MVR 500/- increment given from May 2026
+---
+Cell O36 (Row 36) - Employee: Nazir Hussain
+Author: Hana
+Comment: Hana:
+500/- increament on April 2025
+
+---
+Cell N38 (Row 38) - Employee: MIR RAJIB
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Nov 2025
+---
+Cell N40 (Row 40) - Employee: MD Sahmad
+Author: Mahir
+Comment: Mahir:
+Rf 1000/- increment given from Oct 2026
+---
+Cell N41 (Row 41) - Employee: Rumi Miah
+Author: Mahir
+Comment: Mahir:
+Rf 1000/- increment given from Nov 2025
+
+MVR 500/- increment given from July 2026
+---
+Cell O41 (Row 41) - Employee: Rumi Miah
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Sep 25
+---
+Cell O43 (Row 43) - Employee: Pradip Kumar
+Author: Fais
+Comment: Fais:
+ADDED MVR 500 - JULY 25
+MVR 500 increment given from May 2026
+---
+Cell O44 (Row 44) - Employee: MD Ahad Gazi
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from June 2026
+---
+Cell N45 (Row 45) - Employee: Bimol Rajbongshe 
+Author: Mahir
+Comment: Rf 500/- increment given from June 2026
+---
+Cell O45 (Row 45) - Employee: Bimol Rajbongshe 
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Sep 25
+
+Rf 3
+00/- increment given from Nov 2025
+---
+Cell N46 (Row 46) - Employee: Hasan Miah
+Author: Mahir
+Comment: Mahir:
+USD 20 increment given from Nov 24
+---
+Cell O46 (Row 46) - Employee: Hasan Miah
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from June 2026
+---
+Cell O47 (Row 47) - Employee: MD Al Amin   
+Author: Fais
+Comment: Fais:
+ADDED MVR 500 - JULY 25
+Rf 500/- increment given from Sep 25
+
+Rf 500/- increment given from June 2026
+---
+Cell O48 (Row 48) - Employee: Nasir Ali
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Nov 2025
+
+Rf 500/- increment given from June 2026
+---
+Cell O49 (Row 49) - Employee: Nabina Thapa
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Nov 2025
+
+Rf 500/- increment given from June 2026
+---
+Cell O50 (Row 50) - Employee: Mohammad Ajmal
+Author: Fais
+Comment: Fais:
+ADDED MVR 500 - JULY 25
+Rf 500/- increment given from Sep 25
+RF 500/- increment given from Aug 26
+---
+Cell O51 (Row 51) - Employee: NAJIR SHEKH 
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Nov 2025
+
+MVR 1000/- increment given from May 2026
+---
+Cell N53 (Row 53) - Employee: Manik Hossain
+Author: Mahir
+Comment: Mahir:
+
+---
+Cell O53 (Row 53) - Employee: Manik Hossain
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Sep 25
+---
+Cell O54 (Row 54) - Employee: Biswajit Prasad Sah
+Author: Fais
+Comment: Fais:
+ADDED MVR 500 - JULY 25
+---
+Cell N55 (Row 55) - Employee: Arun Kumar Vettikattil
+Author: Mahir
+Comment: Mahir:
+USD 50/- increment given from Nov 2025
+---
+Cell O55 (Row 55) - Employee: Arun Kumar Vettikattil
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Sep 25
+
+Rf 500/- increment given from June 2026
+---
+Cell O56 (Row 56) - Employee: Shekh Kalamudin
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Oct 25
+---
+Cell O57 (Row 57) - Employee: MD Rokon Uddin
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Oct 25
+
+MVR 500/- increment given from May 2026
+---
+Cell O58 (Row 58) - Employee: Salam Shaikh
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Sep 25
+---
+Cell O59 (Row 59) - Employee: Atikur Shaikh
+Author: Mahir
+Comment: Mahir:
+Rf 300/- increment given from Oct 25
+---
+Cell O60 (Row 60) - Employee: Abdul Odud Shaikh
+Author: Mahir
+Comment: Mahir:
+Increment of Rf 500/- given from Aug 25
+
+Rf 500/- increment given from June 2026
+---
+Cell O61 (Row 61) - Employee: Martha Ranapaheli
+Author: Fais
+Comment: Fais:
+MVR 500 - JULY 25
+Rf 500/- increment given from Nov 2025
+MVR 500 increased from Sep 26
+---
+Cell O62 (Row 62) - Employee: MD Farhad Hossain
+Author: Fais
+Comment: Fais:
+ADDED MVR 500 - JULY 25
+
+MVR 500/- increment given from July 2026
+---
+Cell O63 (Row 63) - Employee: MD Humayun Kobir
+Author: Mahir
+Comment: Mahir:
+MVR 500/- increment given from Aug 2026
+---
+Cell O64 (Row 64) - Employee: Raju Ahmed
+Author: Fais
+Comment: Fais:
+ADDED MVR 500 - JULY 25
+
+Rf 500/- increment given from Nov 2025
+---
+Cell O65 (Row 65) - Employee: Kazam Uddin
+Author: Mahir
+Comment: MVR 500/- increment given from May 2026
+---
+Cell O66 (Row 66) - Employee: MD Milon Hossain
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from April 26
+---
+Cell P66 (Row 66) - Employee: MD Milon Hossain
+Author: Mahir
+Comment: Mahir:
+Fixed OT 1500/- started Aug 2026
+---
+Cell O67 (Row 67) - Employee: MD Naim Sarder
+Author: Mahir
+Comment: Mahir:
+USD 50/- increment given from Nov 2025
+
+Rf 500/- increment given from June 2026
+---
+Cell O68 (Row 68) - Employee: MD Tufajjl Hosen
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Jan 26
+---
+Cell O69 (Row 69) - Employee: MD Suhel Mia
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from April 26
+---
+Cell O70 (Row 70) - Employee: Ali Hossain
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from April 26
+---
+Cell O71 (Row 71) - Employee: MD NAHIM GAZI
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from June 2026
+---
+Cell O72 (Row 72) - Employee: Laikuzzaman Leon
+Author: Mahir
+Comment: MVR 500/- increment given from May 2026
+---
+Cell O73 (Row 73) - Employee: MD Sobuj Rana
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from April 26
+---
+Cell O74 (Row 74) - Employee: MD Tanvir Miah
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from June 2026
+---
+Cell O75 (Row 75) - Employee: MD Imran
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from April 26
+---
+Cell O77 (Row 77) - Employee: Nazmul Chowdhury
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from April 26
+---
+Cell O78 (Row 78) - Employee: Pratheesh Prasad
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from April 26
+---
+Cell N79 (Row 79) - Employee: Sabbir Hossain
+Author: Mahir
+Comment: USD 50/- increment given from May 2026
+---
+Cell O80 (Row 80) - Employee: MD Shak Sabik
+Author: Mahir
+Comment: Mahir:
+Rf 500 increment given from Oct  2026
+---
+Cell O81 (Row 81) - Employee: Golam Sarowar Rubel
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from April 26
+---
+Cell O82 (Row 82) - Employee: MD Sujon
+Author: Mahir
+Comment: Mahir:
+Rf 500 increment given from Oct  2026
+---
+Cell O83 (Row 83) - Employee: MD Rayhan Bhuiya
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from April 26
+---
+Cell O84 (Row 84) - Employee: MD Hasana Ali
+Author: Mahir
+Comment: MVR 500/- increment given from May 2026
+---
+Cell O85 (Row 85) - Employee: MD Shamim Hoshen
+Author: Mahir
+Comment: MVR 500/- increment given from May 2026
+---
+Cell O90 (Row 90) - Employee: MD Hasan Al Mamun
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Oct 2026
+---
+Cell O91 (Row 91) - Employee: MD Muktar Ali
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Oct 2026
+---
+Cell O121 (Row 121) - Employee: Mohideen Abdul Rahuman 
+Author: Mahir
+Comment: Mahir:
+Rf 1000/- increment given from Oct 25
+---
+Cell O122 (Row 122) - Employee: Saswati Kundu Debnath
+Author: Fais
+Comment: Fais:
+ADDED MVR 500 - JULY 25
+Salary increment of Rf 500 given from Aug 25
+---
+Cell O123 (Row 123) - Employee: Muneswari Sandrapalli
+Author: Mahir
+Comment: Mahir:
+USD 50 increment given from April 26
+---
+Cell O124 (Row 124) - Employee: MD Mithu Hossain
+Author: Mahir
+Comment: Mahir:
+Rf 300/- increment given from Oct 25
+
+Rf 200/- increment given from June 2026
+---
+Cell O125 (Row 125) - Employee: Alisan
+Author: Mahir
+Comment: Mahir:
+Rf 500 increment given from Dec 2024
+Rf 500/- increment given from Jan 25
+---
+Cell O126 (Row 126) - Employee: Rinosan Muhamad   
+Author: Mahir
+Comment: Mahir:
+Increment of rf 500/- given from Aug 25
+
+Rf 500/- increment given from Nov 2025
+---
+Cell P126 (Row 126) - Employee: Rinosan Muhamad   
+Author: Fais
+Comment: Fais:
+MVR 500 increased from AUG 26
+---
+Cell O130 (Row 130) - Employee: Manikandan Selvaraj
+Author: Mahir
+Comment: Mahir:
+Rf 500/- increment given from Jan 26
+
+Rf 500/- increment given from June 26
+
+---
+Cell O132 (Row 132) - Employee: YOUNUS MIA
+Author: Mahir
+Comment: Mahir:
+Rf 1000/- increment given from April 26
+---
+Cell P132 (Row 132) - Employee: YOUNUS MIA
+Author: Mahir
+Comment: Mahir:
+Increment of rf 1393/- given from Aug 25
+---
+Cell N133 (Row 133) - Employee: Thirugnanam Maruthai
+Author: Mahir
+Comment: Mahir:
+USD 50/- increment given from Nov 2025
+USD 50/- increment given from May 2026
+---
+Cell O133 (Row 133) - Employee: Thirugnanam Maruthai
+Author: Mahir
+Comment: Mahir:
+Rf 500/- Increment given from Sep 25
+
+Rf 500/- increment given from April 26
+---
+Cell O134 (Row 134) - Employee: Vijayakumar Kaliaraj
+Author: Mahir
+Comment: Mahir:
+Rf 1000/- increment given from Dec 25
+Rf 1000/- increment given from Sep 26
+---
+Cell N135 (Row 135) - Employee: FUL SAH
+Author: Mahir
+Comment: MVR 500/- increment given from May 2026
+---
+Cell O135 (Row 135) - Employee: FUL SAH
+Author: Fais
+Comment: Fais:
+INCREASED 500 MVR - JULY 25
+Increment of Rf 500/- given from Aug 25
+---
+
+Total comments found: 92

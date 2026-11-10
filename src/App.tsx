@@ -29,6 +29,7 @@ import { StaffPayslip } from './pages/StaffPayslip';
 import { StaffAttendance } from './pages/StaffAttendance';
 import { PetrolRequests } from './pages/PetrolRequests';
 import { Salary } from './pages/Salary';
+import { FormsAndLetters } from './pages/FormsAndLetters';
 
 function App() {
   return (
@@ -71,6 +72,7 @@ function App() {
             <Route path="disciplinary" element={<Disciplinary />} />
             <Route path="petrol-requests" element={<PetrolRequests />} />
             <Route path="salary" element={<Salary />} />
+            <Route path="forms-letters" element={<FormsAndLetters />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="settings" element={<div className="p-4">Settings Module - Coming Soon</div>} />
           </Route>
