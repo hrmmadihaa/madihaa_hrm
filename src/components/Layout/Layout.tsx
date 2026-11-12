@@ -40,7 +40,7 @@ export const Layout: React.FC = () => {
     { name: 'Salary', href: '/salary', icon: Wallet },
     { name: 'Forms & Letters', href: '/forms-letters', icon: Mail },
     { name: 'Reports', href: '/reports', icon: BarChart },
-    { name: 'Recruitment', href: '/recruitment', icon: FileText },
+    { name: 'Ticketing', href: '/ticketing', icon: FileText },
     { name: 'Recruitment Pipeline', href: '/recruitment-pipeline', icon: RefreshCw },
     { name: 'Training', href: '/training', icon: GraduationCap },
     { name: 'Performance', href: '/performance', icon: Trophy },

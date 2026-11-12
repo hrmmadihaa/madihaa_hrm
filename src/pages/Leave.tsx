@@ -2,12 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Plus, X, Eye, Check, X as XIcon, CheckSquare, Square, Upload } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { Card, CardContent } from '../components/ui/Card';
+import { Card, CardHeader, CardContent } from '../components/ui/Card';
+import { AirportAutocomplete } from '../components/AirportAutocomplete';
 import { createLeaveRequest, cancelLeaveRequest, getLeaveRequests, validateLeaveRequest, calculateLeaveDays, approveLeaveRequest, rejectLeaveRequest, deleteLeaveRequest, bulkDeleteLeaveRequests } from '../lib/leave';
 import { useAuth } from '../contexts/AuthContext';
 import { getEmployees } from '../lib/employees';
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
+import { createTicketRequest, getAllTicketRequests, updateTicketStatus, type TicketRequest } from '../lib/ticket';
+import { TICKET_WORKFLOW_STEPS, TICKET_WORKFLOW_LABELS } from '../types';
 import type { LeaveRequest, LeaveType } from '../types';
 import * as XLSX from 'xlsx';
 import { auth } from '../lib/firebase';
@@ -23,7 +26,7 @@ export const Leave = () => {
   
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'tickets'>('pending');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<LeaveType | 'all'>('all');
   const [showLeaveForm, setShowLeaveForm] = useState(false);
   const [newLeaveType, setNewLeaveType] = useState<LeaveType>('annual');
@@ -31,6 +34,7 @@ export const Leave = () => {
   const [newEndDate, setNewEndDate] = useState('');
   const [newReason, setNewReason] = useState('');
   const [newDays, setNewDays] = useState(1);
+  const [ticketRequired, setTicketRequired] = useState(false);
   const [leaveErrors, setLeaveErrors] = useState<string[]>([]);
   const [submittingLeave, setSubmittingLeave] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -51,16 +55,31 @@ export const Leave = () => {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [bulkDeleteModal, setBulkDeleteModal] = useState({ show: false });
   const [bulkDeleteSubmitting, setBulkDeleteSubmitting] = useState(false);
+  const [ticketRequests, setTicketRequests] = useState<TicketRequest[]>([]);
+  const [showTicketForm, setShowTicketForm] = useState(false);
+  const [selectedLeaveForTicket, setSelectedLeaveForTicket] = useState<LeaveRequest | null>(null);
+  const [ticketFormData, setTicketFormData] = useState({
+    departureCity: '',
+    destinationCity: '',
+    departureDate: '',
+    returnDate: '',
+    ticketType: 'round_trip' as 'one_way' | 'round_trip',
+    passengers: 1,
+    specialRequests: ''
+  });
+  const [submittingTicket, setSubmittingTicket] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const requests = await getLeaveRequests();
+      const [requests, empData, tickets] = await Promise.all([
+        getLeaveRequests(),
+        getEmployees(),
+        getAllTicketRequests()
+      ]);
       setLeaveRequests(requests);
-
-      // Load employees for dropdown
-      const empData = await getEmployees();
       setEmployees(empData);
+      setTicketRequests(tickets);
     } catch (error) {
       console.error('Error loading leave data:', error);
     } finally {
@@ -986,6 +1005,7 @@ export const Leave = () => {
       endDate: new Date(newEndDate),
       days: calculateDaysFromRange(newStartDate, newEndDate),
       reason: newReason,
+      ticketRequired: ticketRequired,
     } as Partial<LeaveRequest>;
 
     const validationErrors = validateLeaveRequest(request);
@@ -1151,6 +1171,71 @@ export const Leave = () => {
     setViewModal({ show: false, request: null });
   };
 
+  const handleOpenTicketForm = (leave: LeaveRequest) => {
+    setSelectedLeaveForTicket(leave);
+    setTicketFormData({
+      departureCity: '',
+      destinationCity: '',
+      departureDate: leave.startDate instanceof Date ? leave.startDate.toISOString().split('T')[0] : new Date(leave.startDate).toISOString().split('T')[0],
+      returnDate: leave.endDate instanceof Date ? leave.endDate.toISOString().split('T')[0] : new Date(leave.endDate).toISOString().split('T')[0],
+      ticketType: 'round_trip',
+      passengers: 1,
+      specialRequests: ''
+    });
+    setShowTicketForm(true);
+  };
+
+  const handleCloseTicketForm = () => {
+    setShowTicketForm(false);
+    setSelectedLeaveForTicket(null);
+    setTicketFormData({
+      departureCity: '',
+      destinationCity: '',
+      departureDate: '',
+      returnDate: '',
+      ticketType: 'round_trip',
+      passengers: 1,
+      specialRequests: ''
+    });
+  };
+
+  const handleSubmitTicket = async () => {
+    if (!selectedLeaveForTicket) return;
+
+    setSubmittingTicket(true);
+    try {
+      await createTicketRequest({
+        employeeId: selectedLeaveForTicket.employeeId,
+        leaveId: selectedLeaveForTicket.id,
+        departureCity: ticketFormData.departureCity,
+        destinationCity: ticketFormData.destinationCity,
+        departureDate: new Date(ticketFormData.departureDate),
+        returnDate: new Date(ticketFormData.returnDate),
+        ticketType: ticketFormData.ticketType,
+        passengers: ticketFormData.passengers,
+        specialRequests: ticketFormData.specialRequests,
+        status: 'applied'
+      });
+      alert('Ticket request submitted successfully!');
+      handleCloseTicketForm();
+      loadData();
+    } catch (error) {
+      alert('Failed to submit ticket request: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setSubmittingTicket(false);
+    }
+  };
+
+  const handleUpdateTicketStatus = async (ticketId: string, newStatus: TicketRequest['status']) => {
+    try {
+      await updateTicketStatus(ticketId, newStatus);
+      alert(`Ticket status updated to ${TICKET_WORKFLOW_LABELS[newStatus as keyof typeof TICKET_WORKFLOW_LABELS]}`);
+      loadData();
+    } catch (error) {
+      alert('Failed to update ticket status: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1268,6 +1353,18 @@ export const Leave = () => {
               >
                 Rejected ({employeeRequests.filter(r => r.status === 'rejected').length})
               </button>
+              {can(PERMISSIONS.LEAVE_APPROVE) && (
+                <button
+                  onClick={() => setActiveTab('tickets')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === 'tickets'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                  }`}
+                >
+                  Tickets ({ticketRequests.length})
+                </button>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -1408,6 +1505,17 @@ export const Leave = () => {
                 />
               </div>
             </div>
+            <div className="mt-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ticketRequired}
+                  onChange={(e) => setTicketRequired(e.target.checked)}
+                  className="w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+                />
+                <span className="text-sm text-secondary-700">Ticket Required</span>
+              </label>
+            </div>
 
             {leaveErrors.length > 0 && (
               <div className="mt-4 space-y-2 text-sm text-red-600">
@@ -1471,9 +1579,10 @@ export const Leave = () => {
       )}
 
       {/* Leave Requests List */}
-      <Card>
-        {/* Mobile Cards - visible only on small screens */}
-        <div className="sm:hidden space-y-4 p-4">
+      {activeTab !== 'tickets' && (
+        <Card>
+          {/* Mobile Cards - visible only on small screens */}
+          <div className="sm:hidden space-y-4 p-4">
           {filteredRequests.map((request, index) => {
             const employee = employees.find(emp => emp.id === request.employeeId);
             return (
@@ -1719,6 +1828,15 @@ export const Leave = () => {
                           )}
                         </>
                       )}
+                      {activeTab === 'approved' && request.ticketRequired && can(PERMISSIONS.LEAVE_APPROVE) && (
+                        <button
+                          onClick={() => handleOpenTicketForm(request)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Book Ticket"
+                        >
+                          <Calendar className="w-5 h-5" />
+                        </button>
+                      )}
                       {activeTab === 'approved' && can(PERMISSIONS.LEAVE_DELETE) && (
                         <button
                           onClick={() => setDeleteModal({ show: true, request })}
@@ -1737,12 +1855,112 @@ export const Leave = () => {
           </table>
         </div>
       </Card>
+      )}
 
-      {filteredRequests.length === 0 && (
+      {activeTab !== 'tickets' && filteredRequests.length === 0 && (
         <div className="text-center py-12">
           <Calendar className="w-12 h-12 text-secondary-400 mx-auto mb-4" />
           <p className="text-secondary-600">No leave requests found</p>
         </div>
+      )}
+
+      {/* Ticket Management Section */}
+      {activeTab === 'tickets' && (
+        <Card>
+          <CardHeader>
+            <h2 className="text-lg font-semibold text-secondary-900">Ticket Requests</h2>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-secondary-50 border-b border-secondary-200">
+                  <tr>
+                    <th className="px-6 py-3 text-xs font-medium text-secondary-600 uppercase">Employee</th>
+                    <th className="px-6 py-3 text-xs font-medium text-secondary-600 uppercase">Route</th>
+                    <th className="px-6 py-3 text-xs font-medium text-secondary-600 uppercase">Dates</th>
+                    <th className="px-6 py-3 text-xs font-medium text-secondary-600 uppercase">Type</th>
+                    <th className="px-6 py-3 text-xs font-medium text-secondary-600 uppercase">Status</th>
+                    <th className="px-6 py-3 text-xs font-medium text-secondary-600 uppercase">Workflow</th>
+                    <th className="px-6 py-3 text-xs font-medium text-secondary-600 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-secondary-200">
+                  {ticketRequests.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-8 text-center text-sm text-secondary-500">No ticket requests found</td>
+                    </tr>
+                  ) : (
+                    ticketRequests.map((ticket) => {
+                      const employee = employees.find(emp => emp.id === ticket.employeeId);
+                      const currentIndex = TICKET_WORKFLOW_STEPS.indexOf(ticket.status as any);
+                      const nextStatus = TICKET_WORKFLOW_STEPS[currentIndex + 1];
+                      
+                      return (
+                        <tr key={ticket.id} className="hover:bg-secondary-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900 font-medium">
+                            {employee?.fullName || 'Unknown'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
+                            {ticket.departureCity} → {ticket.destinationCity}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
+                            {new Date(ticket.departureDate).toLocaleDateString()} - {new Date(ticket.returnDate).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600 capitalize">
+                            {ticket.ticketType.replace('_', ' ')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              ticket.status === 'departed' ? 'bg-green-100 text-green-800' :
+                              ticket.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                              'bg-blue-100 text-blue-800'
+                            }`}>
+                              {TICKET_WORKFLOW_LABELS[ticket.status as keyof typeof TICKET_WORKFLOW_LABELS]}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-wrap gap-1">
+                              {TICKET_WORKFLOW_STEPS.map((step, idx) => {
+                                const isCompleted = idx < currentIndex;
+                                const isActive = idx === currentIndex;
+                                return (
+                                  <span
+                                    key={step}
+                                    className={`px-2 py-1 text-xs rounded ${
+                                      isCompleted ? 'bg-green-100 text-green-700' :
+                                      isActive ? 'bg-blue-100 text-blue-700' :
+                                      'bg-gray-100 text-gray-500'
+                                    }`}
+                                  >
+                                    {TICKET_WORKFLOW_LABELS[step]}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {nextStatus && can(PERMISSIONS.LEAVE_APPROVE) && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleUpdateTicketStatus(ticket.id, nextStatus)}
+                              >
+                                Move to {TICKET_WORKFLOW_LABELS[nextStatus]}
+                              </Button>
+                            )}
+                            {!nextStatus && (
+                              <span className="text-sm text-green-600 font-medium">Complete</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Approval Modal */}
@@ -2069,6 +2287,101 @@ export const Leave = () => {
               <Button variant="secondary" onClick={handleCloseViewModal}>
                 Close
               </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Ticket Booking Form Modal */}
+      {showTicketForm && selectedLeaveForTicket && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-secondary-900 mb-4">
+                Book Ticket for {employees.find(emp => emp.id === selectedLeaveForTicket.employeeId)?.fullName || 'Unknown'}
+              </h3>
+              
+              <div className="mb-4 p-4 bg-secondary-50 rounded-lg">
+                <p className="text-sm text-secondary-600">
+                  <strong>Leave Dates:</strong> {new Date(selectedLeaveForTicket.startDate).toLocaleDateString()} - {new Date(selectedLeaveForTicket.endDate).toLocaleDateString()}
+                </p>
+                <p className="text-sm text-secondary-600">
+                  <strong>Leave Type:</strong> {typeLabels[selectedLeaveForTicket.type]}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <AirportAutocomplete
+                  value={ticketFormData.departureCity}
+                  onChange={(value) => setTicketFormData({ ...ticketFormData, departureCity: value })}
+                  label="Departure City"
+                  placeholder="Search airport (e.g., Male, Delhi, Dubai)"
+                />
+                <AirportAutocomplete
+                  value={ticketFormData.destinationCity}
+                  onChange={(value) => setTicketFormData({ ...ticketFormData, destinationCity: value })}
+                  label="Destination City"
+                  placeholder="Search airport (e.g., Delhi, Dubai, London)"
+                />
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">Departure Date</label>
+                  <input
+                    type="date"
+                    value={ticketFormData.departureDate}
+                    onChange={(e) => setTicketFormData({ ...ticketFormData, departureDate: e.target.value })}
+                    className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">Return Date</label>
+                  <input
+                    type="date"
+                    value={ticketFormData.returnDate}
+                    onChange={(e) => setTicketFormData({ ...ticketFormData, returnDate: e.target.value })}
+                    className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">Ticket Type</label>
+                  <select
+                    value={ticketFormData.ticketType}
+                    onChange={(e) => setTicketFormData({ ...ticketFormData, ticketType: e.target.value as 'one_way' | 'round_trip' })}
+                    className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="round_trip">Round Trip</option>
+                    <option value="one_way">One Way</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">Passengers</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={ticketFormData.passengers}
+                    onChange={(e) => setTicketFormData({ ...ticketFormData, passengers: parseInt(e.target.value) || 1 })}
+                    className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">Special Requests</label>
+                  <textarea
+                    value={ticketFormData.specialRequests}
+                    onChange={(e) => setTicketFormData({ ...ticketFormData, specialRequests: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="Any special requirements..."
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button onClick={handleSubmitTicket} loading={submittingTicket}>
+                  Submit Ticket Request
+                </Button>
+                <Button variant="secondary" onClick={handleCloseTicketForm}>
+                  Cancel
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

@@ -12,9 +12,13 @@ initializeApp({
 const db = getFirestore();
 
 // Read Excel file
-const workbook = XLSX.readFile('Madihaa_Foreign _Male Salary_Oct 2026 no password.xlsx');
+const workbook = XLSX.readFile('Madihaa_Locals Salary_Oct 2026.xlsx');
 const sheet = workbook.Sheets[workbook.SheetNames[0]];
 const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+console.log('Sheet name:', workbook.SheetNames[0]);
+console.log('Total rows in sheet:', data.length);
+console.log('First 5 rows:', data.slice(0, 5));
 
 // Header is at row 3 (index 2), employee names are in column 1 (index 1)
 const nameColIndex = 1;
@@ -25,7 +29,42 @@ data.forEach((row, index) => {
   if (index < 3) return; // Skip header rows
   const rowNumber = index + 1; // Excel rows are 1-indexed
   if (row[nameColIndex]) {
-    rowToEmployee[rowNumber] = row[nameColIndex];
+    const name = String(row[nameColIndex]).trim();
+    if (name && name !== 'NAME') {
+      rowToEmployee[rowNumber] = name;
+    }
+  }
+});
+
+console.log('Row to employee mapping sample:', Object.entries(rowToEmployee).slice(0, 10));
+console.log('All employee mappings:', Object.entries(rowToEmployee));
+
+// Get full employee data from Excel for skipped employees
+const getEmployeeData = (rowNumber) => {
+  const rowIndex = rowNumber - 1; // Convert to 0-indexed
+  if (data[rowIndex]) {
+    const row = data[rowIndex];
+    return {
+      name: row[1], // NAME column
+      staffId: row[2], // Staff ID
+      dateOfJoin: row[3], // Date of Join
+      location: row[4], // LOCATION
+      designation: row[5], // DESIGNATION
+      nationality: row[6], // NATIONALITY
+      bankName: row[9], // Bank Name
+      accountNo: row[8], // A/C no
+    };
+  }
+  return null;
+};
+
+// Log employee details for skipped employees
+const skippedEmployees = ['Aminath Shafana', 'Fathmath Hana ', 'Hussain Mahir ', 'Ahmed Rizny', 'Ismail Shareef'];
+console.log('\n=== Skipped Employees Details ===');
+Object.entries(rowToEmployee).forEach(([rowNum, name]) => {
+  if (skippedEmployees.includes(name)) {
+    const empData = getEmployeeData(parseInt(rowNum));
+    console.log(`\n${name} (Row ${rowNum}):`, empData);
   }
 });
 
@@ -46,6 +85,7 @@ Object.keys(sheet).forEach(key => {
 });
 
 console.log('Total comments found:', comments.length);
+console.log('All comments:', comments);
 
 // Get row number from cell reference
 const getRowNumber = (cellRef) => {
@@ -66,17 +106,40 @@ function parseIncrementComment(text) {
   
   const USD_TO_MVR_RATE = 15.4; // Exchange rate: 1 USD = 15.4 MVR
   
+  // First pass: find dates and their associated amounts
+  let currentEffectiveDate = null;
+  let currentReason = '';
+  
   lines.forEach(line => {
-    // Match patterns like "Rf 500 increment given from April 26" or "USD 50 increment..."
+    const dateMatch = line.match(/(?:given from|increased from|added from|increment of|onward|from)\s*(.+?)(?:\n|$)/i);
+    
+    if (dateMatch) {
+      const dateStr = dateMatch[1].trim();
+      const monthMatch = dateStr.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*(\d{2,4})?/i);
+      if (monthMatch) {
+        const monthAbbr = monthMatch[1].toLowerCase();
+        const month = monthMap[monthAbbr] || monthMatch[1];
+        const year = monthMatch[2] || '2026';
+        currentEffectiveDate = `${month} 1, ${year}`;
+        currentReason = line.trim();
+      }
+    }
+    
+    // Check if this line has an amount
     const currencyMatch = line.match(/(Rf|MVR|USD)/i);
-    const amountMatch = line.match(/(?:Rf|MVR|USD)\s*[\d,]+\.?\d*/i);
-    const dateMatch = line.match(/(?:given from|increased from|added from|increment of)\s*(.+?)(?:\n|$)/i);
+    const amountMatch = line.match(/(?:Rf|MVR|USD)?\s*[\d,]+\.?\d*\s*\/-/i) || line.match(/(?:Rf|MVR|USD)?\s*[\d,]+\.?\d*/i);
     
     if (amountMatch) {
       const amountStr = amountMatch[0].replace(/[^0-9.]/g, '');
       let amount = parseFloat(amountStr);
+      
+      // Skip if this looks like a year (e.g., 2025, 2026)
+      if (amount > 2000 && amount < 2100 && !currencyMatch) {
+        return; // This is likely a year, not an amount
+      }
+      
       let currency = currencyMatch ? currencyMatch[1].toUpperCase() : 'MVR';
-      let reason = line.trim();
+      let reason = currentReason || line.trim();
       
       // Convert USD to MVR
       if (currency === 'USD') {
@@ -89,26 +152,37 @@ function parseIncrementComment(text) {
       // Normalize Rf to MVR in reason
       reason = reason.replace(/Rf\s*/gi, 'MVR ');
       
-      let effectiveDate = null;
-      if (dateMatch) {
-        const dateStr = dateMatch[1].trim();
-        // Parse date (e.g., "April 26", "Oct 2026", "JULY 25")
-        const monthMatch = dateStr.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*(\d{2,4})?/i);
-        if (monthMatch) {
-          const monthAbbr = monthMatch[1].toLowerCase();
-          const month = monthMap[monthAbbr] || monthMatch[1];
-          const year = monthMatch[2] || '2026';
-          effectiveDate = `${month} 1, ${year}`; // Default to day 1 if not specified
+      let effectiveDate = currentEffectiveDate;
+      
+      // If no date found in previous lines, check current line
+      if (!effectiveDate) {
+        const lineDateMatch = line.match(/(?:given from|increased from|added from|increment of|onward|from)\s*(.+?)(?:\n|$)/i);
+        if (lineDateMatch) {
+          const dateStr = lineDateMatch[1].trim();
+          const monthMatch = dateStr.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*(\d{2,4})?/i);
+          if (monthMatch) {
+            const monthAbbr = monthMatch[1].toLowerCase();
+            const month = monthMap[monthAbbr] || monthMatch[1];
+            const year = monthMatch[2] || '2026';
+            effectiveDate = `${month} 1, ${year}`;
+          }
+        } else {
+          // If no date found, default to October 2026 (file is Oct 2026)
+          effectiveDate = 'October 1, 2026';
         }
       }
       
-      if (effectiveDate) {
+      if (effectiveDate && amount > 0) {
         increments.push({
           amount,
           effectiveDate,
           reason
         });
       }
+      
+      // Reset for next increment
+      currentEffectiveDate = null;
+      currentReason = '';
     }
   });
   
@@ -146,6 +220,12 @@ Object.entries(employeeIncrements).slice(0, 5).forEach(([name, increments]) => {
 
 console.log(`\nTotal employees with increments: ${Object.keys(employeeIncrements).length}`);
 
+// Save to local JSON file first
+const fs = require('fs');
+const outputPath = 'salary-increments-backup.json';
+fs.writeFileSync(outputPath, JSON.stringify(employeeIncrements, null, 2));
+console.log(`\nSaved increments to ${outputPath}`);
+
 // Now match with Firestore employees
 async function importIncrements() {
   try {
@@ -155,13 +235,18 @@ async function importIncrements() {
     employeesSnapshot.docs.forEach(doc => {
       const emp = doc.data();
       employees[emp.fullName] = doc.id;
+      employees[emp.fullName.trim()] = doc.id; // Trim whitespace
       // Also check for name variations
       if (emp.name) {
         employees[emp.name] = doc.id;
+        employees[emp.name.trim()] = doc.id; // Trim whitespace
       }
     });
     
     console.log('\nFirestore employees loaded:', Object.keys(employees).length);
+    
+    // Log all employee names for debugging
+    console.log('Firestore employee names:', Object.keys(employees));
     
     let addedCount = 0;
     let skippedCount = 0;
@@ -176,6 +261,7 @@ async function importIncrements() {
       }
       
       console.log(`Processing ${employeeName} (${employeeId})`);
+      console.log(`  Increments to process:`, increments);
       
       // Get current salary record
       const salarySnapshot = await db.collection('salary_records')
@@ -189,47 +275,72 @@ async function importIncrements() {
         currentSalary = salary.basicSalary + salary.otAllowances + salary.otherAllowances +
           salary.attendanceAllowance + salary.livingAllowance +
           salary.foodAllowance + salary.fridayAllowance;
+        console.log(`  Current salary found: ${currentSalary}`);
+      } else {
+        console.log(`  No salary record found, using 0 as base`);
       }
       
-      // Process increments in reverse chronological order
-      for (const inc of increments) {
+      // Get existing increments to calculate the correct base salary
+      const existingIncrementsSnapshot = await db.collection('salary_increments')
+        .where('employeeId', '==', employeeId)
+        .get();
+      
+      if (!existingIncrementsSnapshot.empty) {
+        // Sort existing increments by effective date
+        const existingIncrements = existingIncrementsSnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime());
+        
+        // Find the latest increment and use its newSalary as the base
+        const latestIncrement = existingIncrements[existingIncrements.length - 1];
+        currentSalary = latestIncrement.newSalary;
+        console.log(`  Using latest increment newSalary as base: ${currentSalary}`);
+      }
+      
+      // Process increments in chronological order (oldest first)
+      // Sort increments by effective date
+      const sortedIncrements = increments.sort((a, b) => 
+        new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime()
+      );
+      
+      for (const inc of sortedIncrements) {
         const incrementAmount = inc.amount;
         const newSalary = currentSalary + incrementAmount;
         const incrementPercentage = currentSalary > 0 ? (incrementAmount / currentSalary) * 100 : 0;
         
-        // Check if already exists (by amount and reason)
+        // Check if already exists (by amount, reason, and effective date)
         const existingSnapshot = await db.collection('salary_increments')
           .where('employeeId', '==', employeeId)
           .where('incrementAmount', '==', incrementAmount)
           .where('reason', '==', inc.reason)
+          .where('effectiveDate', '==', new Date(inc.effectiveDate))
           .get();
         
         if (!existingSnapshot.empty) {
           console.log(`  - Skipping duplicate: ${incrementAmount} from ${inc.effectiveDate}`);
-          continue;
+        } else {
+          const effectiveDate = new Date(inc.effectiveDate);
+          
+          await db.collection('salary_increments').add({
+            employeeId,
+            employeeName,
+            previousSalary: currentSalary,
+            newSalary,
+            incrementAmount,
+            incrementPercentage,
+            reason: inc.reason,
+            effectiveDate,
+            status: 'Approved',
+            createdAt: new Date(),
+            createdBy: inc.author || 'System'
+          });
+          
+          console.log(`  + Added increment: ${incrementAmount} from ${inc.effectiveDate} (previous: ${currentSalary}, new: ${newSalary})`);
+          addedCount++;
+          
+          // Update current salary for next increment
+          currentSalary = newSalary;
         }
-        
-        const effectiveDate = new Date(inc.effectiveDate);
-        
-        await db.collection('salary_increments').add({
-          employeeId,
-          employeeName,
-          previousSalary: currentSalary,
-          newSalary,
-          incrementAmount,
-          incrementPercentage,
-          reason: inc.reason,
-          effectiveDate,
-          status: 'Approved',
-          createdAt: new Date(),
-          createdBy: inc.author || 'System'
-        });
-        
-        console.log(`  + Added increment: ${incrementAmount} from ${inc.effectiveDate}`);
-        addedCount++;
-        
-        // Update current salary for next increment
-        currentSalary = newSalary;
       }
     }
     

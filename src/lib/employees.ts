@@ -237,6 +237,21 @@ export const updateEmployee = async (id: string, data: Partial<Employee>) => {
     });
     
     await updateDoc(docRef, updateData);
+    
+    // If status changed to resigned or terminated, remove from all work locations
+    if (data.status === 'resigned' || data.status === 'terminated') {
+      const { getAllWorkLocations, assignStaffToWorkLocation } = await import('./workLocation');
+      const workLocations = await getAllWorkLocations();
+
+      for (const location of workLocations) {
+        if (location.assignedStaff?.includes(id)) {
+          const updatedStaff = location.assignedStaff.filter((staffId: string) => staffId !== id);
+          if (location.id) {
+            await assignStaffToWorkLocation(location.id, updatedStaff);
+          }
+        }
+      }
+    }
   } catch (error) {
     console.error('Error updating employee:', error);
     throw error;

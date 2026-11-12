@@ -76,8 +76,10 @@ export const getTodayAttendanceForEmployee = async (employeeId: string) => {
 
 export const getAttendanceByDate = async (date: Date) => {
   try {
-    const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
     
     const q = query(
       collection(db, ATTENDANCE_COLLECTION),
@@ -264,7 +266,10 @@ export const deleteShift = async (id: string) => {
 // Get attendance statistics
 export const getAttendanceStats = async (date: Date) => {
   try {
-    const attendance = await getAttendanceByDate(date);
+    // Create a date object with only the date part (time set to midnight)
+    const queryDate = new Date(date);
+    queryDate.setHours(0, 0, 0, 0);
+    const attendance = await getAttendanceByDate(queryDate);
     
     const stats = {
       total: attendance.length,

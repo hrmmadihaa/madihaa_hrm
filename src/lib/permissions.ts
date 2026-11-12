@@ -196,22 +196,23 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   ],
   
   supervisor: [
-    // Employee Management - View only
+    // Employee Management - View and create
     PERMISSIONS.EMPLOYEES_VIEW,
-    
+    PERMISSIONS.EMPLOYEES_CREATE,
+
     // Attendance - View team
     PERMISSIONS.ATTENDANCE_VIEW,
-    
+
     // Leave - View team and apply for leave (no approval)
     PERMISSIONS.LEAVE_VIEW,
     PERMISSIONS.LEAVE_VIEW_ALL,
     PERMISSIONS.LEAVE_REQUEST,
-    
+
     // Overtime - View team, approve team requests
     PERMISSIONS.OVERTIME_VIEW,
     PERMISSIONS.OVERTIME_VIEW_ALL,
     PERMISSIONS.OVERTIME_APPROVE,
-    
+
     // Performance - View and review team
     PERMISSIONS.PERFORMANCE_VIEW,
     PERMISSIONS.PERFORMANCE_REVIEW,

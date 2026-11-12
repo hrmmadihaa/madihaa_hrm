@@ -5,8 +5,10 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { getEmployees } from '../lib/employees';
 import { getLeaveRequests } from '../lib/leave';
+import { getAttendanceStats } from '../lib/attendance';
 import { useNavigate } from 'react-router-dom';
 import madihaaLogo from '/madihaa (1).jpg';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export const Dashboard = () => {
   const [employees, setEmployees] = useState<any[]>([]);
@@ -14,11 +16,22 @@ export const Dashboard = () => {
   const [selectedStat, setSelectedStat] = useState<string | null>(null);
   const [filteredEmployees, setFilteredEmployees] = useState<any[]>([]);
   const [onLeaveEmployees, setOnLeaveEmployees] = useState<any[]>([]);
+  const [attendanceStats, setAttendanceStats] = useState<any>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     loadEmployees();
+    loadAttendanceStats();
   }, []);
+
+  const loadAttendanceStats = async () => {
+    try {
+      const stats = await getAttendanceStats(new Date());
+      setAttendanceStats(stats);
+    } catch (error) {
+      console.error('Error loading attendance stats:', error);
+    }
+  };
 
   const loadEmployees = async () => {
     try {
@@ -33,7 +46,7 @@ export const Dashboard = () => {
       // Find employees with approved leave that includes today
       const currentlyOnLeave = data.filter(employee => {
         const employeeLeaves = leaveRequests.filter(
-          lr => lr.employeeId === employee.id && 
+          lr => lr.employeeId === employee.id &&
           lr.status === 'approved' &&
           new Date(lr.startDate) <= today &&
           new Date(lr.endDate) >= today
@@ -252,13 +265,30 @@ export const Dashboard = () => {
             <h2 className="text-lg font-semibold text-secondary-900">Attendance Overview</h2>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center bg-secondary-50 rounded-lg">
-              <div className="text-center">
-                <TrendingUp className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
-                <p className="text-secondary-600">Chart visualization coming soon</p>
-                <p className="text-sm text-secondary-500">Attendance trends and analytics</p>
+            {attendanceStats ? (
+              <ResponsiveContainer width="100%" height={256}>
+                <BarChart data={[
+                  { name: 'Present', value: attendanceStats.present, fill: '#22c55e' },
+                  { name: 'Absent', value: attendanceStats.absent, fill: '#ef4444' },
+                  { name: 'Late', value: attendanceStats.late, fill: '#eab308' },
+                  { name: 'On Leave', value: attendanceStats.onLeave, fill: '#3b82f6' },
+                ]}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="value" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-64 flex items-center justify-center bg-secondary-50 rounded-lg">
+                <div className="text-center">
+                  <TrendingUp className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
+                  <p className="text-secondary-600">Loading attendance data...</p>
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 

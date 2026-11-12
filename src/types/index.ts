@@ -275,6 +275,7 @@ export interface LeaveRequest {
   amendedBy?: string;
   amendedDate?: Date;
   balanceAdjusted?: boolean;
+  ticketRequired?: boolean;
 }
 
 export type LeaveType = 'annual' | 'medical' | 'emergency' | 'duty' | 'unpaid' | 'maternity' | 'paternity' | 'compassionate' | 'off_day';
@@ -298,6 +299,48 @@ export interface LeaveBalance {
   carryForward: number;
   year: number;
 }
+
+// Ticket Types
+export type TicketStatus = 'applied' | 'make_payment' | 'submit_to_account' | 'collect_payment' | 'collect_passport' | 'arrange_driver' | 'drop_to_airport' | 'departed' | 'cancelled';
+
+export interface TicketRequest {
+  id: string;
+  employeeId: string;
+  leaveId: string;
+  departureCity: string;
+  destinationCity: string;
+  departureDate: Date;
+  returnDate: Date;
+  ticketType: 'one_way' | 'round_trip';
+  passengers: number;
+  specialRequests?: string;
+  status: TicketStatus;
+  bookedDate: Date;
+  updatedAt?: Date;
+}
+
+export const TICKET_WORKFLOW_STEPS: TicketStatus[] = [
+  'applied',
+  'make_payment',
+  'submit_to_account',
+  'collect_payment',
+  'collect_passport',
+  'arrange_driver',
+  'drop_to_airport',
+  'departed'
+];
+
+export const TICKET_WORKFLOW_LABELS: Record<TicketStatus, string> = {
+  applied: 'Applied',
+  make_payment: 'Make Payment',
+  submit_to_account: 'Submit to Account',
+  collect_payment: 'Collect Payment',
+  collect_passport: 'Collect Passport',
+  arrange_driver: 'Arrange Driver',
+  drop_to_airport: 'Drop to Airport',
+  departed: 'Departed',
+  cancelled: 'Cancelled'
+};
 
 // Payroll Types
 export interface Payroll {

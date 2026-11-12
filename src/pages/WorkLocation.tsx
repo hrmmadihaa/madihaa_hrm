@@ -43,11 +43,11 @@ export const WorkLocationPage = () => {
     assignedStaff: [] as string[]
   });
 
-  // Calculate statistics for each work location
+  // Calculate statistics for each work location (only active employees)
   const locationStats = useMemo(() => {
     return workLocations.map(location => {
       const assignedEmployees = employees.filter(emp =>
-        location.assignedStaff?.includes(emp.id)
+        location.assignedStaff?.includes(emp.id) && emp.status === 'active'
       );
 
       const positions = assignedEmployees.reduce((acc, emp) => {
@@ -78,9 +78,11 @@ export const WorkLocationPage = () => {
       const matchesName = location.name.toLowerCase().includes(searchLower);
       const matchesAddress = location.address?.toLowerCase().includes(searchLower);
 
-      // Search by assigned employee names
+      // Search by assigned employee names (only active employees)
       const hasMatchingEmployee = location.assignedStaff?.some(staffId => {
         const employee = employees.find(emp => emp.id === staffId);
+        // Only match if employee is active
+        if (employee?.status !== 'active') return false;
         return employee?.fullName?.toLowerCase().includes(searchLower);
       });
 
@@ -88,9 +90,21 @@ export const WorkLocationPage = () => {
     });
   }, [locationStats, searchTerm, employees]);
 
-  // Separate locations by assignment status
-  const locationsWithStaff = filteredLocations.filter(loc => loc.totalStaff > 0);
-  const locationsWithoutStaff = filteredLocations.filter(loc => loc.totalStaff === 0);
+  // Separate locations by assignment status (only count active staff)
+  const locationsWithStaff = filteredLocations.filter(loc => {
+    const activeStaffCount = loc.assignedStaff?.filter(staffId => {
+      const employee = employees.find(emp => emp.id === staffId);
+      return employee?.status === 'active';
+    }).length || 0;
+    return activeStaffCount > 0;
+  });
+  const locationsWithoutStaff = filteredLocations.filter(loc => {
+    const activeStaffCount = loc.assignedStaff?.filter(staffId => {
+      const employee = employees.find(emp => emp.id === staffId);
+      return employee?.status === 'active';
+    }).length || 0;
+    return activeStaffCount === 0;
+  });
 
   useEffect(() => {
     loadData();
@@ -396,14 +410,15 @@ export const WorkLocationPage = () => {
                     </div>
                   )}
 
-                  {/* Assigned Staff Names */}
+                  {/* Assigned Staff Names (only active) */}
                   {location.assignedStaff && location.assignedStaff.length > 0 && (
                     <div className="mb-4">
                       <p className="text-xs text-secondary-500 font-medium mb-2">Assigned Staff:</p>
                       <div className="flex flex-wrap gap-2">
                         {location.assignedStaff.slice(0, 6).map((staffId) => {
                           const employee = employees.find(emp => emp.id === staffId);
-                          if (!employee) return null;
+                          // Only show active employees
+                          if (!employee || employee.status !== 'active') return null;
                           return (
                             <div
                               key={staffId}
@@ -419,10 +434,16 @@ export const WorkLocationPage = () => {
                             </div>
                           );
                         })}
-                        {location.assignedStaff.length > 6 && (
+                        {location.assignedStaff.filter(staffId => {
+                          const employee = employees.find(emp => emp.id === staffId);
+                          return employee?.status === 'active';
+                        }).length > 6 && (
                           <div className="flex items-center gap-2 bg-secondary-100 px-3 py-1.5 rounded-full border border-secondary-200">
                             <span className="text-xs font-medium text-secondary-700">
-                              +{location.assignedStaff.length - 6} more
+                              +{location.assignedStaff.filter(staffId => {
+                                const employee = employees.find(emp => emp.id === staffId);
+                                return employee?.status === 'active';
+                              }).length - 6} more
                             </span>
                           </div>
                         )}

@@ -13,8 +13,8 @@ import { Payroll } from './pages/Payroll';
 import { Bonus } from './pages/Bonus';
 import { Overtime } from './pages/Overtime';
 import { Reports } from './pages/Reports';
-import { Recruitment } from './pages/Recruitment';
 import { RecruitmentPipeline } from './pages/RecruitmentPipeline';
+import { Ticketing } from './pages/Ticketing';
 import { Training } from './pages/Training';
 import { Performance } from './pages/Performance';
 import { Lifecycle } from './pages/Lifecycle';
@@ -62,7 +62,8 @@ function App() {
             <Route path="bonus" element={<Bonus />} />
             <Route path="overtime" element={<Overtime />} />
             <Route path="reports" element={<Reports />} />
-            <Route path="recruitment" element={<Recruitment />} />
+            <Route path="recruitment" element={<Ticketing />} />
+            <Route path="ticketing" element={<Ticketing />} />
             <Route path="recruitment-pipeline" element={<RecruitmentPipeline />} />
             <Route path="training" element={<Training />} />
             <Route path="performance" element={<Performance />} />

@@ -59,7 +59,7 @@ service cloud.firestore {
     // Attendance collection
     match /attendance/{attendanceId} {
       allow read: if isAuthenticated();
-      allow create, update: if isSuperAdmin() || isHRManager() || isOwner(resource.data.userId);
+      allow create, update: if isSuperAdmin() || isHRManager() || isSupervisor();
     }
     
     // Leave requests collection
