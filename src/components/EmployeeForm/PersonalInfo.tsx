@@ -245,20 +245,38 @@ export const PersonalInfo = ({ employee, onNext, onCancel, onSave }: PersonalInf
             onChange={handleChange}
             placeholder="Enter designation"
           />
-          <Input
-            label="Job Level"
-            name="jobLevel"
-            value={formData.jobLevel}
-            onChange={handleChange}
-            placeholder="e.g., Junior, Senior"
-          />
-          <Input
-            label="Country"
-            name="country"
-            value={formData.country}
-            onChange={handleChange}
-            placeholder="Enter country"
-          />
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">Job Level</label>
+            <select
+              name="jobLevel"
+              value={formData.jobLevel}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">Select job level</option>
+              <option value="Junior">Junior</option>
+              <option value="Senior">Senior</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">Country</label>
+            <select
+              name="country"
+              value={formData.country}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">Select country</option>
+              <option value="Maldives">Maldives</option>
+              <option value="India">India</option>
+              <option value="Sri Lanka">Sri Lanka</option>
+              <option value="Bangladesh">Bangladesh</option>
+              <option value="Nepal">Nepal</option>
+              <option value="Indonesia">Indonesia</option>
+              <option value="Philippines">Philippines</option>
+              <option value="Myanmar">Myanmar</option>
+            </select>
+          </div>
           <Input
             label="Join Date"
             name="joinDate"
@@ -322,13 +340,22 @@ export const PersonalInfo = ({ employee, onNext, onCancel, onSave }: PersonalInf
             value={formData.insuranceExpDate?.toISOString().split('T')[0] || ''}
             onChange={handleChange}
           />
-          <Input
-            label="Work Site"
-            name="workSite"
-            value={formData.workSite}
-            onChange={handleChange}
-            placeholder="Enter work site"
-          />
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">Work Site</label>
+            <select
+              name="workSite"
+              value={formData.workSite}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">Select work site</option>
+              <option value="Male">Male</option>
+              <option value="Hulhumale">Hulhumale</option>
+              <option value="Batuta Maldives">Batuta Maldives</option>
+              <option value="Madi Grand">Madi Grand</option>
+              <option value="Bokaifushi">Bokaifushi</option>
+            </select>
+          </div>
           <Input
             label="Work Location"
             name="workLocation"

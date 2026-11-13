@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Calendar, Clock, RefreshCw, Download, ArrowRight, ArrowLeft, Upload, MapPin, Edit2, Save, X, Printer } from 'lucide-react';
+import { Calendar, Clock, RefreshCw, Download, ArrowRight, ArrowLeft, Upload, MapPin, Edit2, Save, X, Printer, FileSpreadsheet } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { getAttendanceStats, getTodayAttendanceForEmployee, checkIn, checkOut, requestAttendanceAdjustment } from '../lib/attendance';
@@ -11,10 +11,12 @@ import { PERMISSIONS } from '../lib/permissions';
 import { addDoc, collection, query, where, getDocs, updateDoc, doc, Timestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import * as XLSX from 'xlsx';
+import { useNavigate } from 'react-router-dom';
 
 export const Attendance = () => {
   const { user } = useAuth();
   const { can } = usePermissions();
+  const navigate = useNavigate();
   const [todayStats, setTodayStats] = useState({
     total: 0,
     present: 0,
@@ -1486,6 +1488,10 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
           <Button variant="secondary" onClick={() => Promise.all([loadTodayStats(), loadTodayAttendance()])}>
             <RefreshCw className="w-5 h-5 mr-2" />
             Refresh
+          </Button>
+          <Button variant="secondary" onClick={() => navigate('/monthly-attendance')}>
+            <FileSpreadsheet className="w-5 h-5 mr-2" />
+            Monthly Report
           </Button>
           <Button variant="secondary">
             <Download className="w-5 h-5 mr-2" />
