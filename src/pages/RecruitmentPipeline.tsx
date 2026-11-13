@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/Button';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, FileText } from 'lucide-react';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { useNavigate } from 'react-router-dom';
 
 interface Candidate {
   id: string;
@@ -34,6 +35,13 @@ interface Candidate {
   onboarding_date?: string;
   directory_added?: boolean;
   loa_status?: 'pending' | 'completed' | null;
+  department?: string;
+  employment_type?: string;
+  working_hours?: string;
+  work_location?: string;
+  reporting_to?: string;
+  offer_letter_html?: string;
+  offer_letter_date?: string;
 }
 
 const STAGES = [
@@ -58,6 +66,7 @@ const STAGES = [
 ];
 
 export const RecruitmentPipeline: React.FC = () => {
+  const navigate = useNavigate();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
@@ -82,7 +91,12 @@ export const RecruitmentPipeline: React.FC = () => {
     address: '',
     'Emergency Contact Name': '',
     'Emergency Contact Phone': '',
-    'D.O.J': ''
+    'D.O.J': '',
+    department: '',
+    employment_type: '',
+    working_hours: '',
+    work_location: '',
+    reporting_to: ''
   });
 
   useEffect(() => {
@@ -200,7 +214,12 @@ export const RecruitmentPipeline: React.FC = () => {
       address: candidate.address || '',
       'Emergency Contact Name': candidate['Emergency Contact Name'] || '',
       'Emergency Contact Phone': candidate['Emergency Contact Phone'] || '',
-      'D.O.J': candidate['D.O.J'] || ''
+      'D.O.J': candidate['D.O.J'] || '',
+      department: candidate.department || '',
+      employment_type: candidate.employment_type || '',
+      working_hours: candidate.working_hours || '',
+      work_location: candidate.work_location || '',
+      reporting_to: candidate.reporting_to || ''
     });
     setShowModal(true);
   };
@@ -222,7 +241,12 @@ export const RecruitmentPipeline: React.FC = () => {
       address: '',
       'Emergency Contact Name': '',
       'Emergency Contact Phone': '',
-      'D.O.J': ''
+      'D.O.J': '',
+      department: '',
+      employment_type: '',
+      working_hours: '',
+      work_location: '',
+      reporting_to: ''
     });
   };
 
@@ -244,7 +268,7 @@ export const RecruitmentPipeline: React.FC = () => {
         fullName: candidate.Name,
         designation: candidate.POSITION,
         salary: candidate.salary ? parseFloat(candidate.salary) : 350,
-        department: 'General',
+        department: candidate.department || 'General',
         status: 'active',
         joinDate: candidate['D.O.J'] ? new Date(candidate['D.O.J']) : currentDate,
         nationality: candidate.Nationality,
@@ -271,6 +295,178 @@ export const RecruitmentPipeline: React.FC = () => {
     } catch (error) {
       console.error('Error adding to directory:', error);
       alert('Failed to add to directory');
+    }
+  };
+
+  const viewSavedOfferLetter = (candidate: Candidate) => {
+    if (!candidate.offer_letter_html) {
+      alert('No saved offer letter found for this candidate.');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(candidate.offer_letter_html);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
+  const saveOfferLetterToFirestore = async (candidate: Candidate) => {
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString('en-GB', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+    
+    const startDate = candidate['D.O.J'] ? new Date(candidate['D.O.J']).toLocaleDateString('en-GB', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    }) : 'TBD';
+
+    const salary = candidate.salary ? parseFloat(candidate.salary).toLocaleString('en-MV', { 
+      style: 'currency', 
+      currency: 'MVR' 
+    }) : 'MVR 0.00';
+
+    const offerLetterHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page {
+      size: A4;
+      margin: 20mm;
+    }
+    body {
+      font-family: 'Times New Roman', Times, serif;
+      line-height: 1.6;
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 20mm;
+      background: white;
+      font-size: 12pt;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 20mm;
+    }
+    .header h1 {
+      font-size: 18pt;
+      margin-bottom: 5mm;
+      color: #333;
+    }
+    .content {
+      margin-bottom: 15mm;
+    }
+    .content p {
+      margin-bottom: 3mm;
+      text-align: justify;
+    }
+    .terms {
+      background: #f9f9f9;
+      padding: 5mm;
+      margin: 5mm 0;
+      border-left: 2px solid #333;
+    }
+    .terms p {
+      margin: 2mm 0;
+    }
+    .signature {
+      margin-top: 30mm;
+      text-align: right;
+    }
+    .signature p {
+      margin: 2mm 0;
+    }
+    .acceptance {
+      margin-top: 20mm;
+      padding-top: 5mm;
+      border-top: 2px solid #333;
+    }
+    .acceptance p {
+      margin: 2mm 0;
+    }
+    .signature-line {
+      margin-top: 10mm;
+      border-bottom: 1px solid #000;
+      width: 50mm;
+      display: inline-block;
+    }
+    @media print {
+      body { margin: 0; padding: 20mm; }
+      @page { margin: 20mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Madihaa Company Pvt Ltd</h1>
+  </div>
+  
+  <div class="content">
+    <p><strong>Date:</strong> ${formattedDate}</p>
+    <p><strong>To:</strong> ${candidate.Name}</p>
+    <p><strong>[${candidate['EMP ID']}]</strong></p>
+    
+    <p><strong>Subject: Offer of Employment</strong></p>
+    
+    <p>Dear ${candidate.Name},</p>
+    
+    <p>We are pleased to offer you the position of <strong>${candidate.POSITION}</strong> at Madihaa Company Pvt Ltd.</p>
+    
+    <p>The terms and conditions of your employment are as follows:</p>
+    
+    <div class="terms">
+      <p><strong>Position:</strong> ${candidate.POSITION}</p>
+      <p><strong>Department:</strong> ${candidate.department || 'General'}</p>
+      <p><strong>Employment Type:</strong> ${candidate.employment_type || 'Probation'}</p>
+      <p><strong>Start Date:</strong> ${startDate}</p>
+      <p><strong>Salary:</strong> ${salary}</p>
+      <p><strong>Working Hours:</strong> ${candidate.working_hours || '9:00 to 17:30'}</p>
+      <p><strong>Work Location:</strong> ${candidate.work_location || 'Head office'}</p>
+      <p><strong>Reporting To:</strong> ${candidate.reporting_to || 'Head of Accounts'}</p>
+    </div>
+    
+    <p>Your employment will be subject to the company's policies, procedures, and applicable employment laws.</p>
+    
+    <p>Please confirm your acceptance of this offer by signing and returning a copy of this letter.</p>
+    
+    <p>We look forward to welcoming you to our team and wish you success in your new role.</p>
+    
+    <p>Sincerely,</p>
+  </div>
+  
+  <div class="signature">
+    <p><strong>Moosa Ahmed</strong></p>
+    <p>Chairman</p>
+    <div class="signature-line"></div>
+  </div>
+  
+  <div class="acceptance">
+    <p><strong>ACCEPTANCE OF OFFER</strong></p>
+    <p>I, ${candidate.Name}, accept the employment offer and agree to the terms and conditions stated above.</p>
+    <p><strong>Signature:</strong> ____________________</p>
+    <p><strong>Date:</strong> ____________________</p>
+  </div>
+</body>
+</html>
+    `;
+
+    try {
+      await updateDoc(doc(db, 'recruitment_candidates', candidate.id), {
+        offer_letter_html: offerLetterHTML,
+        offer_letter_date: new Date().toISOString(),
+        last_updated: new Date().toISOString()
+      });
+      alert('Offer letter saved to Firestore successfully!');
+      loadData();
+    } catch (error) {
+      console.error('Error saving offer letter:', error);
+      alert('Failed to save offer letter');
     }
   };
 
@@ -432,6 +628,35 @@ export const RecruitmentPipeline: React.FC = () => {
                             Delete
                           </button>
                         </div>
+
+                        {/* Generate Offer Letter Button */}
+                        {['interview_completed', 'offer_sent', 'offer_signed'].includes(selectedStage) && (
+                          <div className="flex gap-2 mt-2">
+                            {candidate.offer_letter_html ? (
+                              <button
+                                onClick={() => viewSavedOfferLetter(candidate)}
+                                className="flex-1 text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors flex items-center justify-center gap-1"
+                              >
+                                <FileText className="w-3 h-3" />
+                                View Saved
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => navigate(`/offer-letter?candidateId=${candidate.id}`)}
+                                className="flex-1 text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded hover:bg-purple-100 transition-colors flex items-center justify-center gap-1"
+                              >
+                                <FileText className="w-3 h-3" />
+                                Generate
+                              </button>
+                            )}
+                            <button
+                              onClick={() => saveOfferLetterToFirestore(candidate)}
+                              className="flex-1 text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded hover:bg-green-100 transition-colors flex items-center justify-center gap-1"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        )}
 
                         {/* Special Action for Onboarded */}
                         {selectedStage === 'onboarded' && (
@@ -615,6 +840,59 @@ export const RecruitmentPipeline: React.FC = () => {
                     value={formData['Emergency Contact Phone']}
                     onChange={(e) => setFormData({ ...formData, 'Emergency Contact Phone': e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                  <input
+                    type="text"
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., Finance Controller"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employment Type</label>
+                  <select
+                    value={formData.employment_type}
+                    onChange={(e) => setFormData({ ...formData, employment_type: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Select</option>
+                    <option value="Probation">Probation</option>
+                    <option value="Permanent">Permanent</option>
+                    <option value="Contract">Contract</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Working Hours</label>
+                  <input
+                    type="text"
+                    value={formData.working_hours}
+                    onChange={(e) => setFormData({ ...formData, working_hours: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., 9:00 to 17:30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Work Location</label>
+                  <input
+                    type="text"
+                    value={formData.work_location}
+                    onChange={(e) => setFormData({ ...formData, work_location: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., Head office"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reporting To</label>
+                  <input
+                    type="text"
+                    value={formData.reporting_to}
+                    onChange={(e) => setFormData({ ...formData, reporting_to: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., Head of Accounts"
                   />
                 </div>
               </div>

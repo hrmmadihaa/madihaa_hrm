@@ -169,7 +169,7 @@ service cloud.firestore {
     // Work locations collection
     match /workLocations/{locationId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isSuperAdmin() || isHRManager();
+      allow create, update, delete: if isSuperAdmin() || isHRManager() || isSupervisor();
     }
 
     // Bonuses collection
