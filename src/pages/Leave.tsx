@@ -1214,7 +1214,7 @@ export const Leave = () => {
         ticketType: ticketFormData.ticketType,
         passengers: ticketFormData.passengers,
         specialRequests: ticketFormData.specialRequests,
-        status: 'applied'
+        status: 'price_requested'
       });
       alert('Ticket request submitted successfully!');
       handleCloseTicketForm();

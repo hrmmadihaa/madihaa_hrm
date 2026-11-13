@@ -70,6 +70,14 @@ service cloud.firestore {
       allow delete: if isSuperAdmin() || isHRManager() || isSupervisor();
     }
 
+    // Ticket requests collection
+    match /ticketRequests/{ticketId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isSuperAdmin() || isHRManager() || isSupervisor();
+      allow delete: if isSuperAdmin() || isHRManager();
+    }
+
     // Leave balances collection
     match /leave_balances/{balanceId} {
       allow read: if isAuthenticated();

@@ -301,7 +301,22 @@ export interface LeaveBalance {
 }
 
 // Ticket Types
-export type TicketStatus = 'applied' | 'make_payment' | 'submit_to_account' | 'collect_payment' | 'collect_passport' | 'arrange_driver' | 'drop_to_airport' | 'departed' | 'cancelled';
+export type TicketStatus = 
+  | 'price_requested' 
+  | 'price_received' 
+  | 'approval_submitted' 
+  | 'approved' 
+  | 'waiting_payment' 
+  | 'payment_done' 
+  | 'ticket_received' 
+  | 'settlement_submitted' 
+  | 'settlement_handed_over' 
+  | 'vehicle_arranged' 
+  | 'passport_collected' 
+  | 'passport_handed_over' 
+  | 'vehicle_left' 
+  | 'departed' 
+  | 'cancelled';
 
 export interface TicketRequest {
   id: string;
@@ -311,33 +326,67 @@ export interface TicketRequest {
   destinationCity: string;
   departureDate: Date;
   returnDate: Date;
+  departureTime?: string;
+  arrivalTime?: string;
   ticketType: 'one_way' | 'round_trip';
   passengers: number;
   specialRequests?: string;
   status: TicketStatus;
   bookedDate: Date;
   updatedAt?: Date;
+  ticketPrice?: number;
+  vanArrangedTime?: Date;
+  arrangedBy?: string;
+  arrangedByName?: string;
+  settlementAmount?: number;
+  settlementDate?: Date;
+  settlementHandedTo?: string;
+  passportCollectedBy?: string;
+  passportCollectedDate?: Date;
+  passportHandedTo?: string;
+  passportHandedDate?: Date;
+  vehicleDriver?: string;
+  vehicleNumber?: string;
+  isLeaveExtended?: boolean;
+  originalReturnDate?: Date;
+  isTicketChanged?: boolean;
+  changeReason?: string;
+  returnFlightReminderSent?: boolean;
+  staffPickedUp?: boolean;
+  staffPickupTime?: Date;
 }
 
 export const TICKET_WORKFLOW_STEPS: TicketStatus[] = [
-  'applied',
-  'make_payment',
-  'submit_to_account',
-  'collect_payment',
-  'collect_passport',
-  'arrange_driver',
-  'drop_to_airport',
+  'price_requested',
+  'price_received',
+  'approval_submitted',
+  'approved',
+  'waiting_payment',
+  'payment_done',
+  'ticket_received',
+  'settlement_submitted',
+  'settlement_handed_over',
+  'vehicle_arranged',
+  'passport_collected',
+  'passport_handed_over',
+  'vehicle_left',
   'departed'
 ];
 
 export const TICKET_WORKFLOW_LABELS: Record<TicketStatus, string> = {
-  applied: 'Applied',
-  make_payment: 'Make Payment',
-  submit_to_account: 'Submit to Account',
-  collect_payment: 'Collect Payment',
-  collect_passport: 'Collect Passport',
-  arrange_driver: 'Arrange Driver',
-  drop_to_airport: 'Drop to Airport',
+  price_requested: 'Price Requested',
+  price_received: 'Price Received',
+  approval_submitted: 'Approval Submitted',
+  approved: 'Approved',
+  waiting_payment: 'Waiting Payment',
+  payment_done: 'Payment Done',
+  ticket_received: 'Ticket Received',
+  settlement_submitted: 'Settlement Submitted',
+  settlement_handed_over: 'Settlement Handed Over',
+  vehicle_arranged: 'Vehicle Arranged',
+  passport_collected: 'Passport Collected',
+  passport_handed_over: 'Passport Handed Over',
+  vehicle_left: 'Vehicle Left',
   departed: 'Departed',
   cancelled: 'Cancelled'
 };
