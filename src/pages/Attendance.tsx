@@ -38,7 +38,6 @@ export const Attendance = () => {
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
   const [workLocations, setWorkLocations] = useState<any[]>([]);
-  const [missingStaff, setMissingStaff] = useState<any[]>([]);
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editedFirstPunch, setEditedFirstPunch] = useState('');
   const [editedLastPunch, setEditedLastPunch] = useState('');
@@ -49,7 +48,6 @@ export const Attendance = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [deleteAllLoading, setDeleteAllLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
-  const [fixingEmployeeIds, setFixingEmployeeIds] = useState(false);
   const [editingFirebaseRecord, setEditingFirebaseRecord] = useState<string | null>(null);
   const [editedCheckIn, setEditedCheckIn] = useState('');
   const [editedCheckOut, setEditedCheckOut] = useState('');
@@ -74,6 +72,13 @@ export const Attendance = () => {
   const [staffComments, setStaffComments] = useState<{ [key: string]: string }>({});
   const [staffCommentText, setStaffCommentText] = useState('');
   const [savingStaffComment, setSavingStaffComment] = useState(false);
+  const [uploadMode, setUploadMode] = useState<'bulk' | 'individual'>('bulk');
+  const [individualEmployeeId, setIndividualEmployeeId] = useState('');
+  const [individualStartDate, setIndividualStartDate] = useState('');
+  const [individualEndDate, setIndividualEndDate] = useState('');
+  const [individualUploadAllDays, setIndividualUploadAllDays] = useState(true);
+  const [individualAttendanceData, setIndividualAttendanceData] = useState<any[]>([]);
+  const [loadingIndividualAttendance, setLoadingIndividualAttendance] = useState(false);
 
   const loadTodayStats = useCallback(async () => {
     try {
@@ -162,68 +167,6 @@ export const Attendance = () => {
     }
   };
 
-  const handleFixEmployeeIds = async () => {
-    console.log('handleFixEmployeeIds called');
-    if (!confirm('This will update employee IDs in the database based on the Excel file. Continue?')) {
-      return;
-    }
-
-    if (!attendanceData || attendanceData.length === 0) {
-      alert('Please upload an Excel file first');
-      return;
-    }
-
-    console.log('Starting to fix employee IDs...');
-    setFixingEmployeeIds(true);
-    let fixedCount = 0;
-    let skippedCount = 0;
-
-    try {
-      const employees = await getEmployees();
-      console.log('Loaded employees:', employees.length);
-
-      for (const emp of attendanceData) {
-        if (!emp.empId || !emp.name) continue;
-
-        // First try to match by employee ID
-        let employee = employees.find(e =>
-          (e.employeeId?.trim() || e.employeeId) === (emp.empId?.trim() || emp.empId)
-        );
-
-        // If no ID match, try name matching only if unique
-        if (!employee) {
-          const employeesWithSameName = employees.filter(e =>
-            (e.fullName?.toLowerCase().trim() || e.fullName?.toLowerCase()) === (emp.name?.toLowerCase().trim() || emp.name?.toLowerCase())
-          );
-          if (employeesWithSameName.length === 1) {
-            employee = employeesWithSameName[0];
-          }
-        }
-
-        if (employee) {
-          if (employee.employeeId !== emp.empId) {
-            // Update employeeId in database
-            await updateDoc(doc(db, 'employees', employee.id), {
-              employeeId: emp.empId
-            });
-            fixedCount++;
-            console.log(`Fixed: ${employee.fullName} - ${employee.employeeId} -> ${emp.empId}`);
-          } else {
-            skippedCount++;
-          }
-        } else {
-          console.log(`No match found for Excel employee: ${emp.empId} ${emp.name}`);
-        }
-      }
-
-      alert(`Fixed ${fixedCount} employee IDs, skipped ${skippedCount}`);
-    } catch (error) {
-      console.error('Error fixing employee IDs:', error);
-      alert('Error fixing employee IDs');
-    } finally {
-      setFixingEmployeeIds(false);
-    }
-  };
 
   const handleEditFirebaseRecord = (record: any) => {
     setEditingFirebaseRecord(record.id);
@@ -626,9 +569,8 @@ export const Attendance = () => {
 
         // Process attendance data based on upload type
         const processor = uploadType === 'friday' ? processFridayAttendanceData : processAttendanceData;
-        const { attendanceRecords, missingStaff } = processor(jsonData, uploadDate);
+        const { attendanceRecords } = processor(jsonData, uploadDate);
         setAttendanceData(attendanceRecords);
-        setMissingStaff(missingStaff);
       } catch (error) {
         console.error('Error parsing Excel file:', error);
         alert('Failed to parse Excel file');
@@ -637,6 +579,185 @@ export const Attendance = () => {
       }
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  const handleIndividualFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!individualEmployeeId) {
+      alert('Please select an employee');
+      return;
+    }
+
+    setLoadingIndividualAttendance(true);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const allSheetsData: any[] = [];
+
+        // Process all sheets
+        for (const sheetName of workbook.SheetNames) {
+          const sheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as any[][];
+          
+          if (jsonData.length > 0) {
+            // Find the header row with 'User ID'
+            let headerRowIdx = -1;
+            for (let i = 0; i < jsonData.length; i++) {
+              const row = jsonData[i] as any[];
+              if (row && row.includes('User ID')) {
+                headerRowIdx = i;
+                break;
+              }
+            }
+
+            if (headerRowIdx === -1) continue;
+
+            const headers = jsonData[headerRowIdx] as any[];
+            
+            // Find IN/OUT column pairs
+            const dayColumns = [];
+            let inColIdx = headers.indexOf('IN');
+            let outColIdx = headers.indexOf('OUT');
+
+            while (inColIdx !== -1 && outColIdx !== -1) {
+              dayColumns.push({ in: inColIdx, out: outColIdx });
+              inColIdx = headers.indexOf('IN', outColIdx + 1);
+              outColIdx = headers.indexOf('OUT', inColIdx + 1);
+            }
+
+            // Process data rows
+            for (let rowIdx = headerRowIdx + 1; rowIdx < jsonData.length; rowIdx++) {
+              const row = jsonData[rowIdx] as any[];
+              if (!row || row.length === 0) continue;
+
+              const empId = String(row[headers.indexOf('User ID')] || '').trim();
+              const name = String(row[headers.indexOf('Name')] || '').trim();
+
+              if (!empId || empId === 'nan' || empId === 'User ID' || empId === 'S NO') continue;
+
+              // Process each day
+              for (let dayIdx = 0; dayIdx < dayColumns.length; dayIdx++) {
+                const { in: inCol, out: outCol } = dayColumns[dayIdx];
+                const inValue = row[inCol];
+                const outValue = row[outCol];
+
+                // Skip if both are empty or leave codes
+                if (!inValue && !outValue) continue;
+                if (['AL', 'EL', 'SICK', 'SP', 'FL', 'OFF', 'MC'].includes(String(inValue))) continue;
+
+                // Calculate date (assuming day 1 = first day in the sheet)
+                // We'll need to determine the start date from the sheet or use a default
+                const date = new Date();
+                date.setDate(date.getDate() - (dayColumns.length - dayIdx - 1));
+                const dateStr = date.toISOString().split('T')[0];
+
+                // Filter by date range if specified
+                if (!individualUploadAllDays && individualStartDate && individualEndDate) {
+                  if (dateStr < individualStartDate || dateStr > individualEndDate) continue;
+                }
+
+                allSheetsData.push({
+                  employeeId: individualEmployeeId,
+                  employeeName: name,
+                  date: dateStr,
+                  checkInTime: inValue ? formatExcelTime(inValue) : null,
+                  checkOutTime: outValue ? formatExcelTime(outValue) : null,
+                });
+              }
+            }
+          }
+        }
+
+        setIndividualAttendanceData(allSheetsData);
+      } catch (error) {
+        console.error('Error parsing Excel file:', error);
+        alert('Failed to parse Excel file');
+      } finally {
+        setLoadingIndividualAttendance(false);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const formatExcelTime = (value: any): string => {
+    if (typeof value === 'number') {
+      // Excel serial time
+      const totalSeconds = Math.round(value * 86400);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
+    return String(value);
+  };
+
+  const handleSaveIndividualAttendance = async () => {
+    if (individualAttendanceData.length === 0) {
+      alert('No attendance data to save');
+      return;
+    }
+
+    setSavingAll(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    try {
+      for (const record of individualAttendanceData) {
+        try {
+          const attendanceDate = new Date(record.date + 'T00:00:00');
+          
+          const checkInTime = record.checkInTime ? new Date(record.date + 'T' + record.checkInTime + ':00') : null;
+          const checkOutTime = record.checkOutTime ? new Date(record.date + 'T' + record.checkOutTime + ':00') : null;
+
+          // Check if record exists
+          const querySnapshot = await getDocs(
+            query(
+              collection(db, 'attendance'),
+              where('employeeId', '==', record.employeeId),
+              where('date', '==', Timestamp.fromDate(attendanceDate))
+            )
+          );
+
+          if (querySnapshot.empty) {
+            await addDoc(collection(db, 'attendance'), {
+              employeeId: record.employeeId,
+              employeeName: record.employeeName,
+              date: Timestamp.fromDate(attendanceDate),
+              checkInTime: checkInTime ? Timestamp.fromDate(checkInTime) : null,
+              checkOutTime: checkOutTime ? Timestamp.fromDate(checkOutTime) : null,
+              checkInMethod: 'manual',
+              status: 'present',
+              lateArrival: false,
+            });
+          } else {
+            const docId = querySnapshot.docs[0].id;
+            await updateDoc(doc(db, 'attendance', docId), {
+              employeeName: record.employeeName,
+              checkInTime: checkInTime ? Timestamp.fromDate(checkInTime) : null,
+              checkOutTime: checkOutTime ? Timestamp.fromDate(checkOutTime) : null,
+            });
+          }
+
+          successCount++;
+        } catch (error) {
+          console.error('Error saving attendance:', error);
+          errorCount++;
+        }
+      }
+
+      setSaveSuccess(`Saved ${successCount} records successfully${errorCount > 0 ? ` (${errorCount} errors)` : ''}`);
+      setTimeout(() => setSaveSuccess(null), 5000);
+      setIndividualAttendanceData([]);
+    } catch (error) {
+      console.error('Error saving to Firebase:', error);
+      alert('Error saving to Firebase');
+    } finally {
+      setSavingAll(false);
+    }
   };
 
 const processAttendanceData = (rawData: any[], selectedDate: string) => {
@@ -659,6 +780,16 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
     const empId = row['User No.']?.toString().trim() || row['Employee ID']?.toString().trim();
     const name = row['Name']?.toString().trim();
     const dateTimeStr = row['Date/Time']?.toString().trim();
+    // Try multiple possible column names for work location
+    const workLocation = row['Work Location']?.toString().trim() ||
+                         row['Location']?.toString().trim() ||
+                         row['Department']?.toString().trim() ||
+                         row['WorkLocation']?.toString().trim() ||
+                         row['Site']?.toString().trim() ||
+                         row['Branch']?.toString().trim() ||
+                         row['Shop']?.toString().trim() ||
+                         // Fallback: try by column index (6th column based on data format: ID, Name, Date, Code, Location)
+                         Object.values(row)[5]?.toString().trim();
 
     // Parse combined date/time (e.g., "11/1/26 8:03")
     if (!dateTimeStr) return;
@@ -740,6 +871,7 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
           empId,
           name: name,
           department: row['Department'],
+          workLocation: workLocation,
           dailyRecords: new Map<string, any>(), // Map of dateKey -> { firstCheckIn, lastCheckOut, punches }
           firstPunch: null,
           lastPunch: null,
@@ -840,7 +972,43 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
           }
         });
       });
+
+      // DEBUG: Log all punches for this employee
+      console.log(`DEBUG - Employee ${empData.empId} (${empData.name}):`);
+      console.log(`  Department: ${empData.department}`);
+      console.log(`  Work Location: ${empData.workLocation}`);
+      empData.dailyRecords.forEach((dailyRecord: any, dateKey: string) => {
+        console.log(`  Date ${dateKey} punches:`);
+        dailyRecord.punches.forEach((punch: any) => {
+          console.log(`    ${punch.time.toISOString()} - Status: ${punch.status === 0 ? 'IN' : 'OUT'}, NextDay: ${punch.isNextDayEarlyPunch}`);
+        });
+      });
+      console.log(`  Earliest check-in (standard): ${(earliestCheckIn as Date | null)?.toISOString() || 'none'}`);
+
+      // Cashier detection: by work location (e.g., "Ufanveli Shop") or department/name
+      const isCashier = empData.department?.toLowerCase().includes('cashier') ||
+                       empData.name?.toLowerCase().includes('cashier') ||
+                       empData.workLocation?.toLowerCase().includes('shop');
+      console.log(`  Is cashier: ${isCashier}`);
+
+      // Cashier rule: if no IN punch detected, use earliest punch as IN (regardless of time)
+      if (isCashier && !earliestCheckIn) {
+        let earliestPunch: Date | null = null;
+        empData.dailyRecords.forEach((dailyRecord: any) => {
+          dailyRecord.punches.forEach((punch: any) => {
+            if (!punch.isNextDayEarlyPunch && (!earliestPunch || punch.time < earliestPunch)) {
+              earliestPunch = punch.time;
+            }
+          });
+        });
+        console.log(`  Cashier earliest punch (as IN): ${(earliestPunch as Date | null)?.toISOString() || 'none'}`);
+        if (earliestPunch) {
+          earliestCheckIn = earliestPunch;
+        }
+      }
+
       empData.firstPunch = earliestCheckIn;
+      console.log(`  Final first punch: ${(empData.firstPunch as Date | null)?.toISOString() || 'none'}`);
 
       // Last punch: find the latest check-out after 17:00 (5 PM) on the selected date
       // If no check-out after 17:00, look for next-day early check-outs (before 5 AM)
@@ -852,6 +1020,7 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
           }
         });
       });
+      console.log(`  Latest check-out (after 17:00): ${(latestCheckOut as Date | null)?.toISOString() || 'none'}`);
 
       // If no check-out after 17:00, look for next-day early check-outs (before 5 AM)
       if (!latestCheckOut) {
@@ -862,16 +1031,47 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
             }
           });
         });
+        console.log(`  Latest check-out (next-day early): ${(latestCheckOut as Date | null)?.toISOString() || 'none'}`);
       }
 
-      empData.lastPunch = latestCheckOut;
+      // Cashier rule: if no OUT punch detected, use latest punch as OUT (regardless of time)
+      if (isCashier && !latestCheckOut) {
+        let latestPunch: Date | null = null;
+        empData.dailyRecords.forEach((dailyRecord: any) => {
+          dailyRecord.punches.forEach((punch: any) => {
+            if (!punch.isNextDayEarlyPunch && (!latestPunch || punch.time > latestPunch)) {
+              latestPunch = punch.time;
+            }
+          });
+        });
+        console.log(`  Cashier latest punch (as OUT): ${(latestPunch as Date | null)?.toISOString() || 'none'}`);
+        if (latestPunch) {
+          latestCheckOut = latestPunch;
+        }
+      }
+
+      // If employee has only one punch, set lastPunch to null (will show as "Missing")
+      if (empData.totalPunches === 1) {
+        empData.lastPunch = null;
+        console.log(`  Only one punch detected - setting last punch to Missing`);
+      } else {
+        empData.lastPunch = latestCheckOut;
+      }
+      console.log(`  Final last punch: ${(empData.lastPunch as Date | null)?.toISOString() || 'none'}`);
     });
 
     // Check if first punch is late based on department and day of week, and match with work location
     employeeMap.forEach((empData) => {
+      // DEBUG: Log matching attempt for each employee
+      console.log(`DEBUG MATCHING - Excel ID: "${empData.empId}", Excel Name: "${empData.name}"`);
+
+      // Normalize employee IDs by removing leading zeros (e.g., MAD00696 -> MAD696)
+      const normalizeEmpId = (id: string) => id?.replace(/^MAD0+/, 'MAD')?.trim() || id;
+      const normalizedExcelId = normalizeEmpId(empData.empId);
+
       // Match employee with work location first - prioritize employee ID matching over name matching
       let employee = employees.find(emp =>
-        (emp.employeeId?.trim() || emp.employeeId) === (empData.empId?.trim() || empData.empId)
+        normalizeEmpId(emp.employeeId || '') === normalizedExcelId
       );
 
       // Try partial ID match (e.g., "326" matches "MAD0326")
@@ -899,9 +1099,12 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
         punchedEmployeeIds.add(employee.id);
         console.log('Matched employee:', empData.empId, '->', employee.employeeId, 'Firebase ID:', employee.id);
         // Find work location for this employee
+        console.log(`  Looking for work location for employee ID: ${employee.id}`);
+        console.log(`  Available work locations:`, workLocations.map(loc => ({ name: loc.name, staffCount: loc.assignedStaff?.length })));
         const location = workLocations.find(loc =>
           loc.assignedStaff?.includes(employee.id)
         );
+        console.log(`  Found location:`, location?.name || 'None');
         empData.workLocation = location?.name || 'Unassigned';
         empData.workLocationId = location?.id;
         empData.employeeId = employee.employeeId || empData.empId; // Use actual employeeId, not Firebase document ID
@@ -982,7 +1185,9 @@ const processAttendanceData = (rawData: any[], selectedDate: string) => {
       });
     
     const attendanceRecords = Array.from(employeeMap.values());
-    return { attendanceRecords, missingStaff };
+    // Combine attendance records with missing staff for display by work location
+    const allRecords = [...attendanceRecords, ...missingStaff];
+    return { attendanceRecords: allRecords, missingStaff };
   };
 
 const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
@@ -1173,8 +1378,12 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
 
   // Check if first punch is late based on Friday threshold (14:00 default)
   employeeMap.forEach((empData) => {
+    // Normalize employee IDs by removing leading zeros (e.g., MAD00696 -> MAD696)
+    const normalizeEmpId = (id: string) => id?.replace(/^MAD0+/, 'MAD')?.trim() || id;
+    const normalizedExcelId = normalizeEmpId(empData.empId);
+
     let employee = employees.find(emp =>
-      (emp.employeeId?.trim() || emp.employeeId) === (empData.empId?.trim() || empData.empId)
+      normalizeEmpId(emp.employeeId || '') === normalizedExcelId
     );
 
     if (!employee && empData.empId) {
@@ -1244,7 +1453,9 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
     });
     
   const attendanceRecords = Array.from(employeeMap.values());
-  return { attendanceRecords, missingStaff };
+  // Combine attendance records with missing staff for display by work location
+  const allRecords = [...attendanceRecords, ...missingStaff];
+  return { attendanceRecords: allRecords, missingStaff };
 };
 
   const handleEditRow = (empId: string, firstPunch: Date | null, lastPunch: Date | null) => {
@@ -1453,47 +1664,121 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
           <h1 className="text-3xl font-bold text-secondary-900">Attendance</h1>
           <p className="text-secondary-600 mt-1">Track employee attendance</p>
         </div>
-        <div className="flex gap-2">
-          <input
-            type="date"
-            value={uploadDate}
-            onChange={(e) => setUploadDate(e.target.value)}
-            className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
+        <div className="flex gap-2 flex-wrap">
+          {/* Upload Mode Toggle */}
           <select
-            value={uploadType}
-            onChange={(e) => setUploadType(e.target.value as 'regular' | 'friday')}
+            value={uploadMode}
+            onChange={(e) => setUploadMode(e.target.value as 'bulk' | 'individual')}
             className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
-            <option value="regular">Regular Day</option>
-            <option value="friday">Friday</option>
+            <option value="bulk">Bulk Upload</option>
+            <option value="individual">Individual Staff Upload</option>
           </select>
-          <input
-            type="file"
-            accept=".xls,.xlsx"
-            onChange={handleFileUpload}
-            className="hidden"
-            id="attendance-upload"
-          />
-          <Button variant="secondary" onClick={() => document.getElementById('attendance-upload')?.click()}>
-            <Upload className="w-5 h-5 mr-2" />
-            Upload Attendance
-          </Button>
-          {attendanceData.length > 0 && (
-            <Button variant="primary" onClick={handleSaveAllToFirebase} loading={savingAll}>
-              <Download className="w-5 h-5 mr-2" />
-              Save to Firebase
-            </Button>
+
+          {uploadMode === 'bulk' ? (
+            <>
+              <input
+                type="date"
+                value={uploadDate}
+                onChange={(e) => setUploadDate(e.target.value)}
+                className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <select
+                value={uploadType}
+                onChange={(e) => setUploadType(e.target.value as 'regular' | 'friday')}
+                className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="regular">Regular Day</option>
+                <option value="friday">Friday</option>
+              </select>
+              <input
+                type="file"
+                accept=".xls,.xlsx"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="attendance-upload"
+              />
+              <Button variant="secondary" onClick={() => document.getElementById('attendance-upload')?.click()}>
+                <Upload className="w-5 h-5 mr-2" />
+                Upload Attendance
+              </Button>
+              {attendanceData.length > 0 && (
+                <Button variant="primary" onClick={handleSaveAllToFirebase} loading={savingAll}>
+                  <Download className="w-5 h-5 mr-2" />
+                  Save to Firebase
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Individual Staff Upload Mode */}
+              <select
+                value={individualEmployeeId}
+                onChange={(e) => setIndividualEmployeeId(e.target.value)}
+                className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 flex-1 min-w-[150px]"
+              >
+                <option value="">Select Employee</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.fullName} ({emp.employeeId})
+                  </option>
+                ))}
+              </select>
+              <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={individualUploadAllDays}
+                  onChange={(e) => setIndividualUploadAllDays(e.target.checked)}
+                  className="rounded"
+                />
+                Upload All Days
+              </label>
+              {!individualUploadAllDays && (
+                <>
+                  <input
+                    type="date"
+                    value={individualStartDate}
+                    onChange={(e) => setIndividualStartDate(e.target.value)}
+                    placeholder="Start Date"
+                    className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <input
+                    type="date"
+                    value={individualEndDate}
+                    onChange={(e) => setIndividualEndDate(e.target.value)}
+                    placeholder="End Date"
+                    className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </>
+              )}
+              <input
+                type="file"
+                accept=".xls,.xlsx"
+                onChange={handleIndividualFileUpload}
+                className="hidden"
+                id="individual-attendance-upload"
+              />
+              <Button variant="secondary" onClick={() => document.getElementById('individual-attendance-upload')?.click()} disabled={loadingIndividualAttendance}>
+                <Upload className="w-5 h-5 mr-2" />
+                {loadingIndividualAttendance ? 'Parsing...' : 'Upload Staff Excel'}
+              </Button>
+              {individualAttendanceData.length > 0 && (
+                <Button variant="primary" onClick={handleSaveIndividualAttendance} loading={savingAll}>
+                  <Download className="w-5 h-5 mr-2" />
+                  Save {individualAttendanceData.length} Records
+                </Button>
+              )}
+            </>
           )}
-          <Button variant="secondary" onClick={() => Promise.all([loadTodayStats(), loadTodayAttendance()])}>
+          <Button variant="secondary" onClick={() => Promise.all([loadTodayStats(), loadTodayAttendance()])} className="flex-1 sm:flex-none">
             <RefreshCw className="w-5 h-5 mr-2" />
             Refresh
           </Button>
-          <Button variant="secondary" onClick={() => navigate('/monthly-attendance')}>
+          <Button variant="secondary" onClick={() => navigate('/monthly-attendance')} className="flex-1 sm:flex-none">
             <FileSpreadsheet className="w-5 h-5 mr-2" />
             Monthly Report
           </Button>
-          <Button variant="secondary">
+          <Button variant="secondary" className="flex-1 sm:flex-none">
             <Download className="w-5 h-5 mr-2" />
             Export
           </Button>
@@ -1616,7 +1901,7 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                   <div className="mt-4 text-sm text-green-600">{adjustmentSuccess}</div>
                 )}
                 <div className="mt-4">
-                  <Button onClick={submitAdjustmentRequest} loading={adjustmentSubmitting}>
+                  <Button onClick={submitAdjustmentRequest} loading={adjustmentSubmitting} className="w-full sm:w-auto">
                     Submit Attendance Adjustment
                   </Button>
                 </div>
@@ -1921,81 +2206,6 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                 </div>
               ) : attendanceData.length > 0 ? (
                 <div className="space-y-6">
-                  {/* Missing Staff Section */}
-                  {missingStaff.length > 0 && (
-                    <div className="border-2 border-red-200 rounded-lg overflow-hidden bg-red-50">
-                      <div className="bg-red-100 px-4 py-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-5 h-5 text-red-600" />
-                          <h3 className="font-semibold text-red-900">Missing Staff</h3>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-red-700 font-medium">{missingStaff.length} employees</span>
-                          <Button
-                            onClick={handleFixEmployeeIds}
-                            loading={fixingEmployeeIds}
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-sm"
-                          >
-                            Fix Employee IDs
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Mobile Cards - Missing Staff */}
-                      <div className="sm:hidden space-y-3 p-4">
-                        {missingStaff.map((emp: any, index: number) => (
-                          <div key={index} className="bg-white rounded-lg shadow p-4 border border-red-200">
-                            <div className="flex justify-between items-start mb-3">
-                              <div>
-                                <div className="font-bold text-red-900 text-sm">{emp.name}</div>
-                                <div className="text-xs text-red-700">{emp.empId}</div>
-                              </div>
-                              <span className="bg-red-200 text-red-800 px-2 py-1 rounded text-xs font-semibold">No Punch</span>
-                            </div>
-                            <div className="space-y-2 text-sm">
-                              <div className="flex justify-between">
-                                <span className="text-red-600">Department:</span>
-                                <span className="font-medium">{emp.department}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-red-600">Location:</span>
-                                <span className="font-medium">{emp.workLocation}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Desktop Table - Missing Staff */}
-                      <div className="hidden sm:block overflow-x-auto">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="border-b border-red-200 bg-red-50">
-                              <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Employee ID</th>
-                              <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Name</th>
-                              <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Department</th>
-                              <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Work Location</th>
-                              <th className="text-left py-3 px-4 text-sm font-medium text-red-700">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {missingStaff.map((emp: any, index: number) => (
-                              <tr key={index} className="border-b border-red-100 hover:bg-red-100">
-                                <td className="py-3 px-4 text-sm text-red-900">{emp.empId}</td>
-                                <td className="py-3 px-4 text-sm text-red-900">{emp.name}</td>
-                                <td className="py-3 px-4 text-sm text-red-900">{emp.department}</td>
-                                <td className="py-3 px-4 text-sm text-red-900">{emp.workLocation}</td>
-                                <td className="py-3 px-4 text-sm">
-                                  <span className="bg-red-200 text-red-800 px-2 py-1 rounded text-xs font-semibold">No Punch</span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Group by Work Location */}
                   {(() => {
                     const groupedByLocation = attendanceData.reduce((acc, emp) => {

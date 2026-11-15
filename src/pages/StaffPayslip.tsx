@@ -7,7 +7,7 @@ import { getEmployees } from '../lib/employees';
 import type { Payroll as PayrollRecord, Employee } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import madihaaLogo from '/madihaa (1).jpg';
+import madihaaLogo from '/Madihaa HRMS Team Logo.png';
 
 export const StaffPayslip = () => {
   const { user } = useAuth();

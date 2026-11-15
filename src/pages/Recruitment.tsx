@@ -191,21 +191,21 @@ export const Recruitment = () => {
           <h1 className="text-3xl font-bold text-secondary-900">Recruitment</h1>
           <p className="text-secondary-600 mt-1">Manage requisitions, vacancies, applications, and offers</p>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Button variant="secondary">
-            <Briefcase className="w-5 h-5 mr-2" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Requisitions
           </Button>
-          <Button variant="secondary">
-            <Users className="w-5 h-5 mr-2" />
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Candidates
           </Button>
-          <Button variant="secondary">
-            <Calendar className="w-5 h-5 mr-2" />
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Interviews
           </Button>
-          <Button variant="secondary">
-            <ShieldCheck className="w-5 h-5 mr-2" />
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Compliance
           </Button>
         </div>
@@ -287,7 +287,7 @@ export const Recruitment = () => {
           <h2 className="text-lg font-semibold text-secondary-900">Create New Requisition</h2>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-secondary-700 mb-1">Job Title</label>
               <input

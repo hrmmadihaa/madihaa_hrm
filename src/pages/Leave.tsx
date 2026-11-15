@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Plus, X, Eye, Check, X as XIcon, CheckSquare, Square, Upload } from 'lucide-react';
 import { Button } from '../components/ui/Button';
@@ -28,6 +28,8 @@ export const Leave = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'tickets'>('pending');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<LeaveType | 'all'>('all');
+  const [listEmployeeSearch, setListEmployeeSearch] = useState('');
+  const [employeeSearch, setEmployeeSearch] = useState('');
   const [showLeaveForm, setShowLeaveForm] = useState(false);
   const [newLeaveType, setNewLeaveType] = useState<LeaveType>('annual');
   const [newStartDate, setNewStartDate] = useState('');
@@ -39,7 +41,6 @@ export const Leave = () => {
   const [submittingLeave, setSubmittingLeave] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
-  const [employeeSearch, setEmployeeSearch] = useState('');
   const [approvalModal, setApprovalModal] = useState<{ show: boolean; request: LeaveRequest | null; action: 'approve' | 'reject' }>({ show: false, request: null, action: 'approve' });
   const [approvalComments, setApprovalComments] = useState('');
   const [approvalSubmitting, setApprovalSubmitting] = useState(false);
@@ -113,9 +114,21 @@ export const Leave = () => {
       const typeMatch = selectedTypeFilter === 'all' || request.type === selectedTypeFilter;
       return statusMatch && employeeMatch && typeMatch;
     }
+    
     const statusMatch = request.status === activeTab;
     const typeMatch = selectedTypeFilter === 'all' || request.type === selectedTypeFilter;
-    return statusMatch && typeMatch;
+    
+    // Employee search filter
+    let searchMatch = true;
+    if (listEmployeeSearch.trim()) {
+      const employee = employees.find(emp => emp.id === request.employeeId);
+      const empName = employee?.fullName?.toLowerCase() || '';
+      const empId = employee?.employeeId?.toLowerCase() || '';
+      const searchTerm = listEmployeeSearch.toLowerCase().trim();
+      searchMatch = empName.includes(searchTerm) || empId.includes(searchTerm);
+    }
+    
+    return statusMatch && typeMatch && searchMatch;
   });
 
   const statusColors = {
@@ -160,6 +173,25 @@ export const Leave = () => {
     compassionate: '❤️',
     off_day: '🏖️',
   };
+
+  // Group filtered requests by employee
+  const groupedRequests = useMemo(() => {
+    const grouped: Record<string, LeaveRequest[]> = {};
+    
+    filteredRequests.forEach(request => {
+      const employee = employees.find(emp => emp.id === request.employeeId);
+      const empName = employee?.fullName || 'Unknown';
+      const empId = employee?.employeeId || request.employeeId;
+      const key = `${empName}_${empId}`;
+      
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push(request);
+    });
+    
+    return grouped;
+  }, [filteredRequests, employees]);
 
   const calculateDaysFromRange = (start: string, end: string) => {
     if (!start || !end) return 0;
@@ -1367,12 +1399,12 @@ export const Leave = () => {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <label className="text-sm text-secondary-600">Filter by Type:</label>
               <select
                 value={selectedTypeFilter}
                 onChange={(e) => setSelectedTypeFilter(e.target.value as LeaveType | 'all')}
-                className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm flex-1 min-w-[150px]"
               >
                 <option value="all">All Types</option>
                 <option value="annual">Annual Leave</option>
@@ -1387,22 +1419,35 @@ export const Leave = () => {
               </select>
             </div>
 
+            {user?.role !== 'employee' && (
+              <div className="flex items-center gap-2 flex-wrap flex-1">
+                <label className="text-sm text-secondary-600">Search Employee:</label>
+                <input
+                  type="text"
+                  placeholder="Name or ID..."
+                  value={listEmployeeSearch}
+                  onChange={(e) => setListEmployeeSearch(e.target.value)}
+                  className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm flex-1 min-w-[150px]"
+                />
+              </div>
+            )}
+
             {selectedRequests.size > 0 && activeTab === 'pending' && can(PERMISSIONS.LEAVE_APPROVE) && (
-              <div className="flex gap-2 ml-auto">
+              <div className="flex gap-2 flex-wrap w-full sm:w-auto sm:ml-auto">
                 <Button
                   onClick={() => setBulkModal({ show: true, action: 'approve' })}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none"
                 >
                   <Check className="w-4 h-4 mr-2" />
-                  Approve Selected ({selectedRequests.size})
+                  Approve ({selectedRequests.size})
                 </Button>
                 {can(PERMISSIONS.LEAVE_REJECT) && (
                   <Button
                     onClick={() => setBulkModal({ show: true, action: 'reject' })}
-                    className="bg-red-600 hover:bg-red-700"
+                    className="bg-red-600 hover:bg-red-700 flex-1 sm:flex-none"
                   >
                     <XIcon className="w-4 h-4 mr-2" />
-                    Reject Selected ({selectedRequests.size})
+                    Reject ({selectedRequests.size})
                   </Button>
                 )}
               </div>
@@ -1526,10 +1571,10 @@ export const Leave = () => {
             )}
 
             <div className="mt-4 flex flex-wrap gap-3">
-              <Button onClick={handleLeaveSubmit} loading={submittingLeave}>
+              <Button onClick={handleLeaveSubmit} loading={submittingLeave} className="flex-1 sm:flex-none">
                 Submit Leave Request
               </Button>
-              <Button variant="secondary" onClick={openLeaveForm}>
+              <Button variant="secondary" onClick={openLeaveForm} className="flex-1 sm:flex-none">
                 Cancel
               </Button>
             </div>
@@ -1578,121 +1623,130 @@ export const Leave = () => {
         </div>
       )}
 
-      {/* Leave Requests List */}
+      {/* Leave Requests List - Grouped by Employee */}
       {activeTab !== 'tickets' && (
         <Card>
           {/* Mobile Cards - visible only on small screens */}
           <div className="sm:hidden space-y-4 p-4">
-          {filteredRequests.map((request, index) => {
-            const employee = employees.find(emp => emp.id === request.employeeId);
+          {Object.entries(groupedRequests).map(([key, requests]) => {
+            const employee = employees.find(emp => emp.id === requests[0].employeeId);
+            const empName = employee?.fullName || 'Unknown';
+            const empId = employee?.employeeId || requests[0].employeeId;
+            
             return (
               <motion.div
-                key={request.id}
+                key={key}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: index * 0.05 }}
-                className="bg-white rounded-lg shadow p-4 border border-secondary-200"
+                className="bg-white rounded-lg shadow border border-secondary-200 overflow-hidden"
               >
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center gap-2">
-                    {(activeTab === 'pending' || activeTab === 'approved') && (
-                      <button
-                        onClick={() => handleSelectRequest(request.id)}
-                        className="hover:text-primary-600"
-                      >
-                        {selectedRequests.has(request.id) ? (
-                          <CheckSquare className="w-5 h-5" />
-                        ) : (
-                          <Square className="w-5 h-5" />
-                        )}
-                      </button>
-                    )}
+                {/* Employee Header */}
+                <div className="bg-secondary-50 px-4 py-3 border-b border-secondary-200">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-bold text-secondary-900 text-sm">
-                        {employee?.fullName || 'Unknown'}
-                      </div>
-                      <div className="text-xs text-secondary-500">
-                        {employee?.employeeId || request.employeeId}
-                      </div>
+                      <div className="font-bold text-secondary-900">{empName}</div>
+                      <div className="text-xs text-secondary-500">{empId}</div>
                     </div>
+                    <span className="text-xs text-secondary-600">{requests.length} request(s)</span>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[request.status]}`}>
-                    {request.status}
-                  </span>
                 </div>
                 
-                <div className="space-y-2 text-sm mb-4">
-                  <div className="flex justify-between">
-                    <span className="text-secondary-600">Type:</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${typeColors[request.type]}`}>
-                      {typeLabels[request.type]}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-secondary-600">Duration:</span>
-                    <span className="font-medium">
-                      {new Date(request.startDate).toLocaleDateString()} - {new Date(request.endDate).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-secondary-600">Days:</span>
-                    <span className="font-medium">{request.days}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-secondary-600">Applied:</span>
-                    <span className="font-medium">{new Date(request.appliedDate).toLocaleDateString()}</span>
-                  </div>
-                  <div className="text-secondary-600">
-                    <span className="font-medium">Reason:</span> {request.reason}
-                  </div>
-                </div>
+                {/* Leave Requests for this employee */}
+                <div className="divide-y divide-secondary-100">
+                  {requests.map((request) => (
+                    <div key={request.id} className="p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-2">
+                          {(activeTab === 'pending' || activeTab === 'approved') && (
+                            <button
+                              onClick={() => handleSelectRequest(request.id)}
+                              className="hover:text-primary-600"
+                            >
+                              {selectedRequests.has(request.id) ? (
+                                <CheckSquare className="w-5 h-5" />
+                              ) : (
+                                <Square className="w-5 h-5" />
+                              )}
+                            </button>
+                          )}
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[request.status]}`}>
+                            {request.status}
+                          </span>
+                        </div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${typeColors[request.type]}`}>
+                          {typeLabels[request.type]}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2 text-sm mb-4">
+                        <div className="flex justify-between">
+                          <span className="text-secondary-600">Duration:</span>
+                          <span className="font-medium">
+                            {new Date(request.startDate).toLocaleDateString()} - {new Date(request.endDate).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-secondary-600">Days:</span>
+                          <span className="font-medium">{request.days}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-secondary-600">Applied:</span>
+                          <span className="font-medium">{new Date(request.appliedDate).toLocaleDateString()}</span>
+                        </div>
+                        <div className="text-secondary-600">
+                          <span className="font-medium">Reason:</span> {request.reason}
+                        </div>
+                      </div>
 
-                <div className="flex flex-wrap gap-2 justify-end">
-                  <button
-                    onClick={() => handleViewRequest(request)}
-                    className="flex-1 sm:flex-none px-3 py-2 bg-primary-600 text-white rounded-lg text-xs sm:text-sm flex items-center justify-center gap-1"
-                  >
-                    <Eye className="w-4 h-4" />
-                    <span>View</span>
-                  </button>
-                  {activeTab === 'pending' && can(PERMISSIONS.LEAVE_APPROVE) && (
-                    <>
-                      <button
-                        onClick={() => handleOpenApproval(request, 'approve')}
-                        className="flex-1 sm:flex-none px-3 py-2 bg-green-600 text-white rounded-lg text-xs sm:text-sm flex items-center justify-center gap-1"
-                      >
-                        <Check className="w-4 h-4" />
-                        <span>Approve</span>
-                      </button>
-                      {can(PERMISSIONS.LEAVE_REJECT) && (
+                      <div className="flex flex-wrap gap-2 justify-end">
                         <button
-                          onClick={() => handleOpenApproval(request, 'reject')}
-                          className="flex-1 sm:flex-none px-3 py-2 bg-red-600 text-white rounded-lg text-xs sm:text-sm flex items-center justify-center gap-1"
+                          onClick={() => handleViewRequest(request)}
+                          className="flex-1 sm:flex-none px-3 py-2 bg-primary-600 text-white rounded-lg text-xs sm:text-sm flex items-center justify-center gap-1"
                         >
-                          <XIcon className="w-4 h-4" />
-                          <span>Reject</span>
+                          <Eye className="w-4 h-4" />
+                          <span>View</span>
                         </button>
-                      )}
-                      {can(PERMISSIONS.LEAVE_CANCEL_OWN) && (
-                        <button
-                          onClick={() => handleCancelRequest(request.id)}
-                          className="flex-1 sm:flex-none px-3 py-2 bg-secondary-600 text-white rounded-lg text-xs sm:text-sm flex items-center justify-center gap-1"
-                        >
-                          <XIcon className="w-4 h-4" />
-                          <span>Cancel</span>
-                        </button>
-                      )}
-                    </>
-                  )}
-                  {activeTab === 'approved' && can(PERMISSIONS.LEAVE_DELETE) && (
-                    <button
-                      onClick={() => setDeleteModal({ show: true, request })}
-                      className="flex-1 sm:flex-none px-3 py-2 bg-red-600 text-white rounded-lg text-xs sm:text-sm flex items-center justify-center gap-1"
-                    >
-                      <XIcon className="w-4 h-4" />
-                      <span>Delete</span>
-                    </button>
-                  )}
+                        {activeTab === 'pending' && can(PERMISSIONS.LEAVE_APPROVE) && (
+                          <>
+                            <button
+                              onClick={() => handleOpenApproval(request, 'approve')}
+                              className="flex-1 sm:flex-none px-3 py-2 bg-green-600 text-white rounded-lg text-xs sm:text-sm flex items-center justify-center gap-1"
+                            >
+                              <Check className="w-4 h-4" />
+                              <span>Approve</span>
+                            </button>
+                            {can(PERMISSIONS.LEAVE_REJECT) && (
+                              <button
+                                onClick={() => handleOpenApproval(request, 'reject')}
+                                className="flex-1 sm:flex-none px-3 py-2 bg-red-600 text-white rounded-lg text-xs sm:text-sm flex items-center justify-center gap-1"
+                              >
+                                <XIcon className="w-4 h-4" />
+                                <span>Reject</span>
+                              </button>
+                            )}
+                            {can(PERMISSIONS.LEAVE_CANCEL_OWN) && (
+                              <button
+                                onClick={() => handleCancelRequest(request.id)}
+                                className="flex-1 sm:flex-none px-3 py-2 bg-secondary-600 text-white rounded-lg text-xs sm:text-sm flex items-center justify-center gap-1"
+                              >
+                                <XIcon className="w-4 h-4" />
+                                <span>Cancel</span>
+                              </button>
+                            )}
+                          </>
+                        )}
+                        {activeTab === 'approved' && can(PERMISSIONS.LEAVE_DELETE) && (
+                          <button
+                            onClick={() => setDeleteModal({ show: true, request })}
+                            className="flex-1 sm:flex-none px-3 py-2 bg-red-600 text-white rounded-lg text-xs sm:text-sm flex items-center justify-center gap-1"
+                          >
+                            <XIcon className="w-4 h-4" />
+                            <span>Delete</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </motion.div>
             );
@@ -1701,158 +1755,166 @@ export const Leave = () => {
 
         {/* Desktop Table - visible only on larger screens */}
         <div className="hidden sm:block overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-secondary-50 border-b border-secondary-200">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
-                  <button onClick={handleSelectAll} className="hover:text-primary-600">
-                    {selectedRequests.size === filteredRequests.length && selectedRequests.size > 0 ? (
-                      <CheckSquare className="w-5 h-5" />
-                    ) : (
-                      <Square className="w-5 h-5" />
-                    )}
-                  </button>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
-                  Employee
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
-                  Duration
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
-                  Days
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
-                  Applied Date
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-secondary-600 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-secondary-200">
-              {filteredRequests.map((request, index) => {
-                const employee = employees.find(emp => emp.id === request.employeeId);
-                return (
-                <motion.tr
-                  key={request.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="hover:bg-secondary-50"
-                >
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    {(activeTab === 'pending' || activeTab === 'approved') && (
-                      <button
-                        onClick={() => handleSelectRequest(request.id)}
-                        className="hover:text-primary-600"
+          {Object.entries(groupedRequests).map(([key, requests]) => {
+            const employee = employees.find(emp => emp.id === requests[0].employeeId);
+            const empName = employee?.fullName || 'Unknown';
+            const empId = employee?.employeeId || requests[0].employeeId;
+            
+            return (
+              <div key={key} className="mb-6">
+                {/* Employee Header */}
+                <div className="bg-secondary-50 px-4 py-2 border-b border-secondary-200 mb-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="font-bold text-secondary-900">{empName}</div>
+                      <div className="text-xs text-secondary-500 bg-white px-2 py-1 rounded">{empId}</div>
+                    </div>
+                    <span className="text-xs text-secondary-600">{requests.length} request(s)</span>
+                  </div>
+                </div>
+                
+                {/* Employee's Leave Requests Table */}
+                <table className="w-full">
+                  <thead className="bg-secondary-50 border-b border-secondary-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                        <button onClick={handleSelectAll} className="hover:text-primary-600">
+                          {selectedRequests.size === filteredRequests.length && selectedRequests.size > 0 ? (
+                            <CheckSquare className="w-5 h-5" />
+                          ) : (
+                            <Square className="w-5 h-5" />
+                          )}
+                        </button>
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                        Duration
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                        Days
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                        Applied Date
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-secondary-200">
+                    {requests.map((request, index) => (
+                      <motion.tr
+                        key={request.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="hover:bg-secondary-50"
                       >
-                        {selectedRequests.has(request.id) ? (
-                          <CheckSquare className="w-5 h-5" />
-                        ) : (
-                          <Square className="w-5 h-5" />
-                        )}
-                      </button>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-secondary-900">
-                      {employee?.fullName || 'Unknown'}
-                    </div>
-                    <div className="text-xs text-secondary-500">
-                      {employee?.employeeId || request.employeeId}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${typeColors[request.type]}`}>
-                      {typeLabels[request.type]}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-secondary-900">
-                      {new Date(request.startDate).toLocaleDateString()} - {new Date(request.endDate).toLocaleDateString()}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-secondary-900">{request.days} days</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[request.status]}`}>
-                      {request.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
-                    {new Date(request.appliedDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button
-                        onClick={() => handleViewRequest(request)}
-                        className="text-primary-600 hover:text-primary-900"
-                        title="View Details"
-                      >
-                        <Eye className="w-5 h-5" />
-                      </button>
-                      {activeTab === 'pending' && can(PERMISSIONS.LEAVE_APPROVE) && (
-                        <>
-                          <button
-                            onClick={() => handleOpenApproval(request, 'approve')}
-                            className="text-green-600 hover:text-green-900"
-                            title="Approve"
-                          >
-                            <Check className="w-5 h-5" />
-                          </button>
-                          {can(PERMISSIONS.LEAVE_REJECT) && (
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {(activeTab === 'pending' || activeTab === 'approved') && (
                             <button
-                              onClick={() => handleOpenApproval(request, 'reject')}
-                              className="text-red-600 hover:text-red-900"
-                              title="Reject"
+                              onClick={() => handleSelectRequest(request.id)}
+                              className="hover:text-primary-600"
                             >
-                              <XIcon className="w-5 h-5" />
+                              {selectedRequests.has(request.id) ? (
+                                <CheckSquare className="w-5 h-5" />
+                              ) : (
+                                <Square className="w-5 h-5" />
+                              )}
                             </button>
                           )}
-                          {can(PERMISSIONS.LEAVE_CANCEL_OWN) && (
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${typeColors[request.type]}`}>
+                            {typeLabels[request.type]}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-secondary-900">
+                            {new Date(request.startDate).toLocaleDateString()} - {new Date(request.endDate).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-secondary-900">{request.days} days</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[request.status]}`}>
+                            {request.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
+                          {new Date(request.appliedDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end space-x-2">
                             <button
-                              onClick={() => handleCancelRequest(request.id)}
-                              className="text-secondary-600 hover:text-secondary-900"
-                              title="Cancel"
+                              onClick={() => handleViewRequest(request)}
+                              className="text-primary-600 hover:text-primary-900"
+                              title="View Details"
                             >
-                              <X className="w-5 h-5" />
+                              <Eye className="w-5 h-5" />
                             </button>
-                          )}
-                        </>
-                      )}
-                      {activeTab === 'approved' && request.ticketRequired && can(PERMISSIONS.LEAVE_APPROVE) && (
-                        <button
-                          onClick={() => handleOpenTicketForm(request)}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Book Ticket"
-                        >
-                          <Calendar className="w-5 h-5" />
-                        </button>
-                      )}
-                      {activeTab === 'approved' && can(PERMISSIONS.LEAVE_DELETE) && (
-                        <button
-                          onClick={() => setDeleteModal({ show: true, request })}
-                          className="text-red-600 hover:text-red-900"
-                          title="Delete"
-                        >
-                          <XIcon className="w-5 h-5" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </motion.tr>
-                );
-              })}
-            </tbody>
-          </table>
+                            {activeTab === 'pending' && can(PERMISSIONS.LEAVE_APPROVE) && (
+                              <>
+                                <button
+                                  onClick={() => handleOpenApproval(request, 'approve')}
+                                  className="text-green-600 hover:text-green-900"
+                                  title="Approve"
+                                >
+                                  <Check className="w-5 h-5" />
+                                </button>
+                                {can(PERMISSIONS.LEAVE_REJECT) && (
+                                  <button
+                                    onClick={() => handleOpenApproval(request, 'reject')}
+                                    className="text-red-600 hover:text-red-900"
+                                    title="Reject"
+                                  >
+                                    <XIcon className="w-5 h-5" />
+                                  </button>
+                                )}
+                                {can(PERMISSIONS.LEAVE_CANCEL_OWN) && (
+                                  <button
+                                    onClick={() => handleCancelRequest(request.id)}
+                                    className="text-secondary-600 hover:text-secondary-900"
+                                    title="Cancel"
+                                  >
+                                    <X className="w-5 h-5" />
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            {activeTab === 'approved' && request.ticketRequired && can(PERMISSIONS.LEAVE_APPROVE) && (
+                              <button
+                                onClick={() => handleOpenTicketForm(request)}
+                                className="text-blue-600 hover:text-blue-900"
+                                title="Book Ticket"
+                              >
+                                <Calendar className="w-5 h-5" />
+                              </button>
+                            )}
+                            {activeTab === 'approved' && can(PERMISSIONS.LEAVE_DELETE) && (
+                              <button
+                                onClick={() => setDeleteModal({ show: true, request })}
+                                className="text-red-600 hover:text-red-900"
+                                title="Delete"
+                              >
+                                <XIcon className="w-5 h-5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
         </div>
       </Card>
       )}

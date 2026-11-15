@@ -107,21 +107,21 @@ export const Lifecycle = () => {
           <h1 className="text-3xl font-bold text-secondary-900">Employee Lifecycle</h1>
           <p className="text-secondary-600 mt-1">Manage offboarding, exit interviews, and lifecycle transitions.</p>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Button variant="secondary">
-            <UserCheck className="w-5 h-5 mr-2" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Offboarding
           </Button>
-          <Button variant="secondary">
-            <ShieldCheck className="w-5 h-5 mr-2" />
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Separation
           </Button>
-          <Button variant="secondary">
-            <FileText className="w-5 h-5 mr-2" />
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <FileText className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Interviews
           </Button>
-          <Button variant="secondary">
-            <ClipboardList className="w-5 h-5 mr-2" />
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Tasks
           </Button>
         </div>

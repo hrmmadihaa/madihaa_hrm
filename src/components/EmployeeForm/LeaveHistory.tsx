@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Eye } from 'lucide-react';
 import { getLeaveRequests } from '../../lib/leave';
+import { getEmployees } from '../../lib/employees';
 import type { LeaveRequest, Employee, LeaveType } from '../../types';
 
 interface LeaveHistoryProps {
@@ -12,6 +13,7 @@ interface LeaveHistoryProps {
 export const LeaveHistory = ({ employee, onPrev, onNext }: LeaveHistoryProps) => {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [viewModal, setViewModal] = useState<{ show: boolean; request: LeaveRequest | null }>({ show: false, request: null });
   const [leaveStats, setLeaveStats] = useState<Record<LeaveType, number>>({
     annual: 0,
@@ -27,6 +29,20 @@ export const LeaveHistory = ({ employee, onPrev, onNext }: LeaveHistoryProps) =>
 
   const [leavePeriod, setLeavePeriod] = useState<{ start: Date; end: Date } | null>(null);
 
+  // Load all employees to map employeeId to document ID
+  useEffect(() => {
+    const loadEmployees = async () => {
+      try {
+        const employees = await getEmployees();
+        console.log('[LeaveHistory] Loaded', employees.length, 'employees');
+        setAllEmployees(employees);
+      } catch (error) {
+        console.error('[LeaveHistory] Error loading employees:', error);
+      }
+    };
+    loadEmployees();
+  }, []);
+
   const typeLabels: Record<LeaveType, string> = {
     annual: 'Annual Leave',
     medical: 'Sick Leave',
@@ -41,18 +57,41 @@ export const LeaveHistory = ({ employee, onPrev, onNext }: LeaveHistoryProps) =>
 
   useEffect(() => {
     const loadLeaveHistory = async () => {
-      if (!employee?.id) {
+      // Find the employee's document ID from allEmployees using employeeId
+      let documentId = employee?.id;
+      if (!documentId && employee?.employeeId && allEmployees.length > 0) {
+        const matchedEmployee = allEmployees.find(emp => emp.employeeId === employee.employeeId);
+        if (matchedEmployee) {
+          documentId = matchedEmployee.id;
+        }
+      }
+      
+      // Use employeeId if id is not available
+      const employeeId = documentId || employee?.employeeId;
+      
+      if (!employeeId) {
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
-        const requests = await getLeaveRequests(employee.id);
+        
+        // Try to fetch leave requests by document ID first (if available)
+        let requests: LeaveRequest[] = [];
+        if (documentId) {
+          requests = await getLeaveRequests(documentId);
+        }
+        
+        // If no results or no document ID, try employeeId
+        if (requests.length === 0 && employee?.employeeId) {
+          requests = await getLeaveRequests(employee.employeeId);
+        }
+        
         setLeaveRequests(requests);
 
         // Calculate leave period based on hire date (rolling year)
-        const hireDate = employee.joinDate ? new Date(employee.joinDate) : new Date();
+        const hireDate = employee?.joinDate ? new Date(employee.joinDate) : new Date();
         const now = new Date();
 
         // Calculate the current leave year
@@ -97,7 +136,7 @@ export const LeaveHistory = ({ employee, onPrev, onNext }: LeaveHistoryProps) =>
     };
 
     loadLeaveHistory();
-  }, [employee?.id, employee?.joinDate]);
+  }, [employee?.id, employee?.employeeId, employee?.joinDate, allEmployees]);
 
   const statusColors = {
     pending: 'bg-yellow-100 text-yellow-800',

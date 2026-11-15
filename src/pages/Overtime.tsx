@@ -617,10 +617,10 @@ export const Overtime = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-secondary-200">
+      <div className="flex gap-2 border-b border-secondary-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab('manual')}
-          className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+          className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
             activeTab === 'manual'
               ? 'border-primary-600 text-primary-600'
               : 'border-transparent text-secondary-600 hover:text-secondary-900'
@@ -630,7 +630,7 @@ export const Overtime = () => {
         </button>
         <button
           onClick={() => setActiveTab('biometric')}
-          className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+          className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
             activeTab === 'biometric'
               ? 'border-primary-600 text-primary-600'
               : 'border-transparent text-secondary-600 hover:text-secondary-900'
@@ -681,7 +681,7 @@ export const Overtime = () => {
             {/* Bulk Edit Section */}
             <div className="mb-4 p-3 bg-secondary-50 rounded-lg">
               <p className="text-sm font-medium text-secondary-700 mb-2">Bulk Edit (apply to all dates)</p>
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-4">
                 <div>
                   <label className="block text-xs text-secondary-600 mb-1">Start Time</label>
                   <input
@@ -689,7 +689,7 @@ export const Overtime = () => {
                     placeholder="HH:MM"
                     value={bulkStartTime}
                     onChange={(e) => setBulkStartTime(e.target.value)}
-                    className="px-3 py-1 border border-secondary-300 rounded text-sm"
+                    className="px-3 py-1 border border-secondary-300 rounded text-sm w-24"
                     maxLength={5}
                   />
                 </div>
@@ -700,7 +700,7 @@ export const Overtime = () => {
                     placeholder="HH:MM"
                     value={bulkFinishTime}
                     onChange={(e) => setBulkFinishTime(e.target.value)}
-                    className="px-3 py-1 border border-secondary-300 rounded text-sm"
+                    className="px-3 py-1 border border-secondary-300 rounded text-sm w-24"
                     maxLength={5}
                   />
                 </div>

@@ -292,7 +292,7 @@ export default function OfferLetter() {
 <body>
   <header class="letterhead">
     <div class="brand">
-      <img src="/Madihaa 2026 (1).png" alt="Madihaa Company Logo" class="company-logo" />
+      <img src="/Madihaa HRMS Team Logo.png" alt="Madihaa Company Logo" class="company-logo" />
       <div>
         <h1>MADIHAA COMPANY</h1>
         <p>PRIVATE LIMITED</p>
@@ -443,7 +443,7 @@ export default function OfferLetter() {
           <header className="letterhead">
             <div className="brand">
               <img 
-                src="/Madihaa 2026 (1).png" 
+                src="/Madihaa HRMS Team Logo.png" 
                 alt="Madihaa Company Logo" 
                 className="company-logo"
               />

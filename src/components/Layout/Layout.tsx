@@ -9,7 +9,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
-import madihaaLogo from '/madihaa (1).jpg';
+import madihaaLogo from '/Madihaa HRMS Team Logo.png';
 
 export const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);

@@ -127,7 +127,7 @@ export const StaffDashboard = () => {
     
     // Add Logo
     const logo = new Image();
-    logo.src = '/madihaa (1).jpg';
+    logo.src = '/Madihaa HRMS Team Logo.png';
     logo.onload = () => {
       doc.addImage(logo, 'JPEG', 20, 10, 30, 30);
       

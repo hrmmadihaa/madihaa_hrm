@@ -129,21 +129,21 @@ export const Training = () => {
           <h1 className="text-3xl font-bold text-secondary-900">Training & Development</h1>
           <p className="text-secondary-600 mt-1">Manage training needs, courses, sessions, learners, and certifications.</p>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Button variant="secondary">
-            <BookOpen className="w-5 h-5 mr-2" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             TNA
           </Button>
-          <Button variant="secondary">
-            <CalendarCheck className="w-5 h-5 mr-2" />
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <CalendarCheck className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Sessions
           </Button>
-          <Button variant="secondary">
-            <Trophy className="w-5 h-5 mr-2" />
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <Trophy className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Certificates
           </Button>
-          <Button variant="secondary">
-            <DollarSign className="w-5 h-5 mr-2" />
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Budget
           </Button>
         </div>

@@ -127,21 +127,21 @@ export const Performance = () => {
           <h1 className="text-3xl font-bold text-secondary-900">Performance Management</h1>
           <p className="text-secondary-600 mt-1">Manage appraisal cycles, reviews, assignments, and ratings.</p>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Button variant="secondary">
-            <Award className="w-5 h-5 mr-2" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <Award className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Appraisals
           </Button>
-          <Button variant="secondary">
-            <Layers className="w-5 h-5 mr-2" />
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <Layers className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Cycles
           </Button>
-          <Button variant="secondary">
-            <ClipboardList className="w-5 h-5 mr-2" />
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Reviews
           </Button>
-          <Button variant="secondary">
-            <CalendarCheck className="w-5 h-5 mr-2" />
+          <Button variant="secondary" className="text-xs sm:text-sm">
+            <CalendarCheck className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
             Workflows
           </Button>
         </div>

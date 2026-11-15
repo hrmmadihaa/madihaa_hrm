@@ -4,6 +4,9 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { Download } from "lucide-react";
+import { exportMonthlyAttendanceExcel } from "../utils/exportAttendanceExcel";
+import type { StaffAttendance } from "../utils/exportAttendanceExcel";
 import "./MonthlyAttendanceExcel.css";
 
 const STATUS_CODES = [
@@ -21,6 +24,7 @@ type Employee = {
   workSite: string;
   jobLevel: string;
   country: string;
+  status: string;
 };
 
 type Attendance = {
@@ -30,6 +34,14 @@ type Attendance = {
   outTime: string;
   status: string;
   remarks: string;
+};
+
+type LeaveRequest = {
+  employeeId: string;
+  startDate: Date;
+  endDate: Date;
+  type: string;
+  status: string;
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -102,6 +114,7 @@ export default function MonthlyAttendanceExcel() {
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -110,6 +123,7 @@ export default function MonthlyAttendanceExcel() {
   useEffect(() => {
     let employeeLoaded = false;
     let attendanceLoaded = false;
+    let leaveLoaded = false;
 
     const employeeUnsubscribe = onSnapshot(
       collection(db, "employees"),
@@ -138,12 +152,15 @@ export default function MonthlyAttendanceExcel() {
               country: String(
                 d.country || ""
               ),
+              status: String(
+                d.status || "active"
+              ),
             };
           })
         );
 
         employeeLoaded = true;
-        if (attendanceLoaded) setLoading(false);
+        if (attendanceLoaded && leaveLoaded) setLoading(false);
       },
       (err) => {
         setError(err.message);
@@ -180,7 +197,7 @@ export default function MonthlyAttendanceExcel() {
         );
 
         attendanceLoaded = true;
-        if (employeeLoaded) setLoading(false);
+        if (employeeLoaded && leaveLoaded) setLoading(false);
       },
       (err) => {
         setError(err.message);
@@ -188,9 +205,36 @@ export default function MonthlyAttendanceExcel() {
       }
     );
 
+    const leaveUnsubscribe = onSnapshot(
+      collection(db, "leave_requests"),
+      (snapshot) => {
+        const leaves = snapshot.docs.map((doc) => {
+          const d = doc.data();
+          return {
+            employeeId: String(d.employeeId || ""),
+            startDate: d.startDate?.toDate?.() || d.startDate || new Date(),
+            endDate: d.endDate?.toDate?.() || d.endDate || new Date(),
+            type: String(d.type || "").toLowerCase(),
+            status: String(d.status || "").toLowerCase(),
+          };
+        });
+
+        setLeaveRequests(leaves);
+
+        leaveLoaded = true;
+        if (employeeLoaded && attendanceLoaded) setLoading(false);
+      },
+      (err) => {
+        console.error("Error loading leave requests:", err);
+        leaveLoaded = true;
+        if (employeeLoaded && attendanceLoaded) setLoading(false);
+      }
+    );
+
     return () => {
       employeeUnsubscribe();
       attendanceUnsubscribe();
+      leaveUnsubscribe();
     };
   }, []);
 
@@ -226,11 +270,78 @@ export default function MonthlyAttendanceExcel() {
     const map = new Map<string, Attendance>();
 
     attendance.forEach((item) => {
-      map.set(`${item.employeeId}_${item.date}`, item);
+      // Try to find matching employee by employeeId from attendance record
+      // Match by userId first, then by document id
+      const employee = employees.find(e => e.userId === item.employeeId || e.id === item.employeeId);
+      
+      if (employee) {
+        // Use the employee's userId as the key to ensure consistency
+        map.set(`${employee.userId}_${item.date}`, item);
+      } else {
+        // Fallback: use the original employeeId if no match found
+        map.set(`${item.employeeId}_${item.date}`, item);
+      }
     });
 
     return map;
-  }, [attendance]);
+  }, [attendance, employees]);
+
+  // LEAVE INDEX
+  const leaveMap = useMemo(() => {
+    const map = new Map<string, LeaveRequest[]>();
+
+    leaveRequests.forEach((request) => {
+      if (request.status !== 'approved') return;
+
+      const start = new Date(request.startDate);
+      const end = new Date(request.endDate);
+      const current = new Date(start);
+
+      while (current <= end) {
+        const dateStr = `${current.getFullYear()}-${pad(current.getMonth() + 1)}-${pad(current.getDate())}`;
+
+        // Try to match by userId first, then by document id
+        const employee = employees.find(e => e.userId === request.employeeId || e.id === request.employeeId);
+        if (employee) {
+          const key = `${employee.userId}_${dateStr}`;
+
+          if (!map.has(key)) {
+            map.set(key, []);
+          }
+          map.get(key)!.push(request);
+        }
+
+        current.setDate(current.getDate() + 1);
+      }
+    });
+
+    return map;
+  }, [leaveRequests, employees]);
+
+  // Check if employee is on leave for a specific date
+  function getLeaveStatus(employeeId: string, date: string): string | null {
+    const leaves = leaveMap.get(`${employeeId}_${date}`);
+    if (!leaves || leaves.length === 0) return null;
+
+    const leave = leaves[0];
+    const type = leave.type.toLowerCase();
+
+    // Map leave types to status codes
+    const typeMap: Record<string, string> = {
+      'annual': 'AL',
+      'medical': 'MC',
+      'emergency': 'EL',
+      'duty': 'OFF',
+      'family': 'FL',
+      'sick': 'SICK',
+      'special': 'SP',
+      'no pay': 'NL',
+      'off day': 'OFF',
+      'off_day': 'OFF',
+    };
+
+    return typeMap[type] || type.toUpperCase();
+  }
 
   // EMPLOYEE ATTENDANCE SUMMARY
   function getEmployeeSummary(employee: Employee) {
@@ -253,8 +364,15 @@ export default function MonthlyAttendanceExcel() {
 
     dates.forEach((date) => {
       const record = attendanceMap.get(
-        `${employee.userId}_${date.date}` 
+        `${employee.userId}_${date.date}`
       );
+      const leaveStatus = getLeaveStatus(employee.userId, date.date);
+
+      // Check for leave status first (only from approved leave records)
+      if (leaveStatus && isStatus(leaveStatus)) {
+        counts[leaveStatus]++;
+        return;
+      }
 
       if (!record) return;
 
@@ -282,27 +400,28 @@ export default function MonthlyAttendanceExcel() {
   // Filter employees based on area selection
   const filteredEmployees = useMemo(() => {
     if (areaFilter === 'all') {
-      return employees;
+      return employees.filter(emp => (emp.status || 'active').toLowerCase() === 'active');
     }
 
     return employees.filter((e) => {
+      const isActive = (e.status || 'active').toLowerCase() === 'active';
       const jobLevel = e.jobLevel?.toLowerCase() || '';
       const workSite = e.workSite?.toLowerCase() || '';
       const country = e.country?.toLowerCase() || '';
 
       switch (areaFilter) {
         case 'male-junior':
-          return workSite.includes('male') && jobLevel.includes('junior');
+          return isActive && workSite.includes('male') && jobLevel.includes('junior');
         case 'hulhumale-junior':
-          return workSite.includes('hulhumale') && jobLevel.includes('junior');
+          return isActive && workSite.includes('hulhumale') && jobLevel.includes('junior');
         case 'male-senior':
-          return workSite.includes('male') && jobLevel.includes('senior');
+          return isActive && workSite.includes('male') && jobLevel.includes('senior');
         case 'hulhumale-senior':
-          return workSite.includes('hulhumale') && jobLevel.includes('senior');
+          return isActive && workSite.includes('hulhumale') && jobLevel.includes('senior');
         case 'local':
-          return country.includes('maldives') || country.includes('mv');
+          return isActive && (country.includes('maldives') || country.includes('mv'));
         default:
-          return true;
+          return isActive;
       }
     });
   }, [employees, areaFilter]);
@@ -335,10 +454,17 @@ export default function MonthlyAttendanceExcel() {
     type: "IN" | "OUT"
   ) {
     const record = getRecord(employee, date);
+    const leaveStatus = getLeaveStatus(employee.userId, date);
+
+    // Check leave status first (only from approved leave records)
+    if (leaveStatus && isStatus(leaveStatus)) {
+      return leaveStatus;
+    }
+
     if (!record) return "";
 
-    // Status appears in the IN column.
-    if (type === "IN" && isStatus(record.status)) {
+    // Status appears in both IN and OUT columns
+    if (isStatus(record.status)) {
       return record.status;
     }
 
@@ -348,6 +474,65 @@ export default function MonthlyAttendanceExcel() {
 
   function printReport() {
     window.print();
+  }
+
+  // Map Firestore data to Excel export structure
+  function mapToExportFormat(employees: Employee[]): StaffAttendance[] {
+    return employees.map((employee) => {
+      const attendance: Record<number, { inTime?: string; outTime?: string; status?: string }> = {};
+      const summary = getEmployeeSummary(employee);
+
+      dates.forEach((date) => {
+        const record = getRecord(employee, date.date);
+        const leaveStatus = getLeaveStatus(employee.userId, date.date);
+
+        if (leaveStatus && isStatus(leaveStatus)) {
+          attendance[date.day] = {
+            status: leaveStatus,
+          };
+        } else if (record) {
+          attendance[date.day] = {
+            inTime: record.inTime || undefined,
+            outTime: record.outTime || undefined,
+            status: isStatus(record.status) ? record.status : undefined,
+          };
+        }
+      });
+
+      return {
+        userId: employee.userId,
+        name: employee.name,
+        attendance,
+        summary: {
+          presentDays: summary.presentDays,
+          fridays: summary.fridays,
+          OFF: summary.counts.OFF,
+          MC: summary.counts.MC,
+          EL: summary.counts.EL,
+          AL: summary.counts.AL,
+          SUS: summary.counts.SUS,
+          FL: summary.counts.FL,
+          SICK: summary.counts.SICK,
+          HD: summary.counts.HD,
+          AB: summary.counts.AB,
+          NL: summary.counts.NL,
+          SP: summary.counts.SP,
+          remarks: "",
+        },
+      };
+    });
+  }
+
+  async function handleDownloadExcel() {
+    const seniorStaff = mapToExportFormat(seniorEmployees);
+    const juniorStaff = mapToExportFormat(juniorEmployees);
+
+    await exportMonthlyAttendanceExcel({
+      month: month - 1, // Convert to 0-indexed month
+      year,
+      seniorStaff,
+      juniorStaff,
+    });
   }
 
   function renderSection(
@@ -576,6 +761,11 @@ export default function MonthlyAttendanceExcel() {
 
           <button onClick={printReport}>
             Print / Save PDF
+          </button>
+
+          <button onClick={handleDownloadExcel} disabled={loading}>
+            <Download size={18} />
+            Download Excel
           </button>
         </div>
       </div>

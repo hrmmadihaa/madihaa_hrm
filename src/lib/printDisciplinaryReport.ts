@@ -57,7 +57,7 @@ export const printDisciplinaryReport = async (
   // Load company logo without blocking report generation.
   try {
     const logo = new Image();
-    logo.src = '/madihaa (1).jpg';
+    logo.src = '/Madihaa HRMS Team Logo.png';
 
     await new Promise<void>((resolve) => {
       logo.onload = () => {

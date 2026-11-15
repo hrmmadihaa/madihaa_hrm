@@ -138,7 +138,7 @@ export const FormsAndLetters: React.FC = () => {
                   <h3 className="font-semibold text-blue-900 mb-2">Letterhead Preview</h3>
                   <div className="text-center mb-4 pb-4 border-b-2 border-blue-300">
                     <div className="flex items-center justify-center mb-2">
-                      <img src="/madihaa (1).jpg" alt="Madihaa Logo" className="h-12 w-12 object-contain" />
+                      <img src="/Madihaa HRMS Team Logo.png" alt="Madihaa Logo" className="h-12 w-12 object-contain" />
                     </div>
                     <h1 className="text-xl font-bold text-gray-900">Madihaa Pvt Ltd</h1>
                     <p className="text-sm text-gray-600">Human Resource Management System</p>

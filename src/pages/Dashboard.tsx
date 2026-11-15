@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Clock, TrendingUp, AlertCircle, Briefcase, Building2, X } from 'lucide-react';
+import { Users, Clock, TrendingUp, AlertCircle, Briefcase, Building2, X, Calendar, Cake, Award } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { getEmployees } from '../lib/employees';
 import { getLeaveRequests } from '../lib/leave';
 import { getAttendanceStats } from '../lib/attendance';
+import { getAllWorkLocations } from '../lib/workLocation';
 import { useNavigate } from 'react-router-dom';
-import madihaaLogo from '/madihaa (1).jpg';
+import madihaaLogo from '/Madihaa HRMS Team Logo.png';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export const Dashboard = () => {
@@ -17,12 +18,24 @@ export const Dashboard = () => {
   const [filteredEmployees, setFilteredEmployees] = useState<any[]>([]);
   const [onLeaveEmployees, setOnLeaveEmployees] = useState<any[]>([]);
   const [attendanceStats, setAttendanceStats] = useState<any>(null);
+  const [todayLeaveRequests, setTodayLeaveRequests] = useState<any[]>([]);
+  const [workLocations, setWorkLocations] = useState<any[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     loadEmployees();
     loadAttendanceStats();
+    loadWorkLocations();
   }, []);
+
+  const loadWorkLocations = async () => {
+    try {
+      const locations = await getAllWorkLocations();
+      setWorkLocations(locations);
+    } catch (error) {
+      console.error('Error loading work locations:', error);
+    }
+  };
 
   const loadAttendanceStats = async () => {
     try {
@@ -37,12 +50,12 @@ export const Dashboard = () => {
     try {
       const data = await getEmployees();
       setEmployees(data);
-      
+
       // Fetch leave requests to determine actual on-leave status
       const leaveRequests = await getLeaveRequests();
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       // Find employees with approved leave that includes today
       const currentlyOnLeave = data.filter(employee => {
         const employeeLeaves = leaveRequests.filter(
@@ -53,8 +66,19 @@ export const Dashboard = () => {
         );
         return employeeLeaves.length > 0;
       });
-      
+
       setOnLeaveEmployees(currentlyOnLeave);
+
+      // Get today's leave requests (all types, all statuses)
+      const todayLeaves = leaveRequests.filter(lr => {
+        const startDate = new Date(lr.startDate);
+        const endDate = new Date(lr.endDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+        return startDate <= today && endDate >= today;
+      });
+
+      setTodayLeaveRequests(todayLeaves);
     } catch (error) {
       console.error('Error loading employees:', error);
     } finally {
@@ -75,10 +99,13 @@ export const Dashboard = () => {
     return acc;
   }, {} as Record<string, number>);
 
-  // Group by department
-  const departments = employees.reduce((acc, emp) => {
-    const dept = emp.department || 'Unknown';
-    acc[dept] = (acc[dept] || 0) + 1;
+  // Group by work location (only active employees)
+  const workLocationStats = employees.reduce((acc, emp) => {
+    // Only count active employees
+    if (emp.status !== 'active') return acc;
+    const location = workLocations.find(loc => loc.assignedStaff?.includes(emp.id));
+    const locationName = location?.name || 'Unassigned';
+    acc[locationName] = (acc[locationName] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
@@ -102,7 +129,7 @@ export const Dashboard = () => {
       filterValue: name
     }));
 
-  const departmentStats = (Object.entries(departments) as [string, number][])
+  const workLocationStatsList = (Object.entries(workLocationStats) as [string, number][])
     .sort(([, a], [, b]) => b - a)
     .slice(0, 6)
     .map(([name, count]) => ({
@@ -110,7 +137,7 @@ export const Dashboard = () => {
       value: count.toString(),
       icon: Building2,
       color: 'bg-indigo-500',
-      filter: 'department',
+      filter: 'work_location',
       filterValue: name
     }));
 
@@ -125,8 +152,11 @@ export const Dashboard = () => {
       setFilteredEmployees(employees.filter(e => e.status === 'resigned'));
     } else if (stat.filter === 'position') {
       setFilteredEmployees(employees.filter(e => e.designation === stat.filterValue));
-    } else if (stat.filter === 'department') {
-      setFilteredEmployees(employees.filter(e => e.department === stat.filterValue));
+    } else if (stat.filter === 'work_location') {
+      const location = workLocations.find(loc => loc.name === stat.filterValue);
+      if (location) {
+        setFilteredEmployees(employees.filter(e => location.assignedStaff?.includes(e.id)));
+      }
     }
     setSelectedStat(stat.name);
   };
@@ -137,7 +167,112 @@ export const Dashboard = () => {
 
   const recentActivities: any[] = [];
 
-  const upcomingEvents: any[] = [];
+  // Calculate probation completion events (within next 30 days)
+  const probationEvents: any[] = (() => {
+    const today = new Date();
+    const events: any[] = [];
+
+    employees.forEach(emp => {
+      // Only show active employees (case-insensitive check)
+      if (!emp.status || emp.status.toLowerCase() !== 'active') return;
+
+      let probationEndDate: Date | null = null;
+      let hireDate: Date | null = null;
+
+      // Check probation details first
+      if (emp.probationDetails?.probationEndDate) {
+        probationEndDate = new Date(emp.probationDetails.probationEndDate);
+        hireDate = emp.probationDetails.probationStartDate ? new Date(emp.probationDetails.probationStartDate) : emp.joinDate ? new Date(emp.joinDate) : null;
+      } else {
+        // Fallback: check joinDate for 3-month probation
+        if (emp.joinDate) {
+          hireDate = new Date(emp.joinDate);
+          probationEndDate = new Date(hireDate);
+          probationEndDate.setMonth(probationEndDate.getMonth() + 3);
+        }
+      }
+
+      if (probationEndDate) {
+        const daysUntilProbationEnd = Math.ceil((probationEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (daysUntilProbationEnd >= 0 && daysUntilProbationEnd <= 30) {
+          events.push({
+            id: `probation-${emp.id}`,
+            title: `${emp.fullName} - Probation Completion`,
+            date: probationEndDate.toLocaleDateString(),
+            hireDate: hireDate ? hireDate.toLocaleDateString() : 'N/A',
+            daysRemaining: daysUntilProbationEnd
+          });
+        }
+      }
+    });
+
+    return events.sort((a, b) => a.daysRemaining - b.daysRemaining);
+  })();
+
+  // Calculate birthday events (this month - only today and upcoming, not past)
+  const birthdayEvents: any[] = (() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    const events: any[] = [];
+
+    employees.forEach(emp => {
+      // Only show active employees (case-insensitive check)
+      if (!emp.status || emp.status.toLowerCase() !== 'active' || !emp.dob) return;
+
+      const dob = new Date(emp.dob);
+      if (dob.getMonth() === currentMonth) {
+        const birthdayThisYear = new Date(currentYear, currentMonth, dob.getDate());
+        birthdayThisYear.setHours(0, 0, 0, 0);
+        const daysUntilBirthday = Math.ceil((birthdayThisYear.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        // Only show today's birthday or upcoming birthdays (not past birthdays)
+        if (daysUntilBirthday >= 0) {
+          events.push({
+            id: `birthday-${emp.id}`,
+            title: `${emp.fullName}'s Birthday`,
+            date: birthdayThisYear.toLocaleDateString(),
+            daysRemaining: daysUntilBirthday
+          });
+        }
+      }
+    });
+
+    return events.sort((a, b) => a.daysRemaining - b.daysRemaining);
+  })();
+
+  // Calculate work anniversaries (this month)
+  const anniversaryEvents: any[] = (() => {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    const events: any[] = [];
+
+    employees.forEach(emp => {
+      // Only show active employees (case-insensitive check)
+      if (!emp.status || emp.status.toLowerCase() !== 'active' || !emp.joinDate) return;
+
+      const joinDate = new Date(emp.joinDate);
+      if (joinDate.getMonth() === currentMonth && joinDate.getFullYear() < currentYear) {
+        const yearsOfService = currentYear - joinDate.getFullYear();
+        const anniversaryThisYear = new Date(currentYear, currentMonth, joinDate.getDate());
+        const daysUntilAnniversary = Math.ceil((anniversaryThisYear.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        events.push({
+          id: `anniversary-${emp.id}`,
+          title: `${emp.fullName} - ${yearsOfService} Year${yearsOfService > 1 ? 's' : ''} Anniversary`,
+          date: anniversaryThisYear.toLocaleDateString(),
+          hireDate: joinDate.toLocaleDateString(),
+          yearsOfService,
+          daysRemaining: daysUntilAnniversary
+        });
+      }
+    });
+
+    return events.sort((a, b) => a.daysRemaining - b.daysRemaining);
+  })();
 
   if (loading) {
     return (
@@ -149,11 +284,19 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <img src={madihaaLogo} alt="Madihaa Logo" className="w-16 h-14 object-contain" />
-        <div>
-          <h1 className="text-3xl font-bold text-secondary-900">Dashboard</h1>
-          <p className="text-secondary-600 mt-1">Welcome back! Here's what's happening today.</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <img src={madihaaLogo} alt="Madihaa Logo" className="w-16 h-14 object-contain" />
+          <div>
+            <h1 className="text-3xl font-bold text-secondary-900">Dashboard</h1>
+            <p className="text-secondary-600 mt-1">Welcome back! Here's what's happening today.</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-sm text-secondary-600">Today's Date</p>
+          <p className="text-xl font-semibold text-secondary-900">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
         </div>
       </div>
 
@@ -166,7 +309,7 @@ export const Dashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
           >
-            <div 
+            <div
               className="cursor-pointer group"
               onClick={() => handleStatClick(stat)}
             >
@@ -188,6 +331,79 @@ export const Dashboard = () => {
           </motion.div>
         ))}
       </div>
+
+      {/* Today's Leave Requests */}
+      <Card>
+        <CardHeader>
+          <h2 className="text-lg font-semibold text-secondary-900">Today's Leave Requests</h2>
+          <p className="text-sm text-secondary-600">{todayLeaveRequests.filter(lr => {
+            const employee = employees.find(e => e.id === lr.employeeId);
+            return employee?.status === 'active';
+          }).length} active employees on leave today</p>
+        </CardHeader>
+        <CardContent>
+          {todayLeaveRequests.length > 0 ? (
+            <div className="space-y-3">
+              {todayLeaveRequests.map((leave) => {
+                const employee = employees.find(e => e.id === leave.employeeId);
+                // Only show active employees
+                if (!employee || employee.status !== 'active') return null;
+                return (
+                  <div
+                    key={leave.id}
+                    className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      {employee?.photo ? (
+                        <img
+                          src={employee.photo}
+                          alt={employee.fullName}
+                          className="w-10 h-10 rounded-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                          <Users className="w-5 h-5 text-primary-600" />
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-medium text-secondary-900">{employee?.fullName || 'Unknown'}</p>
+                        <p className="text-sm text-secondary-600">{employee?.employeeId || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-secondary-900 capitalize">{leave.leaveType || 'Leave'}</p>
+                        <p className="text-xs text-secondary-600">
+                          {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                        leave.status === 'approved'
+                          ? 'bg-green-100 text-green-700'
+                          : leave.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : leave.status === 'rejected'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-gray-100 text-gray-700'
+                      } capitalize`}>
+                        {leave.status}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Clock className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
+              <p className="text-secondary-600">No leave requests for today</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Positions Grid */}
       <div>
@@ -223,18 +439,18 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Departments Grid */}
+      {/* Work Locations Grid */}
       <div>
-        <h2 className="text-xl font-semibold text-secondary-900 mb-4">Staff by Department</h2>
+        <h2 className="text-xl font-semibold text-secondary-900 mb-4">Staff by Work Location</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {departmentStats.map((stat, index) => (
+          {workLocationStatsList.map((stat, index) => (
             <motion.div
               key={stat.name}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
             >
-              <div 
+              <div
                 className="cursor-pointer group"
                 onClick={() => handleStatClick(stat)}
               >
@@ -315,31 +531,122 @@ export const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Upcoming Events */}
+      {/* Probation Completions */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-secondary-900">Upcoming Events</h2>
+          <h2 className="text-lg font-semibold text-secondary-900">Probation Completions (Next 30 Days)</h2>
+          <p className="text-sm text-secondary-600">{probationEvents.length} employees completing probation</p>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {upcomingEvents.map((event) => (
-              <div
-                key={event.id}
-                className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg"
-              >
-                <div className="flex items-center space-x-4">
-                  <AlertCircle className="w-5 h-5 text-primary-600" />
-                  <div>
-                    <p className="font-medium text-secondary-900">{event.title}</p>
-                    <p className="text-sm text-secondary-600">{event.date}</p>
+          {probationEvents.length > 0 ? (
+            <div className="space-y-3">
+              {probationEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
+                >
+                  <div className="flex items-center space-x-4">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-secondary-900">{event.title}</p>
+                      <p className="text-sm text-secondary-600">Hire Date: {event.hireDate}</p>
+                      <p className="text-sm text-secondary-600">Completion: {event.date}</p>
+                      <p className="text-xs text-secondary-500">
+                        {event.daysRemaining === 0 ? 'Today' : event.daysRemaining === 1 ? 'Tomorrow' : `In ${event.daysRemaining} days`}
+                      </p>
+                    </div>
                   </div>
+                  <span className="px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 capitalize">
+                    Probation
+                  </span>
                 </div>
-                <span className="px-3 py-1 text-xs font-medium rounded-full bg-primary-100 text-primary-700 capitalize">
-                  {event.type}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Calendar className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
+              <p className="text-secondary-600">No probation completions in the next 30 days</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Birthdays This Month */}
+      <Card>
+        <CardHeader>
+          <h2 className="text-lg font-semibold text-secondary-900">Birthdays This Month</h2>
+          <p className="text-sm text-secondary-600">{birthdayEvents.length} employees have birthdays this month</p>
+        </CardHeader>
+        <CardContent>
+          {birthdayEvents.length > 0 ? (
+            <div className="space-y-3">
+              {birthdayEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
+                >
+                  <div className="flex items-center space-x-4">
+                    <Cake className="w-5 h-5 text-pink-600" />
+                    <div>
+                      <p className="font-medium text-secondary-900">{event.title}</p>
+                      <p className="text-sm text-secondary-600">{event.date}</p>
+                      <p className="text-xs text-secondary-500">
+                        {event.daysRemaining === 0 ? 'Today' : event.daysRemaining === 1 ? 'Tomorrow' : `In ${event.daysRemaining} days`}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 text-xs font-medium rounded-full bg-pink-100 text-pink-700 capitalize">
+                    Birthday
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Cake className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
+              <p className="text-secondary-600">No birthdays this month</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Work Anniversaries This Month */}
+      <Card>
+        <CardHeader>
+          <h2 className="text-lg font-semibold text-secondary-900">Work Anniversaries This Month</h2>
+          <p className="text-sm text-secondary-600">{anniversaryEvents.length} employees completing work anniversary</p>
+        </CardHeader>
+        <CardContent>
+          {anniversaryEvents.length > 0 ? (
+            <div className="space-y-3">
+              {anniversaryEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
+                >
+                  <div className="flex items-center space-x-4">
+                    <Award className="w-5 h-5 text-amber-600" />
+                    <div>
+                      <p className="font-medium text-secondary-900">{event.title}</p>
+                      <p className="text-sm text-secondary-600">Hire Date: {event.hireDate}</p>
+                      <p className="text-sm text-secondary-600">Anniversary: {event.date}</p>
+                      <p className="text-xs text-secondary-500">
+                        {event.daysRemaining === 0 ? 'Today' : event.daysRemaining === 1 ? 'Tomorrow' : `In ${event.daysRemaining} days`}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700 capitalize">
+                    {event.yearsOfService} Year{event.yearsOfService > 1 ? 's' : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Award className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
+              <p className="text-secondary-600">No work anniversaries this month</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

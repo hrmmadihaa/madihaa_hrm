@@ -224,31 +224,31 @@ export const Payroll = () => {
           <h1 className="text-3xl font-bold text-secondary-900">Payroll</h1>
           <p className="text-secondary-600 mt-1">Manage salary processing and payments</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {can(PERMISSIONS.PAYROLL_PROCESS) && (
-            <Button onClick={handleGeneratePayroll} disabled={generating} variant="secondary">
+            <Button onClick={handleGeneratePayroll} disabled={generating} variant="secondary" className="flex-1 sm:flex-none text-xs sm:text-sm">
               {generating ? (
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2 animate-spin" />
               ) : (
-                <Send className="w-5 h-5 mr-2" />
+                <Send className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
               )}
-              {generating ? 'Generating...' : 'Generate Payroll'}
+              {generating ? 'Generating...' : 'Generate'}
             </Button>
           )}
           {can(PERMISSIONS.REPORTS_EXPORT) && (
-            <Button variant="secondary">
-              <Download className="w-5 h-5 mr-2" />
+            <Button variant="secondary" className="flex-1 sm:flex-none text-xs sm:text-sm">
+              <Download className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
               Export
             </Button>
           )}
           {can(PERMISSIONS.PAYROLL_PROCESS) && (
-            <Button onClick={handleProcessPayroll} disabled={processing || payrollData.length === 0}>
+            <Button onClick={handleProcessPayroll} disabled={processing || payrollData.length === 0} className="flex-1 sm:flex-none text-xs sm:text-sm">
               {processing ? (
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2 animate-spin" />
               ) : (
-                <Send className="w-5 h-5 mr-2" />
+                <Send className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
               )}
-              {processing ? 'Processing...' : 'Process Payroll'}
+              {processing ? 'Processing...' : 'Process'}
             </Button>
           )}
         </div>
