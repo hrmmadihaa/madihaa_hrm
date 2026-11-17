@@ -15,6 +15,9 @@ type Candidate = {
   working_hours?: string;
   work_location?: string;
   reporting_to?: string;
+  nationality?: string;
+  passport_no?: string;
+  national_id?: string;
 };
 
 export default function OfferLetter() {
@@ -28,6 +31,9 @@ export default function OfferLetter() {
   const candidate = candidates.find(
     (c) => c.id === selectedId
   );
+
+  const isMaldivian = candidate?.nationality?.toLowerCase().includes('maldives') ||
+                      candidate?.nationality?.toLowerCase().includes('maldivian');
 
   const [details, setDetails] = useState({
     letterDate: new Date().toLocaleDateString('en-GB', { 
@@ -244,12 +250,12 @@ export default function OfferLetter() {
       margin: 0 0 1mm;
     }
     .signature-space {
-      height: 11mm;
+      height: 9mm;
     }
     .acceptance {
       border-top: 1px solid #888;
-      margin-top: auto;
-      padding-top: 4mm;
+      margin-top: 2mm;
+      padding-top: 3mm;
       font-size: 9pt;
       line-height: 1.3;
     }
@@ -258,10 +264,10 @@ export default function OfferLetter() {
       font-size: 10pt;
       font-weight: bold;
       letter-spacing: 1px;
-      margin-bottom: 3mm;
+      margin-bottom: 2mm;
     }
     .acceptance > p {
-      margin: 0 0 5mm;
+      margin: 0 0 3mm;
     }
     .acceptance-signatures {
       display: grid;
@@ -292,7 +298,7 @@ export default function OfferLetter() {
 <body>
   <header class="letterhead">
     <div class="brand">
-      <img src="/Madihaa HRMS Team Logo.png" alt="Madihaa Company Logo" class="company-logo" />
+      <img src="/Madihaa 2026 (1).png" alt="Madihaa Company Logo" class="company-logo" />
       <div>
         <h1>MADIHAA COMPANY</h1>
         <p>PRIVATE LIMITED</p>
@@ -443,7 +449,7 @@ export default function OfferLetter() {
           <header className="letterhead">
             <div className="brand">
               <img 
-                src="/Madihaa HRMS Team Logo.png" 
+                src="/Madihaa 2026 (1).png" 
                 alt="Madihaa Company Logo" 
                 className="company-logo"
               />
@@ -472,7 +478,11 @@ export default function OfferLetter() {
           <div className="recipient">
             <strong>To:</strong>
             <p>{candidate.Name}</p>
-            <p>National ID: {candidate['EMP ID']}</p>
+            {isMaldivian ? (
+              <p>National ID: {candidate.national_id || candidate['EMP ID']}</p>
+            ) : (
+              <p>Passport No: {candidate.passport_no || candidate['EMP ID']}</p>
+            )}
           </div>
 
           {/* SUBJECT */}
@@ -689,7 +699,7 @@ export default function OfferLetter() {
           width: 210mm;
           height: 297mm;
           padding: 12mm 17mm 13mm;
-          margin: 0 auto;
+          margin: 20px auto;
           background: white;
           color: #111;
           box-shadow: 0 5px 25px rgba(0,0,0,.12);
@@ -697,6 +707,7 @@ export default function OfferLetter() {
           display: flex;
           flex-direction: column;
           font-family: Arial, Helvetica, sans-serif;
+          min-width: 210mm;
         }
 
         .letterhead {
@@ -713,9 +724,10 @@ export default function OfferLetter() {
         }
 
         .company-logo {
-          width: 120px;
-          height: 120px;
+          width: 100px;
+          height: 100px;
           object-fit: contain;
+          display: block;
         }
 
         .brand h1 {
@@ -799,13 +811,13 @@ export default function OfferLetter() {
         }
 
         .signature-space {
-          height: 11mm;
+          height: 9mm;
         }
 
         .acceptance {
           border-top: 1px solid #888;
-          margin-top: auto;
-          padding-top: 4mm;
+          margin-top: 2mm;
+          padding-top: 3mm;
           font-size: 9pt;
           line-height: 1.3;
         }
@@ -815,11 +827,11 @@ export default function OfferLetter() {
           font-size: 10pt;
           font-weight: bold;
           letter-spacing: 1px;
-          margin-bottom: 3mm;
+          margin-bottom: 2mm;
         }
 
         .acceptance > p {
-          margin: 0 0 5mm;
+          margin: 0 0 3mm;
         }
 
         .acceptance-signatures {
@@ -842,7 +854,7 @@ export default function OfferLetter() {
 
         .letter-footer {
           border-top: 1px solid #172b4d;
-          margin-top: 7mm;
+          margin-top: 4mm;
           padding-top: 2mm;
           text-align: center;
           font-size: 7pt;
@@ -893,11 +905,19 @@ export default function OfferLetter() {
           }
         }
 
+        @media screen and (max-width: 1200px) {
+          .offer-page {
+            transform-origin: top center;
+            transform: scale(0.9);
+            margin-bottom: -30mm;
+          }
+        }
+
         @media screen and (max-width: 850px) {
           .offer-page {
-            transform-origin: top left;
-            transform: scale(.75);
-            margin-bottom: -74mm;
+            transform-origin: top center;
+            transform: scale(0.7);
+            margin-bottom: -90mm;
           }
 
           .editor-grid {

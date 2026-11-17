@@ -4,12 +4,12 @@ import {
   Menu, X, Bell, User, LogOut, Settings,
   LayoutDashboard, Users, Calendar, CalendarCheck,
   DollarSign, Clock, BarChart, FileText, GraduationCap,
-  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle, Fuel, Wallet, Mail
+  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle, Fuel, Wallet, Mail, Car
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
-import madihaaLogo from '/Madihaa HRMS Team Logo.png';
+import madihaaLogo from '/Madihaa 2026 (1).png';
 
 export const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -48,6 +48,7 @@ export const Layout: React.FC = () => {
     { name: 'Accommodation', href: '/accommodation', icon: Building2 },
     { name: 'Work Locations', href: '/work-locations', icon: MapPin },
     { name: 'Organization Chart', href: '/organization-chart', icon: Network },
+    { name: 'Fleet', href: '/fleet', icon: Car },
     { name: 'User Management', href: '/users', icon: UserCog },
     { name: 'Settings', href: '/settings', icon: Settings },
   ] as const;
@@ -153,7 +154,7 @@ export const Layout: React.FC = () => {
 
       {/* Desktop Sidebar */}
       <aside
-        className="hidden lg:block lg:fixed lg:inset-y-0 lg:left-0 lg:w-80 lg:bg-white lg:shadow-xl"
+        className="hidden lg:block lg:fixed lg:inset-y-0 lg:left-0 lg:w-80 lg:bg-white lg:shadow-xl no-print"
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -224,7 +225,7 @@ export const Layout: React.FC = () => {
       {/* Main content */}
       <div className="lg:pl-80">
         {/* Top bar */}
-        <header className="bg-white shadow-sm border-b border-secondary-200">
+        <header className="bg-white shadow-sm border-b border-secondary-200 no-print">
           <div className="flex items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
             <button
               onClick={() => setSidebarOpen(true)}

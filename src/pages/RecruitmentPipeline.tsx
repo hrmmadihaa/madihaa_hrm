@@ -14,17 +14,19 @@ interface Candidate {
   status: string;
   salary?: string;
   Nationality?: string;
-  'Date of Birth'?: string;
+  date_of_birth?: string;
   Gender?: string;
-  'Passport No.'?: string;
-  'Issue Date'?: string;
-  'Expiry Date'?: string;
+  passport_no?: string;
+  passport_issue_date?: string;
+  passport_expiry_date?: string;
   email?: string;
   phone?: string;
   address?: string;
-  'Emergency Contact Name'?: string;
-  'Emergency Contact Phone'?: string;
-  'D.O.J'?: string;
+  permanent_address?: string;
+  national_id?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  date_of_joining?: string;
   work_permit_number?: string;
   work_permit_expiry?: string;
   created_date?: string;
@@ -42,6 +44,14 @@ interface Candidate {
   reporting_to?: string;
   offer_letter_html?: string;
   offer_letter_date?: string;
+  // LOA optional fields
+  business_activity?: string;
+  salary_currency?: string;
+  exchange_rate?: string;
+  food_accommodation?: string;
+  salary_payment?: string;
+  job_description?: string;
+  contract_duration?: string;
 }
 
 const STAGES = [
@@ -81,22 +91,32 @@ export const RecruitmentPipeline: React.FC = () => {
     POSITION: '',
     salary: '',
     Nationality: '',
-    'Date of Birth': '',
+    date_of_birth: '',
     Gender: '',
-    'Passport No.': '',
-    'Issue Date': '',
-    'Expiry Date': '',
+    passport_no: '',
+    passport_issue_date: '',
+    passport_expiry_date: '',
     email: '',
     phone: '',
     address: '',
-    'Emergency Contact Name': '',
-    'Emergency Contact Phone': '',
-    'D.O.J': '',
+    permanent_address: '',
+    national_id: '',
+    emergency_contact_name: '',
+    emergency_contact_phone: '',
+    date_of_joining: '',
     department: '',
     employment_type: '',
     working_hours: '',
     work_location: '',
-    reporting_to: ''
+    reporting_to: '',
+    // LOA optional fields
+    business_activity: '',
+    salary_currency: '',
+    exchange_rate: '',
+    food_accommodation: '',
+    salary_payment: '',
+    job_description: '',
+    contract_duration: ''
   });
 
   useEffect(() => {
@@ -204,22 +224,31 @@ export const RecruitmentPipeline: React.FC = () => {
       POSITION: candidate.POSITION || '',
       salary: candidate.salary || '',
       Nationality: candidate.Nationality || '',
-      'Date of Birth': candidate['Date of Birth'] || '',
+      date_of_birth: candidate.date_of_birth || '',
       Gender: candidate.Gender || '',
-      'Passport No.': candidate['Passport No.'] || '',
-      'Issue Date': candidate['Issue Date'] || '',
-      'Expiry Date': candidate['Expiry Date'] || '',
+      passport_no: candidate.passport_no || '',
+      passport_issue_date: candidate.passport_issue_date || '',
+      passport_expiry_date: candidate.passport_expiry_date || '',
       email: candidate.email || '',
       phone: candidate.phone || '',
       address: candidate.address || '',
-      'Emergency Contact Name': candidate['Emergency Contact Name'] || '',
-      'Emergency Contact Phone': candidate['Emergency Contact Phone'] || '',
-      'D.O.J': candidate['D.O.J'] || '',
+      permanent_address: candidate.permanent_address || '',
+      national_id: candidate.national_id || '',
+      emergency_contact_name: candidate.emergency_contact_name || '',
+      emergency_contact_phone: candidate.emergency_contact_phone || '',
+      date_of_joining: candidate.date_of_joining || '',
       department: candidate.department || '',
       employment_type: candidate.employment_type || '',
       working_hours: candidate.working_hours || '',
       work_location: candidate.work_location || '',
-      reporting_to: candidate.reporting_to || ''
+      reporting_to: candidate.reporting_to || '',
+      business_activity: candidate.business_activity || '',
+      salary_currency: candidate.salary_currency || '',
+      exchange_rate: candidate.exchange_rate || '',
+      food_accommodation: candidate.food_accommodation || '',
+      salary_payment: candidate.salary_payment || '',
+      job_description: candidate.job_description || '',
+      contract_duration: candidate.contract_duration || ''
     });
     setShowModal(true);
   };
@@ -231,22 +260,31 @@ export const RecruitmentPipeline: React.FC = () => {
       POSITION: '',
       salary: '',
       Nationality: '',
-      'Date of Birth': '',
+      date_of_birth: '',
       Gender: '',
-      'Passport No.': '',
-      'Issue Date': '',
-      'Expiry Date': '',
+      passport_no: '',
+      passport_issue_date: '',
+      passport_expiry_date: '',
       email: '',
       phone: '',
       address: '',
-      'Emergency Contact Name': '',
-      'Emergency Contact Phone': '',
-      'D.O.J': '',
+      permanent_address: '',
+      national_id: '',
+      emergency_contact_name: '',
+      emergency_contact_phone: '',
+      date_of_joining: '',
       department: '',
       employment_type: '',
       working_hours: '',
       work_location: '',
-      reporting_to: ''
+      reporting_to: '',
+      business_activity: '',
+      salary_currency: '',
+      exchange_rate: '',
+      food_accommodation: '',
+      salary_payment: '',
+      job_description: '',
+      contract_duration: ''
     });
   };
 
@@ -270,9 +308,9 @@ export const RecruitmentPipeline: React.FC = () => {
         salary: candidate.salary ? parseFloat(candidate.salary) : 350,
         department: candidate.department || 'General',
         status: 'active',
-        joinDate: candidate['D.O.J'] ? new Date(candidate['D.O.J']) : currentDate,
+        joinDate: candidate.date_of_joining ? new Date(candidate.date_of_joining) : currentDate,
         nationality: candidate.Nationality,
-        dob: candidate['Date of Birth'] ? new Date(candidate['Date of Birth']) : null,
+        dob: candidate.date_of_birth ? new Date(candidate.date_of_birth) : null,
         phone: candidate.phone,
         email: candidate.email,
         wpNo: candidate.work_permit_number || '',
@@ -306,7 +344,12 @@ export const RecruitmentPipeline: React.FC = () => {
 
     const printWindow = window.open('', '_blank');
     if (printWindow) {
-      printWindow.document.write(candidate.offer_letter_html);
+      // Replace logo path with full URL to ensure it loads in the new window
+      const updatedHtml = candidate.offer_letter_html.replace(
+        /src="[^/]*Madihaa 2026 \(1\)\.png"/g,
+        `src="${window.location.origin}/Madihaa 2026 (1).png"`
+      );
+      printWindow.document.write(updatedHtml);
       printWindow.document.close();
       printWindow.print();
     }
@@ -314,21 +357,24 @@ export const RecruitmentPipeline: React.FC = () => {
 
   const saveOfferLetterToFirestore = async (candidate: Candidate) => {
     const today = new Date();
-    const formattedDate = today.toLocaleDateString('en-GB', { 
-      day: 'numeric', 
-      month: 'long', 
-      year: 'numeric' 
+    const formattedDate = today.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
     });
-    
-    const startDate = candidate['D.O.J'] ? new Date(candidate['D.O.J']).toLocaleDateString('en-GB', { 
-      day: 'numeric', 
-      month: 'long', 
-      year: 'numeric' 
+
+    const isMaldivian = candidate.Nationality?.toLowerCase().includes('maldives') ||
+                        candidate.Nationality?.toLowerCase().includes('maldivian');
+
+    const startDate = candidate.date_of_joining ? new Date(candidate.date_of_joining).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
     }) : 'TBD';
 
-    const salary = candidate.salary ? parseFloat(candidate.salary).toLocaleString('en-MV', { 
-      style: 'currency', 
-      currency: 'MVR' 
+    const salary = candidate.salary ? parseFloat(candidate.salary).toLocaleString('en-MV', {
+      style: 'currency',
+      currency: 'MVR'
     }) : 'MVR 0.00';
 
     const offerLetterHTML = `
@@ -342,116 +388,225 @@ export const RecruitmentPipeline: React.FC = () => {
       margin: 20mm;
     }
     body {
-      font-family: 'Times New Roman', Times, serif;
+      font-family: Arial, Helvetica, sans-serif;
       line-height: 1.6;
       max-width: 210mm;
       margin: 0 auto;
-      padding: 20mm;
+      padding: 12mm 17mm 13mm;
       background: white;
-      font-size: 12pt;
+      font-size: 9.5pt;
     }
-    .header {
-      text-align: center;
-      margin-bottom: 20mm;
-    }
-    .header h1 {
-      font-size: 18pt;
+    .letterhead {
+      min-height: 30mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       margin-bottom: 5mm;
-      color: #333;
     }
-    .content {
-      margin-bottom: 15mm;
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    .content p {
-      margin-bottom: 3mm;
-      text-align: justify;
+    .company-logo {
+      width: 100px;
+      height: 100px;
+      object-fit: contain;
     }
-    .terms {
-      background: #f9f9f9;
-      padding: 5mm;
-      margin: 5mm 0;
-      border-left: 2px solid #333;
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 1.5px;
+      color: #172b4d;
     }
-    .terms p {
-      margin: 2mm 0;
+    .brand p {
+      margin: 3px 0 0;
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: #555;
+    }
+    .company-contact {
+      text-align: right;
+      font-size: 8.5pt;
+      line-height: 1.5;
+      color: #444;
+    }
+    .company-contact p {
+      margin: 0;
+    }
+    .header-line {
+      height: 2px;
+      background: #172b4d;
+      margin: 5mm 0 10mm;
+    }
+    .letter-date {
+      text-align: right;
+      font-size: 9.5pt;
+      margin-bottom: 10mm;
+    }
+    .recipient {
+      font-size: 9.5pt;
+      line-height: 1.4;
+      margin-bottom: 5mm;
+    }
+    .recipient p {
+      margin: 1px 0;
+    }
+    .subject {
+      font-size: 10pt;
+      margin: 0 0 5mm;
+      text-decoration: underline;
+    }
+    .letter-body {
+      font-size: 9.5pt;
+      line-height: 1.32;
+    }
+    .letter-body p {
+      margin: 0 0 3.5mm;
+    }
+    .employment-details {
+      margin: 2mm 0 4mm 4mm;
+    }
+    .employment-details p {
+      margin: 0 0 1.5mm;
     }
     .signature {
-      margin-top: 30mm;
-      text-align: right;
+      margin-top: 3mm;
+      line-height: 1.3;
     }
     .signature p {
-      margin: 2mm 0;
+      margin: 0 0 1mm;
+    }
+    .signature-space {
+      height: 11mm;
     }
     .acceptance {
-      margin-top: 20mm;
-      padding-top: 5mm;
-      border-top: 2px solid #333;
+      border-top: 1px solid #888;
+      margin-top: auto;
+      padding-top: 4mm;
+      font-size: 9pt;
+      line-height: 1.3;
     }
-    .acceptance p {
-      margin: 2mm 0;
+    .acceptance-title {
+      text-align: center;
+      font-size: 10pt;
+      font-weight: bold;
+      letter-spacing: 1px;
+      margin-bottom: 3mm;
     }
-    .signature-line {
-      margin-top: 10mm;
-      border-bottom: 1px solid #000;
-      width: 50mm;
-      display: inline-block;
+    .acceptance > p {
+      margin: 0 0 5mm;
+    }
+    .acceptance-signatures {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20mm;
+    }
+    .acceptance-signatures > div {
+      display: flex;
+      align-items: flex-end;
+      gap: 5px;
+    }
+    .write-line {
+      border-bottom: 1px solid #222;
+      flex: 1;
+      height: 8mm;
+    }
+    .letter-footer {
+      border-top: 1px solid #172b4d;
+      margin-top: 7mm;
+      padding-top: 2mm;
+      text-align: center;
+      font-size: 7pt;
+      letter-spacing: 1.5px;
+      color: #555;
     }
     @media print {
-      body { margin: 0; padding: 20mm; }
-      @page { margin: 20mm; }
+      @page {
+        size: A4 portrait;
+        margin: 0;
+      }
+      html, body {
+        width: 210mm !important;
+        height: 297mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+      }
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Madihaa Company Pvt Ltd</h1>
+  <header class="letterhead">
+    <div class="brand">
+      <img src="${window.location.origin}/Madihaa 2026 (1).png" alt="Madihaa Company Logo" class="company-logo" />
+      <div>
+        <h1>MADIHAA COMPANY</h1>
+        <p>PRIVATE LIMITED</p>
+      </div>
+    </div>
+    <div class="company-contact">
+      <p>M. Madihaa, Lainoofaru Magu</p>
+      <p>Malé, Republic of Maldives</p>
+      <p>admin@madihaa.mv</p>
+      <p>www.madihaa.mv</p>
+    </div>
+  </header>
+  <div class="header-line" />
+  <div class="letter-date">${formattedDate}</div>
+  <div class="recipient">
+    <strong>To:</strong>
+    <p>${candidate.Name}</p>
+    ${isMaldivian
+      ? `<p>National ID: ${candidate.national_id || candidate['EMP ID']}</p>`
+      : `<p>Passport No: ${candidate.passport_no || candidate['EMP ID']}</p>`
+    }
   </div>
-  
-  <div class="content">
-    <p><strong>Date:</strong> ${formattedDate}</p>
-    <p><strong>To:</strong> ${candidate.Name}</p>
-    <p><strong>[${candidate['EMP ID']}]</strong></p>
-    
-    <p><strong>Subject: Offer of Employment</strong></p>
-    
+  <h3 class="subject">Subject: Offer of Employment</h3>
+  <main class="letter-body">
     <p>Dear ${candidate.Name},</p>
-    
     <p>We are pleased to offer you the position of <strong>${candidate.POSITION}</strong> at Madihaa Company Pvt Ltd.</p>
-    
     <p>The terms and conditions of your employment are as follows:</p>
-    
-    <div class="terms">
+    <div class="employment-details">
       <p><strong>Position:</strong> ${candidate.POSITION}</p>
       <p><strong>Department:</strong> ${candidate.department || 'General'}</p>
       <p><strong>Employment Type:</strong> ${candidate.employment_type || 'Probation'}</p>
       <p><strong>Start Date:</strong> ${startDate}</p>
       <p><strong>Salary:</strong> ${salary}</p>
       <p><strong>Working Hours:</strong> ${candidate.working_hours || '9:00 to 17:30'}</p>
-      <p><strong>Work Location:</strong> ${candidate.work_location || 'Head office'}</p>
+      <p><strong>Work Location:</strong> ${candidate.work_location || 'Head Office'}</p>
       <p><strong>Reporting To:</strong> ${candidate.reporting_to || 'Head of Accounts'}</p>
     </div>
-    
     <p>Your employment will be subject to the company's policies, procedures, and applicable employment laws.</p>
-    
     <p>Please confirm your acceptance of this offer by signing and returning a copy of this letter.</p>
-    
     <p>We look forward to welcoming you to our team and wish you success in your new role.</p>
-    
-    <p>Sincerely,</p>
-  </div>
-  
-  <div class="signature">
-    <p><strong>Moosa Ahmed</strong></p>
-    <p>Chairman</p>
-    <div class="signature-line"></div>
-  </div>
-  
-  <div class="acceptance">
-    <p><strong>ACCEPTANCE OF OFFER</strong></p>
-    <p>I, ${candidate.Name}, accept the employment offer and agree to the terms and conditions stated above.</p>
-    <p><strong>Signature:</strong> ____________________</p>
-    <p><strong>Date:</strong> ____________________</p>
-  </div>
+    <div class="signature">
+      <p>Sincerely,</p>
+      <div class="signature-space" />
+      <strong>Moosa Ahmed</strong>
+      <p>Chairman</p>
+      <p>Madihaa Company Pvt Ltd</p>
+    </div>
+  </main>
+  <section class="acceptance">
+    <div class="acceptance-title">ACCEPTANCE OF OFFER</div>
+    <p>I, <strong>${candidate.Name}</strong>, accept the employment offer and agree to the terms and conditions stated above.</p>
+    <div class="acceptance-signatures">
+      <div>
+        <span>Signature:</span>
+        <div class="write-line" />
+      </div>
+      <div>
+        <span>Date:</span>
+        <div class="write-line" />
+      </div>
+    </div>
+  </section>
+  <footer class="letter-footer">MADIHAA COMPANY PVT LTD</footer>
 </body>
 </html>
     `;
@@ -658,6 +813,19 @@ export const RecruitmentPipeline: React.FC = () => {
                           </div>
                         )}
 
+                        {/* Generate LOA Button */}
+                        {['interview_completed', 'offer_sent', 'offer_signed', 'work_permit_applied', 'payment_pending', 'payment_completed', 'entry_pass_pending', 'entry_pass_received', 'ticket_purchased', 'ticket_approved', 'departed', 'van_arranged', 'airport_pickup', 'arrived'].includes(selectedStage) && (
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={() => navigate(`/letter-of-appointment?candidateId=${candidate.id}`)}
+                              className="flex-1 text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded hover:bg-indigo-100 transition-colors flex items-center justify-center gap-1"
+                            >
+                              <FileText className="w-3 h-3" />
+                              Generate LOA
+                            </button>
+                          </div>
+                        )}
+
                         {/* Special Action for Onboarded */}
                         {selectedStage === 'onboarded' && (
                           <button
@@ -756,8 +924,8 @@ export const RecruitmentPipeline: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
                   <input
                     type="date"
-                    value={formData['Date of Birth']}
-                    onChange={(e) => setFormData({ ...formData, 'Date of Birth': e.target.value })}
+                    value={formData.date_of_birth}
+                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
@@ -765,8 +933,8 @@ export const RecruitmentPipeline: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date of Joining</label>
                   <input
                     type="date"
-                    value={formData['D.O.J']}
-                    onChange={(e) => setFormData({ ...formData, 'D.O.J': e.target.value })}
+                    value={formData.date_of_joining}
+                    onChange={(e) => setFormData({ ...formData, date_of_joining: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
@@ -774,8 +942,8 @@ export const RecruitmentPipeline: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Passport Number</label>
                   <input
                     type="text"
-                    value={formData['Passport No.']}
-                    onChange={(e) => setFormData({ ...formData, 'Passport No.': e.target.value })}
+                    value={formData.passport_no}
+                    onChange={(e) => setFormData({ ...formData, passport_no: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
@@ -783,8 +951,8 @@ export const RecruitmentPipeline: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Passport Issue Date</label>
                   <input
                     type="date"
-                    value={formData['Issue Date']}
-                    onChange={(e) => setFormData({ ...formData, 'Issue Date': e.target.value })}
+                    value={formData.passport_issue_date}
+                    onChange={(e) => setFormData({ ...formData, passport_issue_date: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
@@ -792,8 +960,8 @@ export const RecruitmentPipeline: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Passport Expiry Date</label>
                   <input
                     type="date"
-                    value={formData['Expiry Date']}
-                    onChange={(e) => setFormData({ ...formData, 'Expiry Date': e.target.value })}
+                    value={formData.passport_expiry_date}
+                    onChange={(e) => setFormData({ ...formData, passport_expiry_date: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
@@ -828,8 +996,8 @@ export const RecruitmentPipeline: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Name</label>
                   <input
                     type="text"
-                    value={formData['Emergency Contact Name']}
-                    onChange={(e) => setFormData({ ...formData, 'Emergency Contact Name': e.target.value })}
+                    value={formData.emergency_contact_name}
+                    onChange={(e) => setFormData({ ...formData, emergency_contact_name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
@@ -837,8 +1005,8 @@ export const RecruitmentPipeline: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Phone</label>
                   <input
                     type="tel"
-                    value={formData['Emergency Contact Phone']}
-                    onChange={(e) => setFormData({ ...formData, 'Emergency Contact Phone': e.target.value })}
+                    value={formData.emergency_contact_phone}
+                    onChange={(e) => setFormData({ ...formData, emergency_contact_phone: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
@@ -893,6 +1061,101 @@ export const RecruitmentPipeline: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, reporting_to: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     placeholder="e.g., Head of Accounts"
+                  />
+                </div>
+
+                {/* LOA Optional Fields */}
+                <div className="col-span-2 mt-4 pt-4 border-t border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">LOA Optional Fields</h4>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Permanent Address</label>
+                  <input
+                    type="text"
+                    value={formData.permanent_address}
+                    onChange={(e) => setFormData({ ...formData, permanent_address: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">National ID</label>
+                  <input
+                    type="text"
+                    value={formData.national_id}
+                    onChange={(e) => setFormData({ ...formData, national_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Business Activity</label>
+                  <input
+                    type="text"
+                    value={formData.business_activity}
+                    onChange={(e) => setFormData({ ...formData, business_activity: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., Wholesale & Retail"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Salary Currency</label>
+                  <select
+                    value={formData.salary_currency}
+                    onChange={(e) => setFormData({ ...formData, salary_currency: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Select</option>
+                    <option value="USD">USD</option>
+                    <option value="MVR">MVR</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Exchange Rate</label>
+                  <input
+                    type="text"
+                    value={formData.exchange_rate}
+                    onChange={(e) => setFormData({ ...formData, exchange_rate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., 15.42"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Food & Accommodation</label>
+                  <input
+                    type="text"
+                    value={formData.food_accommodation}
+                    onChange={(e) => setFormData({ ...formData, food_accommodation: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., Provided"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Salary Payment Date</label>
+                  <input
+                    type="text"
+                    value={formData.salary_payment}
+                    onChange={(e) => setFormData({ ...formData, salary_payment: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., Before 15th of every month"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Job Description</label>
+                  <textarea
+                    value={formData.job_description}
+                    onChange={(e) => setFormData({ ...formData, job_description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    rows={2}
+                    placeholder="e.g., Carry out loading and unloading works"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Contract Duration</label>
+                  <input
+                    type="text"
+                    value={formData.contract_duration}
+                    onChange={(e) => setFormData({ ...formData, contract_duration: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., 2 years from date of joining"
                   />
                 </div>
               </div>
