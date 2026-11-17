@@ -4,7 +4,7 @@ import {
   Menu, X, Bell, User, LogOut, Settings,
   LayoutDashboard, Users, Calendar, CalendarCheck,
   DollarSign, Clock, BarChart, FileText, GraduationCap,
-  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle, Fuel, Wallet, Mail, Car
+  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle, Fuel, Wallet, Mail
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
@@ -48,7 +48,6 @@ export const Layout: React.FC = () => {
     { name: 'Accommodation', href: '/accommodation', icon: Building2 },
     { name: 'Work Locations', href: '/work-locations', icon: MapPin },
     { name: 'Organization Chart', href: '/organization-chart', icon: Network },
-    { name: 'Fleet', href: '/fleet', icon: Car },
     { name: 'User Management', href: '/users', icon: UserCog },
     { name: 'Settings', href: '/settings', icon: Settings },
   ] as const;
