@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { LeaveRequest, LeaveBalance, LeaveType } from '../types';
+import { createTicketRequest } from './ticket';
 
 const LEAVE_REQUESTS_COLLECTION = 'leave_requests';
 const LEAVE_BALANCES_COLLECTION = 'leave_balances';
@@ -53,12 +54,36 @@ export const getLeaveRequests = async (employeeId?: string) => {
         collection(db, LEAVE_REQUESTS_COLLECTION),
         where('employeeId', '==', employeeId)
       );
+      
+      const querySnapshot = await getDocs(q);
+      
+      const requests = querySnapshot.docs.map(doc => {
+        const data = doc.data() as any;
+        return {
+          id: doc.id,
+          ...data,
+          startDate: data.startDate?.toDate?.() || data.startDate,
+          endDate: data.endDate?.toDate?.() || data.endDate,
+          appliedDate: data.appliedDate?.toDate?.() || data.appliedDate,
+          amendedDate: data.amendedDate?.toDate?.() || data.amendedDate,
+          approvals: data.approvals?.map((approval: any) => ({
+            ...approval,
+            actionDate: approval.actionDate?.toDate?.() || approval.actionDate
+          })).filter((a: any) => a !== undefined) || []
+        } as LeaveRequest;
+      });
+      
+      // Sort client-side if we filtered by employeeId
+      requests.sort((a, b) => b.appliedDate.getTime() - a.appliedDate.getTime());
+      
+      return requests;
     } else {
       // Query without filter - can use orderBy
       q = query(collection(db, LEAVE_REQUESTS_COLLECTION), orderBy('appliedDate', 'desc'));
     }
     
     const querySnapshot = await getDocs(q);
+    
     const requests = querySnapshot.docs.map(doc => {
       const data = doc.data() as any;
       return {
@@ -74,11 +99,6 @@ export const getLeaveRequests = async (employeeId?: string) => {
         })).filter((a: any) => a !== undefined) || []
       } as LeaveRequest;
     });
-    
-    // Sort client-side if we filtered by employeeId
-    if (employeeId) {
-      requests.sort((a, b) => b.appliedDate.getTime() - a.appliedDate.getTime());
-    }
     
     return requests;
   } catch (error) {
@@ -239,7 +259,7 @@ export const approveLeaveRequest = async (id: string, approverId: string, approv
   try {
     const request = await getLeaveRequestById(id);
     if (!request) throw new Error('Leave request not found');
-    
+
     // Create a clean approvals array with only the new approval
     const newApproval = {
       level,
@@ -249,10 +269,10 @@ export const approveLeaveRequest = async (id: string, approverId: string, approv
       comments,
       actionDate: new Date(),
     };
-    
+
     // Set status to approved directly since we're using single-level approval
     const status = 'approved';
-    
+
     await updateLeaveRequest(id, {
       approvals: [newApproval],
       status,
@@ -261,6 +281,28 @@ export const approveLeaveRequest = async (id: string, approverId: string, approv
     if (!request.balanceAdjusted) {
       await adjustLeaveBalance(request.employeeId, request.type, request.days, request.startDate.getFullYear());
       await updateLeaveRequest(id, { balanceAdjusted: true });
+    }
+
+    // Automatically create ticket request if ticketRequired is true
+    if (request.ticketRequired) {
+      try {
+        await createTicketRequest({
+          employeeId: request.employeeId,
+          leaveId: request.id,
+          departureCity: 'Male', // Default departure city
+          destinationCity: request.employeeId.includes('MAD') ? 'Colombo' : 'Unknown', // Default destination based on employee
+          departureDate: request.startDate,
+          returnDate: request.endDate,
+          ticketType: 'round_trip',
+          passengers: 1,
+          specialRequests: '',
+          status: 'price_requested'
+        });
+        console.log('Ticket request automatically created for leave:', id);
+      } catch (ticketError) {
+        console.error('Error creating automatic ticket request:', ticketError);
+        // Don't throw error - leave approval should succeed even if ticket creation fails
+      }
     }
   } catch (error) {
     console.error('Error approving leave request:', error);

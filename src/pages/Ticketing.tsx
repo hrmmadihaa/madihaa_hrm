@@ -70,6 +70,9 @@ export const Ticketing = () => {
     if (!editingTicket) return;
     try {
       await updateTicketRequest(editingTicket.id, {
+        ticketType: editingTicket.ticketType,
+        departureDate: editingTicket.departureDate,
+        returnDate: editingTicket.returnDate,
         ticketPrice: editingTicket.ticketPrice,
         vanArrangedTime: editingTicket.vanArrangedTime,
         arrangedByName: editingTicket.arrangedByName,
@@ -555,6 +558,35 @@ export const Ticketing = () => {
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl my-8">
             <h2 className="text-xl font-bold mb-4">Edit Ticket Details</h2>
             <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ticket Type</label>
+                <select
+                  value={editingTicket.ticketType || 'round_trip'}
+                  onChange={(e) => setEditingTicket({ ...editingTicket, ticketType: e.target.value as 'one_way' | 'round_trip' })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="round_trip">Round Trip</option>
+                  <option value="one_way">One Way</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Departure Date</label>
+                <input
+                  type="date"
+                  value={editingTicket.departureDate ? new Date(editingTicket.departureDate).toISOString().slice(0, 10) : ''}
+                  onChange={(e) => setEditingTicket({ ...editingTicket, departureDate: e.target.value ? new Date(e.target.value) : editingTicket.departureDate })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Return Date</label>
+                <input
+                  type="date"
+                  value={editingTicket.returnDate ? new Date(editingTicket.returnDate).toISOString().slice(0, 10) : ''}
+                  onChange={(e) => setEditingTicket({ ...editingTicket, returnDate: e.target.value ? new Date(e.target.value) : editingTicket.returnDate })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Ticket Price</label>
                 <input

@@ -1270,6 +1270,59 @@ export const Leave = () => {
     }
   };
 
+  const handleCreateMissingTickets = async () => {
+    if (!confirm('This will create ticket requests for all approved leaves with "Ticket Required" checked that don\'t have tickets yet. Continue?')) {
+      return;
+    }
+
+    try {
+      const approvedLeavesWithTicketRequired = leaveRequests.filter(
+        lr => lr.status === 'approved' && lr.ticketRequired
+      );
+
+      const existingTickets = await getAllTicketRequests();
+      const existingTicketLeaveIds = existingTickets.map(t => t.leaveId);
+
+      const leavesWithoutTickets = approvedLeavesWithTicketRequired.filter(
+        lr => !existingTicketLeaveIds.includes(lr.id)
+      );
+
+      if (leavesWithoutTickets.length === 0) {
+        alert('No missing tickets to create. All approved leaves with "Ticket Required" already have tickets.');
+        return;
+      }
+
+      let created = 0;
+      for (const leave of leavesWithoutTickets) {
+        try {
+          const startDate = leave.startDate instanceof Date ? leave.startDate : new Date(leave.startDate);
+          const endDate = leave.endDate instanceof Date ? leave.endDate : new Date(leave.endDate);
+
+          await createTicketRequest({
+            employeeId: leave.employeeId,
+            leaveId: leave.id,
+            departureCity: 'Male',
+            destinationCity: leave.employeeId?.includes('MAD') ? 'Colombo' : 'Unknown',
+            departureDate: startDate,
+            returnDate: endDate,
+            ticketType: 'round_trip',
+            passengers: 1,
+            specialRequests: '',
+            status: 'price_requested'
+          });
+          created++;
+        } catch (error) {
+          console.error(`Failed to create ticket for leave ${leave.id}:`, error);
+        }
+      }
+
+      alert(`Successfully created ${created} ticket requests!`);
+      loadData();
+    } catch (error) {
+      alert('Failed to create missing tickets: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1315,6 +1368,12 @@ export const Leave = () => {
             }} disabled={uploadingFile} className="sm:w-auto w-full">
               <Upload className="w-5 h-5 mr-2" />
               {uploadingFile ? 'Parsing...' : 'Import from Excel'}
+            </Button>
+          )}
+          {can(PERMISSIONS.LEAVE_APPROVE) && (
+            <Button onClick={handleCreateMissingTickets} variant="secondary" className="sm:w-auto w-full">
+              <FileText className="w-5 h-5 mr-2" />
+              Create Missing Tickets
             </Button>
           )}
           {can(PERMISSIONS.LEAVE_REQUEST) && (
