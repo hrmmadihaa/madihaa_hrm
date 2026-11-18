@@ -1,0 +1,413 @@
+@font-face {
+  font-family: "Dhivehi";
+  src: url("/fonts/NotoSansThaana-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Dhivehi";
+  src: url("/fonts/NotoSansThaana-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
+
+.termination-container {
+  background: #f3f5f9;
+  min-height: 100vh;
+  padding: 24px;
+  color: #172033;
+}
+
+.termination-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.termination-toolbar h2 {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 700;
+}
+
+.termination-toolbar p {
+  margin: 5px 0 0;
+  color: #718096;
+  font-size: 13px;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-primary,
+.btn-secondary {
+  border: 0;
+  padding: 11px 17px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: #1765cf;
+  color: white;
+}
+
+.btn-secondary {
+  background: #e7edf5;
+  color: #26354b;
+}
+
+.btn-primary:hover {
+  background: #1055b5;
+}
+
+.generator-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.letter-form {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.letter-form h3 {
+  margin: 0 0 7px;
+  font-size: 16px;
+}
+
+.letter-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.letter-form input,
+.letter-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #dbe2ea;
+  border-radius: 7px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  color: #172033;
+  background: white;
+}
+
+.letter-form input:focus,
+.letter-form textarea:focus {
+  outline: none;
+  border-color: #1765cf;
+  box-shadow: 0 0 0 2px #1765cf18;
+}
+
+.letter-form textarea {
+  resize: vertical;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.letter-preview-area {
+  min-width: 0;
+}
+
+.preview-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+.language-selector {
+  display: flex;
+  background: white;
+  border: 1px solid #e1e7ef;
+  border-radius: 8px;
+  padding: 4px;
+  gap: 3px;
+}
+
+.language-selector button {
+  padding: 9px 13px;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.language-selector button.selected {
+  background: #1765cf;
+  color: white;
+}
+
+.letter-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  overflow-x: auto;
+  padding: 12px;
+}
+
+.letter-page {
+  background: white;
+  color: #111;
+  width: 210mm;
+  min-height: 297mm;
+  box-sizing: border-box;
+  padding: 18mm 19mm 18mm;
+  box-shadow: 0 2px 12px #00000017;
+  position: relative;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11pt;
+  line-height: 1.65;
+}
+
+.letter-page.dhivehi {
+  font-family: "Dhivehi", Arial, sans-serif;
+  font-size: 12pt;
+  line-height: 2;
+}
+
+.letter-page[dir="rtl"] {
+  text-align: right;
+}
+
+.letter-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-height: 27mm;
+}
+
+.letter-logo {
+  width: 28mm;
+  flex-shrink: 0;
+}
+
+.letter-logo img {
+  width: 100%;
+  max-height: 27mm;
+  object-fit: contain;
+}
+
+.company-heading {
+  flex: 1;
+  text-align: center;
+}
+
+.company-heading h1 {
+  font-size: 15pt;
+  margin: 0 0 5px;
+  font-weight: 700;
+}
+
+.company-heading p {
+  font-size: 8.5pt;
+  margin: 2px 0;
+}
+
+.company-heading .contact-line {
+  font-size: 7pt;
+}
+
+.dhivehi .company-heading h1,
+.dhivehi .company-heading p {
+  font-family: "Dhivehi", Arial, sans-serif;
+}
+
+.letter-rule {
+  border-top: 1.5px solid #222;
+  margin: 8px 0 18px;
+}
+
+.letter-date {
+  text-align: right;
+  margin-bottom: 15px;
+  font-size: 10pt;
+}
+
+.dhivehi .letter-date {
+  text-align: left;
+}
+
+.letter-subject {
+  font-size: 14pt;
+  text-align: center;
+  margin: 12px 0 24px;
+  font-weight: 700;
+}
+
+.employee-address {
+  margin-bottom: 20px;
+  line-height: 1.9;
+}
+
+.letter-greeting {
+  margin: 15px 0;
+  font-weight: 600;
+}
+
+.employee-meta {
+  font-size: 10pt;
+  margin-bottom: 15px;
+}
+
+.employee-meta p {
+  margin: 3px 0;
+}
+
+.letter-body {
+  text-align: justify;
+  line-height: 1.85;
+}
+
+.letter-body p {
+  margin: 0 0 17px;
+  text-indent: 8mm;
+}
+
+.dhivehi .letter-body p {
+  text-indent: 0;
+  line-height: 2.15;
+}
+
+.reason-block {
+  margin: 15px 0;
+}
+
+.reason-block p {
+  margin-top: 5px;
+}
+
+.letter-closing {
+  margin-top: 24px;
+  line-height: 1.8;
+}
+
+.letter-closing p {
+  margin-bottom: 8px;
+}
+
+.signature-space {
+  height: 22mm;
+}
+
+.letter-footer {
+  position: absolute;
+  bottom: 9mm;
+  left: 19mm;
+  right: 19mm;
+  border-top: 0.5px solid #999;
+  padding-top: 5px;
+  text-align: center;
+  font-size: 7pt;
+  color: #555;
+}
+
+/* Responsive screen preview */
+@media screen and (max-width: 900px) {
+  .generator-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .termination-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .letter-preview {
+    align-items: flex-start;
+  }
+}
+
+/* A4 print settings */
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .termination-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+  }
+
+  .termination-toolbar,
+  .letter-form,
+  .preview-toolbar {
+    display: none !important;
+  }
+
+  .generator-layout {
+    display: block !important;
+  }
+
+  .letter-preview-area {
+    display: block !important;
+  }
+
+  .letter-preview {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  .letter-page {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 18mm 19mm 18mm !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
+    page-break-after: always;
+    break-after: page;
+    overflow: visible !important;
+  }
+
+  .letter-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .letter-footer {
+    position: absolute;
+  }
+}
