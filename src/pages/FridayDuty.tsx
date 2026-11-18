@@ -152,8 +152,25 @@ export const FridayDuty = () => {
         const scheduleDoc = await getDoc(doc(db, 'friday_schedules', 'current'));
         console.log('Friday Duty - Schedule doc exists:', scheduleDoc.exists());
         if (scheduleDoc.exists()) {
-          console.log('Friday Duty - Schedule data loaded:', scheduleDoc.data());
-          setScheduleData(scheduleDoc.data() as FridayScheduleData);
+          const rawData = scheduleDoc.data() as FridayScheduleData;
+          console.log('Friday Duty - Raw schedule data loaded:', rawData);
+
+          // Clean the data by removing empty entries
+          const cleanedData = Object.fromEntries(
+            Object.entries(rawData)
+              .map(([date, dayEntries]) => {
+                const cleanedDayEntries = Object.fromEntries(
+                  Object.entries(dayEntries).filter(([_, entry]) => {
+                    return entry && entry.status;
+                  })
+                );
+                return [date, cleanedDayEntries];
+              })
+              .filter(([_, dayEntries]) => Object.keys(dayEntries).length > 0)
+          );
+
+          console.log('Friday Duty - Cleaned schedule data:', cleanedData);
+          setScheduleData(cleanedData);
         }
       } catch (error) {
         console.error('Friday Duty - Error loading schedule data:', error);
@@ -323,8 +340,45 @@ export const FridayDuty = () => {
       });
       
       console.log('Friday Duty - Change summary:', changeSummary);
-      
-      await setDoc(doc(db, 'friday_schedules', 'current'), scheduleData, { merge: true });
+
+      // Remove empty date objects and empty employee entries before saving
+      const cleanedData = Object.fromEntries(
+        Object.entries(scheduleData)
+          .map(([date, dayEntries]) => {
+            console.log('Friday Duty - Processing date:', date, 'entries:', Object.keys(dayEntries).length);
+
+            // Remove empty employee entries within each date
+            const cleanedDayEntries = Object.fromEntries(
+              Object.entries(dayEntries).filter(([empId, entry]) => {
+                const isValid = entry && entry.status && empId && empId !== '';
+                if (!isValid) {
+                  console.log('Friday Duty - Skipping invalid entry for date:', date, 'empId:', empId, 'entry:', entry);
+                }
+                return isValid;
+              })
+            );
+
+            console.log('Friday Duty - After cleaning date:', date, 'remaining entries:', Object.keys(cleanedDayEntries).length);
+            return [date, cleanedDayEntries];
+          })
+          .filter(([_, dayEntries]) => {
+            const hasEntries = Object.keys(dayEntries).length > 0;
+            if (!hasEntries) {
+              console.log('Friday Duty - Skipping empty date after cleaning');
+            }
+            return hasEntries;
+          })
+      );
+
+      console.log('Friday Duty - Cleaned data keys:', Object.keys(cleanedData));
+
+      // Log a sample of the data to inspect structure
+      if (cleanedData['2026-10-23']) {
+        console.log('Friday Duty - Sample data for 2026-10-23:', cleanedData['2026-10-23']);
+      }
+
+      // Use merge: false to completely overwrite and remove any empty fields
+      await setDoc(doc(db, 'friday_schedules', 'current'), cleanedData);
       console.log('Friday Duty - Schedule data saved successfully');
 
       // Refresh leave requests to get latest data

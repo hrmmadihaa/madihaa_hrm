@@ -631,14 +631,19 @@ export const RecruitmentPipeline: React.FC = () => {
     if (candidate.id && candidate.id.startsWith('c_')) {
       return false;
     }
-    
-    const matchesSearch = !searchTerm || 
+
+    // Filter out candidates who have been added to the employee directory
+    if (candidate.directory_added) {
+      return false;
+    }
+
+    const matchesSearch = !searchTerm ||
       candidate.Name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       candidate['EMP ID']?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       candidate.POSITION?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesPosition = !filterPosition || candidate.POSITION === filterPosition;
-    
+
     return matchesSearch && matchesPosition;
   });
 
