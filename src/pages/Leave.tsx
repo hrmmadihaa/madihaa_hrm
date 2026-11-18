@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Plus, X, Eye, Check, X as XIcon, CheckSquare, Square, Upload } from 'lucide-react';
+import { Calendar, Plus, X, Eye, Check, X as XIcon, CheckSquare, Square, Upload, FileText } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { AirportAutocomplete } from '../components/AirportAutocomplete';
@@ -14,6 +14,7 @@ import { TICKET_WORKFLOW_STEPS, TICKET_WORKFLOW_LABELS } from '../types';
 import type { LeaveRequest, LeaveType } from '../types';
 import * as XLSX from 'xlsx';
 import { auth } from '../lib/firebase';
+import LeaveApplication from '../components/LeaveApplication';
 
 export const Leave = () => {
   const { user } = useAuth();
@@ -69,6 +70,7 @@ export const Leave = () => {
     specialRequests: ''
   });
   const [submittingTicket, setSubmittingTicket] = useState(false);
+  const [showLeaveApplicationForm, setShowLeaveApplicationForm] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -1316,10 +1318,16 @@ export const Leave = () => {
             </Button>
           )}
           {can(PERMISSIONS.LEAVE_REQUEST) && (
-            <Button onClick={openLeaveForm} className="sm:w-auto w-full">
-              <Plus className="w-5 h-5 mr-2" />
-              Apply for Leave
-            </Button>
+            <>
+              <Button onClick={openLeaveForm} className="sm:w-auto w-full">
+                <Plus className="w-5 h-5 mr-2" />
+                Apply for Leave
+              </Button>
+              <Button onClick={() => setShowLeaveApplicationForm(true)} variant="secondary" className="sm:w-auto w-full">
+                <FileText className="w-5 h-5 mr-2" />
+                Leave Form
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -2351,6 +2359,23 @@ export const Leave = () => {
               </Button>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* Leave Application Form Modal */}
+      {showLeaveApplicationForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="w-full h-full max-h-[95vh] overflow-hidden bg-white rounded-lg">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold">Leave Application Form</h2>
+              <Button variant="ghost" onClick={() => setShowLeaveApplicationForm(false)}>
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            <div className="h-[calc(100vh-60px)] overflow-auto">
+              <LeaveApplication />
+            </div>
+          </div>
         </div>
       )}
 

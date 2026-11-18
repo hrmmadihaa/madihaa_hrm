@@ -55,6 +55,7 @@ interface Candidate {
 }
 
 const STAGES = [
+  { key: 'all', name: '📊 All Candidates', color: '#2c3e50' },
   { key: 'cv_received', name: '📄 CV Received', color: '#e74c3c' },
   { key: 'shortlisted', name: '📋 Shortlisted', color: '#f39c12' },
   { key: 'interview_scheduled', name: '📅 Interview Scheduled', color: '#3498db' },
@@ -83,7 +84,7 @@ export const RecruitmentPipeline: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPosition, setFilterPosition] = useState('');
   const [loading, setLoading] = useState(true);
-  const [selectedStage, setSelectedStage] = useState(STAGES[0].key);
+  const [selectedStage, setSelectedStage] = useState('all');
 
   const [formData, setFormData] = useState({
     Name: '',
@@ -717,17 +718,79 @@ export const RecruitmentPipeline: React.FC = () => {
         <div className="p-4">
           {(() => {
             const currentStage = STAGES.find(s => s.key === selectedStage);
-            const stageCandidates = filteredCandidates.filter(c => c.stage === selectedStage);
-            
+            const stageCandidates = selectedStage === 'all' ? filteredCandidates : filteredCandidates.filter(c => c.stage === selectedStage);
+
             if (!currentStage) return null;
 
             return (
               <div>
                 <h3 className="font-semibold text-gray-900 mb-4">{currentStage.name}</h3>
-                
+
                 {stageCandidates.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 text-sm">
                     No candidates in this stage
+                  </div>
+                ) : selectedStage === 'all' ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stage</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LOA Status</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {stageCandidates.map(candidate => (
+                          <tr key={candidate.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{candidate.Name}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{candidate['EMP ID']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{candidate.POSITION}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                              <select
+                                value={candidate.stage}
+                                onChange={(e) => handleQuickStageChange(candidate, e.target.value)}
+                                className="text-xs px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                              >
+                                {STAGES.filter(s => s.key !== 'all').map(s => (
+                                  <option key={s.key} value={s.key}>{s.name}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                              <select
+                                value={candidate.loa_status || ''}
+                                onChange={(e) => handleLOAStatusChange(candidate, (e.target.value || null) as 'pending' | 'completed' | null)}
+                                className="text-xs px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                              >
+                                <option value="">Not Started</option>
+                                <option value="pending">Pending</option>
+                                <option value="completed">Completed</option>
+                              </select>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleEditCandidate(candidate)}
+                                  className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded hover:bg-blue-100"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCandidate(candidate.id)}
+                                  className="text-xs bg-red-50 text-red-700 px-2 py-1 rounded hover:bg-red-100"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -739,7 +802,7 @@ export const RecruitmentPipeline: React.FC = () => {
                         <div className="font-medium text-sm text-gray-900">{candidate.Name}</div>
                         <div className="text-xs text-gray-500 mt-1">{candidate.POSITION}</div>
                         <div className="text-xs text-gray-400 mt-1">ID: {candidate['EMP ID']}</div>
-                        
+
                         {/* LOA Status */}
                         <div className="mt-3">
                           <label className="text-xs font-medium text-gray-600 mb-1 block">LOA Status</label>
@@ -762,7 +825,7 @@ export const RecruitmentPipeline: React.FC = () => {
                             onChange={(e) => handleQuickStageChange(candidate, e.target.value)}
                             className="w-full text-xs px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                           >
-                            {STAGES.map(s => (
+                            {STAGES.filter(s => s.key !== 'all').map(s => (
                               <option key={s.key} value={s.key}>{s.name}</option>
                             ))}
                           </select>

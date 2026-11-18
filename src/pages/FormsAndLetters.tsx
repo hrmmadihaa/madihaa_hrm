@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Button } from '../components/ui/Button';
 import { FileText, Mail, Plus, Trash, Edit, Download } from 'lucide-react';
 import { HolidayStatusLetter } from './HolidayStatusLetter';
+import { ProbationNonRenewalLetter } from './ProbationNonRenewalLetter';
+import TerminationLetter from './TerminationLetter';
+import LeaveSalaryRelease from '../components/LeaveSalaryReleasingRequest';
 
 interface FormTemplate {
   id: string;
@@ -16,12 +19,39 @@ export const FormsAndLetters: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'forms' | 'letters'>('letters');
   const [showEditor, setShowEditor] = useState(false);
   const [showHolidayLetter, setShowHolidayLetter] = useState(false);
+  const [showProbationLetter, setShowProbationLetter] = useState(false);
+  const [showTerminationLetter, setShowTerminationLetter] = useState(false);
+  const [showLeaveSalaryRelease, setShowLeaveSalaryRelease] = useState(false);
   const [templates, setTemplates] = useState<FormTemplate[]>([
     {
       id: 'holiday-status',
       name: 'Holiday Non-Return Notice',
       type: 'letter',
       content: 'Official notice for employees who failed to return from holiday with visa termination warnings.',
+      createdAt: new Date(),
+      isBuiltIn: true
+    },
+    {
+      id: 'probation-non-renewal',
+      name: 'Probation Non-Renewal Letter',
+      type: 'letter',
+      content: 'Official letter for employees whose probation will not be renewed due to health or fitness reasons.',
+      createdAt: new Date(),
+      isBuiltIn: true
+    },
+    {
+      id: 'termination',
+      name: 'Termination Letter',
+      type: 'letter',
+      content: 'Official termination letter for employees who failed to report for duty. Available in English and Dhivehi.',
+      createdAt: new Date(),
+      isBuiltIn: true
+    },
+    {
+      id: 'leave-salary-release',
+      name: 'Leave Salary Releasing Request',
+      type: 'form',
+      content: 'Request form for releasing leave salary after employee returns from leave.',
       createdAt: new Date(),
       isBuiltIn: true
     }
@@ -71,6 +101,12 @@ export const FormsAndLetters: React.FC = () => {
   const handleUseTemplate = (template: FormTemplate) => {
     if (template.id === 'holiday-status') {
       setShowHolidayLetter(true);
+    } else if (template.id === 'probation-non-renewal') {
+      setShowProbationLetter(true);
+    } else if (template.id === 'termination') {
+      setShowTerminationLetter(true);
+    } else if (template.id === 'leave-salary-release') {
+      setShowLeaveSalaryRelease(true);
     }
   };
 
@@ -138,7 +174,7 @@ export const FormsAndLetters: React.FC = () => {
                   <h3 className="font-semibold text-blue-900 mb-2">Letterhead Preview</h3>
                   <div className="text-center mb-4 pb-4 border-b-2 border-blue-300">
                     <div className="flex items-center justify-center mb-2">
-                      <img src="/Madihaa HRMS Team Logo.png" alt="Madihaa Logo" className="h-12 w-12 object-contain" />
+                      <img src="/Madihaa 2026 (1).png" alt="Madihaa Logo" className="h-12 w-12 object-contain" />
                     </div>
                     <h1 className="text-xl font-bold text-gray-900">Madihaa Pvt Ltd</h1>
                     <p className="text-sm text-gray-600">Human Resource Management System</p>
@@ -246,6 +282,32 @@ export const FormsAndLetters: React.FC = () => {
         </div>
       </div>
 
+      {/* Termination Letter Modal */}
+      {showTerminationLetter && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 no-print">
+              <h2 className="text-xl font-bold">Termination Letter</h2>
+              <Button variant="ghost" onClick={() => setShowTerminationLetter(false)}>✕</Button>
+            </div>
+            <TerminationLetter />
+          </div>
+        </div>
+      )}
+
+      {/* Probation Letter Modal */}
+      {showProbationLetter && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 no-print">
+              <h2 className="text-xl font-bold">Probation Non-Renewal Letter</h2>
+              <Button variant="ghost" onClick={() => setShowProbationLetter(false)}>✕</Button>
+            </div>
+            <ProbationNonRenewalLetter />
+          </div>
+        </div>
+      )}
+
       {/* Holiday Letter Modal */}
       {showHolidayLetter && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -255,6 +317,19 @@ export const FormsAndLetters: React.FC = () => {
               <Button variant="ghost" onClick={() => setShowHolidayLetter(false)}>✕</Button>
             </div>
             <HolidayStatusLetter />
+          </div>
+        </div>
+      )}
+
+      {/* Leave Salary Release Modal */}
+      {showLeaveSalaryRelease && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 no-print">
+              <h2 className="text-xl font-bold">Leave Salary Releasing Request</h2>
+              <Button variant="ghost" onClick={() => setShowLeaveSalaryRelease(false)}>✕</Button>
+            </div>
+            <LeaveSalaryRelease />
           </div>
         </div>
       )}
