@@ -4,11 +4,13 @@ import { Calendar, Plus, X, Eye, Check, X as XIcon, CheckSquare, Square, Upload,
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { AirportAutocomplete } from '../components/AirportAutocomplete';
+import { ExportButton } from '../components/ExportButton';
 import { createLeaveRequest, cancelLeaveRequest, getLeaveRequests, validateLeaveRequest, calculateLeaveDays, approveLeaveRequest, rejectLeaveRequest, deleteLeaveRequest, bulkDeleteLeaveRequests } from '../lib/leave';
 import { useAuth } from '../contexts/AuthContext';
 import { getEmployees } from '../lib/employees';
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
+import { generateLeaveReport } from '../lib/reports';
 import { createTicketRequest, getAllTicketRequests, updateTicketStatus, type TicketRequest } from '../lib/ticket';
 import { TICKET_WORKFLOW_STEPS, TICKET_WORKFLOW_LABELS } from '../types';
 import type { LeaveRequest, LeaveType } from '../types';
@@ -1341,6 +1343,9 @@ export const Leave = () => {
     return acc;
   }, {} as Record<LeaveType, { count: number; days: number }>);
 
+  // Prepare data for export
+  const exportData = generateLeaveReport(leaveRequests);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1354,6 +1359,11 @@ export const Leave = () => {
           </p>
         </div>
         <div className="flex gap-2 sm:w-auto w-full">
+          <ExportButton
+            data={exportData}
+            filename={`leave-${new Date().toISOString().split('T')[0]}`}
+            title="Leave Report"
+          />
           <input
             type="file"
             accept=".xlsx,.xls"

@@ -3,11 +3,13 @@ import { motion } from 'framer-motion';
 import { DollarSign, Calendar, Download, FileText, Send, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
+import { ExportButton } from '../components/ExportButton';
 import { getPayroll, getPayrollSummary, processPayrollRun, generatePayrollFromEmployees } from '../lib/payroll';
 import { getEmployees } from '../lib/employees';
 import { usePermissions } from '../hooks/usePermissions';
 import { useAuth } from '../contexts/AuthContext';
 import { PERMISSIONS } from '../lib/permissions';
+import { generatePayrollReport } from '../lib/reports';
 import type { Payroll as PayrollRecord, PayrollSummary, Employee } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -216,6 +218,9 @@ export const Payroll = () => {
     );
   }
 
+  // Prepare data for export
+  const exportData = generatePayrollReport(payrollData);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -225,6 +230,11 @@ export const Payroll = () => {
           <p className="text-secondary-600 mt-1">Manage salary processing and payments</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ExportButton
+            data={exportData}
+            filename={`payroll-${selectedYear}-${selectedMonth}`}
+            title="Payroll Report"
+          />
           {can(PERMISSIONS.PAYROLL_PROCESS) && (
             <Button onClick={handleGeneratePayroll} disabled={generating} variant="secondary" className="flex-1 sm:flex-none text-xs sm:text-sm">
               {generating ? (
@@ -233,12 +243,6 @@ export const Payroll = () => {
                 <Send className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
               )}
               {generating ? 'Generating...' : 'Generate'}
-            </Button>
-          )}
-          {can(PERMISSIONS.REPORTS_EXPORT) && (
-            <Button variant="secondary" className="flex-1 sm:flex-none text-xs sm:text-sm">
-              <Download className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
-              Export
             </Button>
           )}
           {can(PERMISSIONS.PAYROLL_PROCESS) && (

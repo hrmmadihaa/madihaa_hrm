@@ -4,6 +4,7 @@ import { Building2, Plus, Trash2, Bed as BedIcon, User, ChevronRight, ChevronDow
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent } from '../components/ui/Card';
+import { ExportButton } from '../components/ExportButton';
 import { getEmployees, updateEmployee } from '../lib/employees';
 import {
   getAccommodations,
@@ -365,6 +366,23 @@ export const Accommodation = () => {
     );
   }
 
+  // Prepare data for export
+  const exportData = accommodations.flatMap(acc => 
+    acc.floors.flatMap(floor =>
+      floor.rooms.flatMap(room =>
+        room.beds.map(bed => ({
+          'Accommodation': acc.name,
+          'Location': acc.location,
+          'Floor': floor.name,
+          'Room': room.roomNumber,
+          'Bed': bed.bedNumber,
+          'Assigned Employee': bed.assignedEmployeeName || 'Unassigned',
+          'Status': bed.assignedEmployeeName ? 'Occupied' : 'Available',
+        }))
+      )
+    )
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -374,6 +392,11 @@ export const Accommodation = () => {
           <p className="text-secondary-600 mt-1">Manage staff accommodation and bed assignments</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <ExportButton
+            data={exportData}
+            filename={`accommodation-${new Date().toISOString().split('T')[0]}`}
+            title="Accommodation Report"
+          />
           <Input
             placeholder="Search by name, location, or employee..."
             value={accommodationSearch}

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Clock, Plus, Filter, Download, Check, X, Eye, Calendar, Printer } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
+import { ExportButton } from '../components/ExportButton';
 import {
   getOvertimeRequests,
   getOvertimeSummary,
@@ -19,6 +20,7 @@ import { getEmployees } from '../lib/employees';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
+import { generateOvertimeReport } from '../lib/reports';
 import type { OvertimeRequest, OvertimeSummary, Employee } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -584,6 +586,9 @@ export const Overtime = () => {
     );
   }
 
+  // Prepare data for export
+  const exportData = generateOvertimeReport(overtimeRequests);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -592,18 +597,25 @@ export const Overtime = () => {
           <h1 className="text-3xl font-bold text-secondary-900">Overtime Management</h1>
           <p className="text-secondary-600 mt-1">Track and approve overtime requests</p>
         </div>
-        {activeTab === 'manual' && can(PERMISSIONS.OVERTIME_REQUEST) && (
-          <Button onClick={toggleRequestForm} className="sm:w-auto w-full">
-            <Plus className="w-5 h-5 mr-2" />
-            Request Overtime
-          </Button>
-        )}
-        {activeTab === 'manual' && can(PERMISSIONS.OVERTIME_APPROVE) && (
-          <Button variant="secondary" onClick={() => setShowSummary(!showSummary)} className="sm:w-auto w-full">
-            <Download className="w-5 h-5 mr-2" />
-            Monthly Summary
-          </Button>
-        )}
+        <div className="flex gap-2 flex-wrap">
+          <ExportButton
+            data={exportData}
+            filename={`overtime-${new Date().toISOString().split('T')[0]}`}
+            title="Overtime Report"
+          />
+          {activeTab === 'manual' && can(PERMISSIONS.OVERTIME_REQUEST) && (
+            <Button onClick={toggleRequestForm} className="sm:w-auto w-full">
+              <Plus className="w-5 h-5 mr-2" />
+              Request Overtime
+            </Button>
+          )}
+          {activeTab === 'manual' && can(PERMISSIONS.OVERTIME_APPROVE) && (
+            <Button variant="secondary" onClick={() => setShowSummary(!showSummary)} className="sm:w-auto w-full">
+              <Download className="w-5 h-5 mr-2" />
+              Monthly Summary
+            </Button>
+          )}
+        </div>
         {can(PERMISSIONS.OVERTIME_DELETE) && (
           <div className="flex gap-2 sm:w-auto w-full">
             <Button variant="danger" onClick={handleFixEmployeeIds} disabled={migrating} className="flex-1">

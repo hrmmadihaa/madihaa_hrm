@@ -3,7 +3,8 @@ from collections import defaultdict
 
 # Read all monthly leave files
 files = [
-    'january_past_leaves.json'
+    'january_past_leaves.json',
+    'october_past_leaves.json'
 ]
 
 # Dictionary to store consolidated data by employee_number

@@ -849,7 +849,7 @@ export const Salary: React.FC = () => {
               {/* Letterhead */}
               <div className="text-center mb-8 pb-4 border-b-2 border-gray-300">
                 <div className="flex items-center justify-center mb-2">
-                  <img src="/Madihaa HRMS Team Logo.png" alt="Madihaa Logo" className="h-16 w-16 object-contain" />
+                  <img src="/Madihaa 2026 (1).png" alt="Madihaa Logo" className="h-16 w-16 object-contain" />
                 </div>
                 <h1 className="text-2xl font-bold text-gray-900">Madihaa Pvt Ltd</h1>
                 <p className="text-sm text-gray-600">Human Resource Management System</p>

@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { Calendar, Clock, RefreshCw, Download, ArrowRight, ArrowLeft, Upload, MapPin, Edit2, Save, X, Printer, FileSpreadsheet } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
+import { ExportButton } from '../components/ExportButton';
 import { getAttendanceStats, getTodayAttendanceForEmployee, checkIn, checkOut, requestAttendanceAdjustment } from '../lib/attendance';
 import { useAuth } from '../contexts/AuthContext';
 import { getEmployees } from '../lib/employees';
 import { getAllWorkLocations } from '../lib/workLocation';
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
+import { generateAttendanceReport } from '../lib/reports';
 import { addDoc, collection, query, where, getDocs, updateDoc, doc, Timestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import * as XLSX from 'xlsx';
@@ -497,6 +499,9 @@ export const Attendance = () => {
   const handleCancelStaffComment = () => {
     setStaffCommentText('');
   };
+
+  // Prepare data for export
+  const exportData = generateAttendanceReport(firebaseAttendance);
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -1692,6 +1697,11 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
           <p className="text-secondary-600 mt-1">Track employee attendance</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <ExportButton
+            data={exportData}
+            filename={`attendance-${new Date().toISOString().split('T')[0]}`}
+            title="Attendance Report"
+          />
           {/* Upload Mode Toggle */}
           <select
             value={uploadMode}

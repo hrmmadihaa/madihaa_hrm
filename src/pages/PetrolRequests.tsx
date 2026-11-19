@@ -677,7 +677,7 @@ export const PetrolRequests: React.FC = () => {
               {/* Letterhead */}
               <div style={{ textAlign: 'center', marginBottom: '12px', borderBottom: '2px solid #1f2937', paddingBottom: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '6px' }}>
-                  <img src={`${window.location.origin}/Madihaa HRMS Team Logo.png`} alt="Madihaa Logo" style={{ height: '60px', objectFit: 'contain' }} />
+                  <img src={`${window.location.origin}/Madihaa 2026 (1).png`} alt="Madihaa Logo" style={{ height: '60px', objectFit: 'contain' }} />
                 </div>
                 <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827', letterSpacing: '0.05em', margin: '0 0 2px 0' }}>Madihaa Pvt Ltd</h1>
                 <p style={{ fontSize: '12px', color: '#4b5563', fontWeight: '500', margin: '0 0 6px 0' }}>Human Resource Management System</p>

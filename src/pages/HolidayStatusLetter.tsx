@@ -285,7 +285,7 @@ export const HolidayStatusLetter: React.FC = () => {
             {/* Letterhead */}
             <div className="text-center mb-3 pb-3 border-b-2 border-gray-300">
               <div className="flex items-center justify-center mb-1">
-                <img src="/Madihaa HRMS Team Logo.png" alt="Madihaa Logo" className="h-14 w-14 object-contain" />
+                <img src="/Madihaa 2026 (1).png" alt="Madihaa Logo" className="h-14 w-14 object-contain" />
               </div>
               <h1 className="text-xl font-bold text-gray-900">Madihaa Pvt Ltd</h1>
               <p className="text-xs text-gray-600">Human Resource Management System</p>

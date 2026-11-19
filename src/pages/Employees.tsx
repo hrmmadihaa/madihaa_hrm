@@ -6,8 +6,10 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent } from '../components/ui/Card';
 import { EmployeeCard } from '../components/EmployeeCard';
+import { ExportButton } from '../components/ExportButton';
 import { getEmployees, deleteEmployee, updateEmployee } from '../lib/employees';
 import { importEmployeesFromJSON, validateMasterEmployeeJSON, normalizeExistingEmployeeNames, removeDuplicateEmployees } from '../lib/importEmployees';
+import { generateEmployeeReport } from '../lib/reports';
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
 import type { Employee } from '../types';
@@ -176,6 +178,9 @@ export const Employees = () => {
     return matchesSearch && matchesStatus && matchesTab;
   });
 
+  // Prepare data for export
+  const exportData = generateEmployeeReport(filteredEmployees);
+
   const statusColors = {
     active: 'bg-green-100 text-green-800',
     resigned: 'bg-red-100 text-red-800',
@@ -206,6 +211,11 @@ export const Employees = () => {
           <Button onClick={handleNormalizeNames} variant="secondary" className="sm:w-auto w-full">
             Normalize Names
           </Button>
+          <ExportButton
+            data={exportData}
+            filename={`employees-${new Date().toISOString().split('T')[0]}`}
+            title="Employee Report"
+          />
           {can(PERMISSIONS.EMPLOYEES_CREATE) && (
             <Button onClick={() => navigate('/employees/new')} className="sm:w-auto w-full">
               <UserPlus className="w-5 h-5 mr-2" />

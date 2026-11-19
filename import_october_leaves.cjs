@@ -17,6 +17,9 @@ const octoberLeaves = JSON.parse(fs.readFileSync('past_leaves/october_past_leave
 async function importLeaves() {
   let successCount = 0;
   let errorCount = 0;
+  let batch = db.batch();
+  let batchSize = 0;
+  const MAX_BATCH_SIZE = 400; // Firestore batch limit is 500 operations
   
   for (const emp of octoberLeaves) {
     const employeeNumber = emp.employee_number;
@@ -119,14 +122,33 @@ async function importLeaves() {
           attachments: []
         };
         
-        await db.collection('leave_requests').add(leaveRequest);
-        console.log(`Imported leave for ${employeeName} (${group.type}, ${group.days} days)`);
+        // Add to batch
+        const docRef = db.collection('leave_requests').doc();
+        batch.set(docRef, leaveRequest);
+        batchSize++;
         successCount++;
+        
+        // Commit batch when it reaches max size
+        if (batchSize >= MAX_BATCH_SIZE) {
+          await batch.commit();
+          console.log(`Batch committed: ${batchSize} operations`);
+          batch = db.batch();
+          batchSize = 0;
+          // Wait to avoid quota issues
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
       } catch (error) {
         console.error(`Error importing leave for ${employeeName}:`, error.message);
         errorCount++;
       }
     }
+  }
+  
+  // Commit remaining batch
+  if (batchSize > 0) {
+    await batch.commit();
+    console.log(`Final batch committed: ${batchSize} operations`);
   }
   
   console.log(`\nImport complete: ${successCount} successful, ${errorCount} errors`);

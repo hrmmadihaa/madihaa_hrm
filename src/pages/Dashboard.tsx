@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Clock, TrendingUp, AlertCircle, Briefcase, Building2, X, Calendar, Cake, Award } from 'lucide-react';
+import { Users, Clock, TrendingUp, AlertCircle, Briefcase, Building2, X, Calendar, Cake, Award, FileText, AlertTriangle } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { getEmployees } from '../lib/employees';
@@ -8,7 +8,7 @@ import { getLeaveRequests } from '../lib/leave';
 import { getAttendanceStats } from '../lib/attendance';
 import { getAllWorkLocations } from '../lib/workLocation';
 import { useNavigate } from 'react-router-dom';
-import madihaaLogo from '/Madihaa HRMS Team Logo.png';
+import madihaaLogo from '/Madihaa 2026 (1).png';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export const Dashboard = () => {
@@ -20,6 +20,7 @@ export const Dashboard = () => {
   const [attendanceStats, setAttendanceStats] = useState<any>(null);
   const [todayLeaveRequests, setTodayLeaveRequests] = useState<any[]>([]);
   const [workLocations, setWorkLocations] = useState<any[]>([]);
+  const [expandedDocSections, setExpandedDocSections] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -165,6 +166,13 @@ export const Dashboard = () => {
     navigate('/employees');
   };
 
+  const toggleDocSection = (docType: string) => {
+    setExpandedDocSections(prev => ({
+      ...prev,
+      [docType]: !prev[docType]
+    }));
+  };
+
   const recentActivities: any[] = [];
 
   // Calculate probation completion events (within next 30 days)
@@ -272,6 +280,61 @@ export const Dashboard = () => {
     });
 
     return events.sort((a, b) => a.daysRemaining - b.daysRemaining);
+  })();
+
+  // Calculate document expiry alerts (next 3 months) - grouped by document type
+  const documentExpiryAlerts: Record<string, any[]> = (() => {
+    const today = new Date();
+    const threeMonthsLater = new Date();
+    threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+    const alerts: Record<string, any[]> = {
+      'Work Permit': [],
+      'Passport': [],
+      'Medical': [],
+      'Visa': [],
+      'Insurance': []
+    };
+
+    employees.forEach(emp => {
+      // Only show active employees
+      if (!emp.status || emp.status.toLowerCase() !== 'active') return;
+
+      const expiryFields = [
+        { field: 'wpExpDate', label: 'Work Permit' },
+        { field: 'ppIdExpDate', label: 'Passport' },
+        { field: 'medExpDate', label: 'Medical' },
+        { field: 'visaExpiryDate', label: 'Visa' },
+        { field: 'insuranceExpDate', label: 'Insurance' },
+      ];
+
+      expiryFields.forEach(({ field, label }) => {
+        const expiryDate = emp[field];
+        if (expiryDate) {
+          const expDate = new Date(expiryDate);
+          const daysUntilExpiry = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+          // Show if expiring within next 3 months (90 days)
+          if (daysUntilExpiry >= 0 && daysUntilExpiry <= 90) {
+            alerts[label].push({
+              id: `${field}-${emp.id}`,
+              title: `${emp.fullName}`,
+              date: expDate.toLocaleDateString(),
+              documentType: label,
+              daysRemaining: daysUntilExpiry,
+              employeeId: emp.employeeId,
+              expiryMonth: expDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+            });
+          }
+        }
+      });
+    });
+
+    // Sort each group by days remaining
+    Object.keys(alerts).forEach(key => {
+      alerts[key].sort((a, b) => a.daysRemaining - b.daysRemaining);
+    });
+
+    return alerts;
   })();
 
   if (loading) {
@@ -649,6 +712,101 @@ export const Dashboard = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Document Expiry Alerts (Next 3 Months) */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold text-secondary-900">Document Expiry Alerts (Next 3 Months)</h2>
+        {Object.entries(documentExpiryAlerts).map(([docType, alerts]) => {
+          const totalAlerts = alerts.length;
+          if (totalAlerts === 0) return null;
+          const isExpanded = expandedDocSections[docType] || false;
+          const criticalCount = alerts.filter(a => a.daysRemaining <= 7).length;
+          const urgentCount = alerts.filter(a => a.daysRemaining <= 30 && a.daysRemaining > 7).length;
+          
+          return (
+            <Card key={docType}>
+              <CardHeader>
+                <div 
+                  className="flex items-center justify-between cursor-pointer hover:bg-secondary-50 transition-colors p-2 -m-2 rounded"
+                  onClick={() => toggleDocSection(docType)}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      {criticalCount > 0 && (
+                        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">
+                          {criticalCount} Critical
+                        </span>
+                      )}
+                      {urgentCount > 0 && (
+                        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-700">
+                          {urgentCount} Urgent
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-semibold text-secondary-900">{docType}</h3>
+                    <p className="text-sm text-secondary-600">{totalAlerts} expiring</p>
+                  </div>
+                  <div className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+                    <X className="w-5 h-5 text-secondary-600 rotate-45" />
+                  </div>
+                </div>
+              </CardHeader>
+              {isExpanded && (
+                <CardContent className="py-2">
+                  <div className="space-y-1">
+                    {alerts.map((alert) => {
+                      const isUrgent = alert.daysRemaining <= 30;
+                      const isCritical = alert.daysRemaining <= 7;
+                      return (
+                        <div
+                          key={alert.id}
+                          className={`flex items-center justify-between p-2 rounded transition-colors ${
+                            isCritical ? 'bg-red-50 hover:bg-red-100' : isUrgent ? 'bg-orange-50 hover:bg-orange-100' : 'bg-secondary-50 hover:bg-secondary-100'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2 flex-1 min-w-0">
+                            {isCritical ? (
+                              <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                            ) : isUrgent ? (
+                              <AlertTriangle className="w-4 h-4 text-orange-600 flex-shrink-0" />
+                            ) : (
+                              <FileText className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-secondary-900 truncate">{alert.title}</p>
+                              <p className="text-xs text-secondary-600 truncate">{alert.employeeId} • {alert.date}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-xs text-secondary-500">
+                              {alert.daysRemaining === 0 ? 'Today' : alert.daysRemaining === 1 ? 'Tomorrow' : `${alert.daysRemaining}d`}
+                            </span>
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                              isCritical
+                                ? 'bg-red-100 text-red-700'
+                                : isUrgent
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {isCritical ? 'Critical' : isUrgent ? 'Urgent' : 'Normal'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          );
+        })}
+        {Object.values(documentExpiryAlerts).every(alerts => alerts.length === 0) && (
+          <div className="text-center py-8 bg-white rounded-lg border border-secondary-200">
+            <FileText className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
+            <p className="text-secondary-600">No documents expiring in the next 3 months</p>
+          </div>
+        )}
+      </div>
 
       {/* Filtered Employees Modal */}
       {selectedStat && (

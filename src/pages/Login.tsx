@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../contexts/AuthContext';
-import madihaaLogo from '/Madihaa HRMS Team Logo.png';
+import madihaaLogo from '/Madihaa 2026 (1).png';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
