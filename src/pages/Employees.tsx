@@ -14,7 +14,7 @@ import type { Employee } from '../types';
 
 export const Employees = () => {
   const navigate = useNavigate();
-  const { can } = usePermissions();
+  const { can, isSuperAdmin } = usePermissions();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -397,6 +397,8 @@ export const Employees = () => {
                 onClick={() => navigate(`/employees/${employee.fullName.toLowerCase().replace(/\s+/g, '-')}`)}
                 onPhotoUpload={handlePhotoUpload}
                 uploadingPhoto={uploadingPhoto}
+                onDelete={handleDelete}
+                canDelete={can(PERMISSIONS.EMPLOYEES_DELETE) || isSuperAdmin()}
               />
             </motion.div>
           ))}
@@ -512,7 +514,7 @@ export const Employees = () => {
                             <Edit className="w-5 h-5" />
                           </button>
                         )}
-                        {can(PERMISSIONS.EMPLOYEES_DELETE) && (
+                        {(can(PERMISSIONS.EMPLOYEES_DELETE) || isSuperAdmin()) && (
                           <button
                             onClick={() => handleDelete(employee.id)}
                             className="text-red-600 hover:text-red-900"

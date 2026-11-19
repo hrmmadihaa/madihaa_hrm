@@ -1,4 +1,4 @@
-import { User, Calendar, Briefcase, MapPin, MoreVertical, Camera } from 'lucide-react';
+import { User, Calendar, Briefcase, MapPin, MoreVertical, Camera, Trash2 } from 'lucide-react';
 import type { Employee } from '../types';
 import { calculateDuration } from '../lib/employees';
 
@@ -7,9 +7,11 @@ interface EmployeeCardProps {
   onClick?: () => void;
   onPhotoUpload?: (employeeId: string, employee: Employee) => void;
   uploadingPhoto?: string | null;
+  onDelete?: (id: string) => void;
+  canDelete?: boolean;
 }
 
-export const EmployeeCard = ({ employee, onClick, onPhotoUpload, uploadingPhoto }: EmployeeCardProps) => {
+export const EmployeeCard = ({ employee, onClick, onPhotoUpload, uploadingPhoto, onDelete, canDelete }: EmployeeCardProps) => {
   const duration = calculateDuration(employee.joinDate);
 
   return (
@@ -56,13 +58,27 @@ export const EmployeeCard = ({ employee, onClick, onPhotoUpload, uploadingPhoto 
                   onPhotoUpload(employee.employeeId || employee.id, employee);
                 }}
                 disabled={uploadingPhoto === employee.employeeId || uploadingPhoto === employee.id}
-                className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-100 transition-colors disabled:opacity-50"
+                className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-100 transition-colors disabled:opacity-50 z-10"
               >
                 {uploadingPhoto === employee.employeeId || uploadingPhoto === employee.id ? (
                   <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <Camera className="w-4 h-4 text-primary-600" />
                 )}
+              </button>
+            )}
+            {/* Delete button */}
+            {canDelete && onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm('Are you sure you want to delete this employee?')) {
+                    onDelete(employee.id);
+                  }
+                }}
+                className="absolute -bottom-2 -right-2 w-8 h-8 bg-red-500 rounded-full shadow-lg flex items-center justify-center hover:bg-red-600 transition-colors z-10"
+              >
+                <Trash2 className="w-4 h-4 text-white" />
               </button>
             )}
           </div>

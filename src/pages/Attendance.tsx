@@ -284,14 +284,19 @@ export const Attendance = () => {
       // Fetch all work locations
       const workLocations = await getAllWorkLocations();
 
-      // Group by work location assignment
-      const groupedByLocation: { [key: string]: any[] } = {};
+      // Create a map of employee IDs to their attendance records for quick lookup
+      const attendanceMap = new Map<string, any>();
       records.forEach(record => {
-        const emp = employees.find(e => e.employeeId === record.employeeId);
-        
+        attendanceMap.set(record.employeeId, record);
+      });
+
+      // Group all employees by work location assignment (including those without punches)
+      const groupedByLocation: { [key: string]: any[] } = {};
+      
+      employees.forEach(emp => {
         // Find the work location this employee is assigned to
         const assignedLocation = workLocations.find(loc => 
-          loc.assignedStaff?.includes(emp?.id)
+          loc.assignedStaff?.includes(emp.id)
         );
         
         const locationName = assignedLocation?.name || 'Unassigned';
@@ -299,13 +304,35 @@ export const Attendance = () => {
         if (!groupedByLocation[locationName]) {
           groupedByLocation[locationName] = [];
         }
-        groupedByLocation[locationName].push({
-          ...record,
-          employeeName: record.employeeName || emp?.fullName || 'Unknown',
-          workLocation: locationName,
-          position: emp?.position || emp?.jobTitle || emp?.designation || 'N/A',
-          lateArrival: record.lateArrival || false,
-        });
+
+        // Check if employee has attendance record for this date
+        const attendanceRecord = attendanceMap.get(emp.employeeId);
+        
+        if (attendanceRecord) {
+          // Employee has punch record
+          groupedByLocation[locationName].push({
+            ...attendanceRecord,
+            employeeName: attendanceRecord.employeeName || emp.fullName || 'Unknown',
+            workLocation: locationName,
+            position: emp.position || emp.jobTitle || emp.designation || 'N/A',
+            lateArrival: attendanceRecord.lateArrival || false,
+          });
+        } else {
+          // Employee has no punch record - show as absent/no punch
+          groupedByLocation[locationName].push({
+            id: emp.id,
+            employeeId: emp.employeeId,
+            employeeName: emp.fullName || 'Unknown',
+            workLocation: locationName,
+            position: emp.position || emp.jobTitle || emp.designation || 'N/A',
+            checkInTime: null,
+            checkOutTime: null,
+            status: 'absent',
+            lateArrival: false,
+            date: startOfDay,
+            noPunch: true,
+          });
+        }
       });
 
       setDailyReportData(Object.entries(groupedByLocation).map(([location, data]) => ({
