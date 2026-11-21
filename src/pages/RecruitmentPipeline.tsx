@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/Button';
 import { Plus, Search, FileText } from 'lucide-react';
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { logActivity } from '../lib/activityLog';
@@ -60,6 +60,15 @@ interface Candidate {
   submitted_date?: string;
   egov_link?: string;
   slot_number?: string;
+  // Flight details
+  flight_number?: string;
+  flight_date?: string;
+  flight_time?: string;
+  arrival_date?: string;
+  arrival_time?: string;
+  departure_airport?: string;
+  arrival_airport?: string;
+  arrival_notification_sent?: boolean;
 }
 
 const STAGES = [
@@ -94,6 +103,7 @@ export const RecruitmentPipeline: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedStage, setSelectedStage] = useState('all');
   const [showWorkPermitModal, setShowWorkPermitModal] = useState(false);
+  const [showFlightDetailsModal, setShowFlightDetailsModal] = useState(false);
   const [pendingStageChange, setPendingStageChange] = useState<{ candidate: Candidate; newStage: string } | null>(null);
 
   const [formData, setFormData] = useState({
@@ -133,11 +143,92 @@ export const RecruitmentPipeline: React.FC = () => {
     new_work_permit: '',
     submitted_date: '',
     egov_link: '',
-    slot_number: ''
+    slot_number: '',
+    // Flight details
+    flight_number: '',
+    flight_date: '',
+    flight_time: '',
+    arrival_date: '',
+    arrival_time: '',
+    departure_airport: '',
+    arrival_airport: ''
   });
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  // Auto-move candidates to departed when arrival time is reached
+  useEffect(() => {
+    const checkFlightTimes = async () => {
+      try {
+        const now = new Date();
+        
+        // Get candidates in ticket_approved stage with flight details from Firestore
+        const candidatesQuery = query(collection(db, 'recruitment_candidates'), where('stage', '==', 'ticket_approved'));
+        const candidatesSnapshot = await getDocs(candidatesQuery);
+        const candidatesToCheck = candidatesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Candidate)).filter(c => c.arrival_date && c.arrival_time);
+
+        let hasChanges = false;
+
+        for (const candidate of candidatesToCheck) {
+          if (!candidate.arrival_date || !candidate.arrival_time) continue;
+
+          const arrivalDateTime = new Date(`${candidate.arrival_date}T${candidate.arrival_time}`);
+          const thirtyMinutesBefore = new Date(arrivalDateTime.getTime() - 30 * 60 * 1000);
+          
+          // Check if we're 30 minutes before arrival and notification not sent yet
+          if (now >= thirtyMinutesBefore && now < arrivalDateTime && !candidate.arrival_notification_sent) {
+            await logActivity(
+              'updated',
+              'recruitment_candidate',
+              candidate.id,
+              `Flight ${candidate.flight_number} arriving in 30 minutes - ${candidate.Name} landing at ${candidate.arrival_airport || 'Maldives'} at ${candidate.arrival_time}`
+            );
+            await updateDoc(doc(db, 'recruitment_candidates', candidate.id), {
+              arrival_notification_sent: true,
+              last_updated: new Date().toISOString()
+            });
+            console.log(`Sent 30-minute arrival notification for ${candidate.Name}`);
+            hasChanges = true;
+          }
+          
+          // If arrival time has passed, move to departed
+          if (now >= arrivalDateTime) {
+            await updateDoc(doc(db, 'recruitment_candidates', candidate.id), {
+              stage: 'departed',
+              last_updated: new Date().toISOString()
+            });
+            await logActivity(
+              'updated',
+              'recruitment_candidate',
+              candidate.id,
+              `Auto-moved ${candidate.Name} to departed stage (arrival time reached)`
+            );
+            console.log(`Auto-moved ${candidate.Name} to departed stage`);
+            hasChanges = true;
+          }
+        }
+
+        // Reload data only if changes were made
+        if (hasChanges) {
+          loadData();
+        }
+      } catch (error) {
+        console.error('Error checking flight times:', error);
+      }
+    };
+
+    // Check immediately on load
+    checkFlightTimes();
+
+    // Check every minute
+    const interval = setInterval(checkFlightTimes, 60000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {
@@ -225,6 +316,13 @@ export const RecruitmentPipeline: React.FC = () => {
       return;
     }
 
+    // If changing to ticket_approved, show modal to collect flight details
+    if (newStage === 'ticket_approved') {
+      setPendingStageChange({ candidate, newStage });
+      setShowFlightDetailsModal(true);
+      return;
+    }
+
     try {
       const docRef = doc(db, 'recruitment_candidates', candidate.id);
       await updateDoc(docRef, {
@@ -292,6 +390,53 @@ export const RecruitmentPipeline: React.FC = () => {
     }
   };
 
+  const handleFlightDetailsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingStageChange) return;
+
+    const { candidate, newStage } = pendingStageChange;
+
+    // Validate required fields
+    if (!formData.flight_number || !formData.flight_date || !formData.flight_time || !formData.arrival_date || !formData.arrival_time) {
+      alert('Please fill in all required fields: Flight Number, Flight Date, Flight Time, Arrival Date, and Arrival Time');
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'recruitment_candidates', candidate.id);
+      const updateData: any = {
+        stage: newStage,
+        flight_number: formData.flight_number,
+        flight_date: formData.flight_date,
+        flight_time: formData.flight_time,
+        arrival_date: formData.arrival_date,
+        arrival_time: formData.arrival_time,
+        departure_airport: formData.departure_airport,
+        arrival_airport: formData.arrival_airport,
+        last_updated: new Date().toISOString()
+      };
+
+      await updateDoc(docRef, updateData);
+      setShowFlightDetailsModal(false);
+      setPendingStageChange(null);
+      // Reset flight details fields
+      setFormData({
+        ...formData,
+        flight_number: '',
+        flight_date: '',
+        flight_time: '',
+        arrival_date: '',
+        arrival_time: '',
+        departure_airport: '',
+        arrival_airport: ''
+      });
+      loadData();
+    } catch (error) {
+      console.error('Error updating stage with flight details:', error);
+      alert('Failed to update stage');
+    }
+  };
+
   const handleLOAStatusChange = async (candidate: Candidate, loaStatus: 'pending' | 'completed' | null) => {
     // If LOA is completed, show modal to collect work permit details before moving to Work Permit Applied stage
     if (loaStatus === 'completed') {
@@ -352,7 +497,14 @@ export const RecruitmentPipeline: React.FC = () => {
       new_work_permit: candidate.new_work_permit || '',
       submitted_date: candidate.submitted_date || '',
       egov_link: candidate.egov_link || '',
-      slot_number: candidate.slot_number || ''
+      slot_number: candidate.slot_number || '',
+      flight_number: candidate.flight_number || '',
+      flight_date: candidate.flight_date || '',
+      flight_time: candidate.flight_time || '',
+      arrival_date: candidate.arrival_date || '',
+      arrival_time: candidate.arrival_time || '',
+      departure_airport: candidate.departure_airport || '',
+      arrival_airport: candidate.arrival_airport || ''
     });
     setShowModal(true);
   };
@@ -393,7 +545,14 @@ export const RecruitmentPipeline: React.FC = () => {
       new_work_permit: '',
       submitted_date: '',
       egov_link: '',
-      slot_number: ''
+      slot_number: '',
+      flight_number: '',
+      flight_date: '',
+      flight_time: '',
+      arrival_date: '',
+      arrival_time: '',
+      departure_airport: '',
+      arrival_airport: ''
     });
   };
 
@@ -981,6 +1140,22 @@ export const RecruitmentPipeline: React.FC = () => {
                           </div>
                         )}
 
+                        {/* Flight Details Display for ticket_approved stage */}
+                        {selectedStage === 'ticket_approved' && candidate.flight_number && (
+                          <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                            <div className="font-medium text-blue-800 mb-1">Flight Details</div>
+                            <div className="text-blue-700">
+                              <div>Flight: {candidate.flight_number}</div>
+                              <div>Departure: {candidate.flight_date} at {candidate.flight_time}</div>
+                              {candidate.arrival_date && candidate.arrival_time && (
+                                <div>Arrival: {candidate.arrival_date} at {candidate.arrival_time} (Maldives)</div>
+                              )}
+                              {candidate.departure_airport && <div>From: {candidate.departure_airport}</div>}
+                              {candidate.arrival_airport && <div>To: {candidate.arrival_airport}</div>}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Generate LOA Button */}
                         {['interview_completed', 'offer_sent', 'offer_signed', 'work_permit_applied', 'payment_pending', 'payment_completed', 'entry_pass_pending', 'entry_pass_received', 'ticket_purchased', 'ticket_approved', 'departed', 'van_arranged', 'airport_pickup', 'arrived'].includes(selectedStage) && (
                           <div className="flex gap-2 mt-2">
@@ -1466,6 +1641,103 @@ export const RecruitmentPipeline: React.FC = () => {
               </div>
               <div className="flex justify-end gap-3 mt-6">
                 <Button type="button" variant="secondary" onClick={() => { setShowWorkPermitModal(false); setPendingStageChange(null); }}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  Save & Change Stage
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Flight Details Modal */}
+      {showFlightDetailsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">Flight Details</h2>
+              <button onClick={() => { setShowFlightDetailsModal(false); setPendingStageChange(null); }}>
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleFlightDetailsSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Flight Number *</label>
+                  <input
+                    type="text"
+                    value={formData.flight_number}
+                    onChange={(e) => setFormData({ ...formData, flight_number: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., FZ1234"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Flight Date *</label>
+                  <input
+                    type="date"
+                    value={formData.flight_date}
+                    onChange={(e) => setFormData({ ...formData, flight_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Flight Time *</label>
+                  <input
+                    type="time"
+                    value={formData.flight_time}
+                    onChange={(e) => setFormData({ ...formData, flight_time: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Arrival Date (Maldives) *</label>
+                  <input
+                    type="date"
+                    value={formData.arrival_date}
+                    onChange={(e) => setFormData({ ...formData, arrival_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Arrival Time (Maldives) *</label>
+                  <input
+                    type="time"
+                    value={formData.arrival_time}
+                    onChange={(e) => setFormData({ ...formData, arrival_time: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Departure Airport</label>
+                  <input
+                    type="text"
+                    value={formData.departure_airport}
+                    onChange={(e) => setFormData({ ...formData, departure_airport: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., Dubai International (DXB)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Arrival Airport</label>
+                  <input
+                    type="text"
+                    value={formData.arrival_airport}
+                    onChange={(e) => setFormData({ ...formData, arrival_airport: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., Velana International (MLE)"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <Button type="button" variant="secondary" onClick={() => { setShowFlightDetailsModal(false); setPendingStageChange(null); }}>
                   Cancel
                 </Button>
                 <Button type="submit">
