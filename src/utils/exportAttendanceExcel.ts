@@ -11,6 +11,14 @@ export interface StaffAttendance {
       status?: string;
     }
   >;
+  overtime?: Record<
+    number,
+    {
+      inTime?: string;
+      outTime?: string;
+      otHours?: string;
+    }
+  >;
   summary: {
     presentDays?: number;
     fridays?: number;
@@ -34,6 +42,9 @@ interface ExportProps {
   year: number;
   seniorStaff: StaffAttendance[];
   juniorStaff: StaffAttendance[];
+  overtimeData?: Record<number, { inTime?: string; outTime?: string; otHours?: string }>;
+  otRange?: { startDate: string; endDate: string };
+  foodAllowance?: { firstHalf: number; secondHalf: number; total: number };
 }
 
 const STATUS_COLUMNS = [
@@ -54,7 +65,10 @@ export async function exportMonthlyAttendanceExcel({
   month,
   year,
   seniorStaff,
-  juniorStaff
+  juniorStaff,
+  overtimeData,
+  otRange,
+  foodAllowance
 }: ExportProps) {
   const workbook = new ExcelJS.Workbook();
 
@@ -272,6 +286,221 @@ export async function exportMonthlyAttendanceExcel({
     `ATTENDANCE FOR ${MONTHS[month].toUpperCase()} ${year} - MALE JUNIOR FOREIGN STAFFS`,
     juniorStaff
   );
+
+  // Overtime section
+  function addOvertimeSection(
+    sectionTitle: string,
+    overtimeData: Record<number, { inTime?: string; outTime?: string; otHours?: string }> | undefined,
+    otRange: { startDate: string; endDate: string } | undefined
+  ) {
+    if (!overtimeData || !otRange || Object.keys(overtimeData).length === 0) return;
+
+    // Calculate date range from otRange
+    const otStart = new Date(otRange.startDate);
+    const otEnd = new Date(otRange.endDate);
+    const otDays: { day: number; date: Date; weekday: string }[] = [];
+    
+    for (let d = new Date(otStart); d <= otEnd; d.setDate(d.getDate() + 1)) {
+      otDays.push({
+        day: d.getDate(),
+        date: new Date(d),
+        weekday: DAY_NAMES[d.getDay()]
+      });
+    }
+
+    if (otDays.length === 0) return;
+
+    // Recalculate total columns for overtime (1 column per day: OT Hours + 3 summary columns)
+    const otTotalColumns =
+      fixedHeaders.length +
+      otDays.length +
+      3; // Total Hrs, Rate, Total (MVR)
+    const otLastColumn = otTotalColumns;
+
+    // Section title
+    sheet.mergeCells(currentRow, 1, currentRow, otLastColumn);
+    const titleCell = sheet.getCell(currentRow, 1);
+    titleCell.value = sectionTitle;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: "center", vertical: "middle" };
+    titleCell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFB4C7E7" }
+    };
+    titleCell.border = border;
+    sheet.getRow(currentRow).height = 28;
+    currentRow++;
+
+    // Weekday row
+    const weekdayRow = sheet.getRow(currentRow);
+
+    fixedHeaders.forEach((header, index) => {
+      sheet.mergeCells(currentRow, index + 1, currentRow + 2, index + 1);
+      weekdayRow.getCell(index + 1).value = header;
+    });
+
+    for (let i = 0; i < otDays.length; i++) {
+      const col = 4 + i;
+      sheet.mergeCells(currentRow, col, currentRow + 1, col);
+      weekdayRow.getCell(col).value = otDays[i].weekday;
+    }
+
+    // Summary headers
+    const summaryHeaderStartCol = 4 + otDays.length;
+    sheet.mergeCells(currentRow, summaryHeaderStartCol, currentRow + 2, summaryHeaderStartCol);
+    weekdayRow.getCell(summaryHeaderStartCol).value = "Total Hrs";
+    sheet.mergeCells(currentRow, summaryHeaderStartCol + 1, currentRow + 2, summaryHeaderStartCol + 1);
+    weekdayRow.getCell(summaryHeaderStartCol + 1).value = "Rate";
+    sheet.mergeCells(currentRow, summaryHeaderStartCol + 2, currentRow + 2, summaryHeaderStartCol + 2);
+    weekdayRow.getCell(summaryHeaderStartCol + 2).value = "Total (MVR)";
+
+    // Date row
+    const dateRow = currentRow + 1;
+
+    for (let i = 0; i < otDays.length; i++) {
+      const col = 4 + i;
+      const day = otDays[i].day;
+      const date = otDays[i].date;
+      const dateLabel = `${String(day).padStart(2, "0")} ${String(date.getMonth() + 1).padStart(2, "0")}-${date.getFullYear()}`;
+
+      sheet.getCell(dateRow, col).value = dateLabel;
+    }
+
+    // OT Hrs header row
+    const otHeaderRow = currentRow + 2;
+
+    for (let i = 0; i < otDays.length; i++) {
+      const col = 4 + i;
+      sheet.getCell(otHeaderRow, col).value = "OT Hrs";
+    }
+
+    [currentRow, dateRow, otHeaderRow].forEach(rowNumber => {
+      styleHeader(sheet.getRow(rowNumber));
+      sheet.getRow(rowNumber).height = 23;
+    });
+
+    currentRow += 3;
+
+    // Employee row
+    const row = sheet.getRow(currentRow);
+
+    row.getCell(1).value = 1;
+    row.getCell(2).value = seniorStaff[0]?.userId || "";
+    row.getCell(3).value = seniorStaff[0]?.name || "";
+
+    for (let i = 0; i < otDays.length; i++) {
+      const col = 4 + i;
+      const day = otDays[i].day;
+      const record = overtimeData[day];
+
+      row.getCell(col).value = record?.otHours || "";
+    }
+
+    // Calculate totals
+    const totalHours = Object.values(overtimeData).reduce((sum, record) => sum + (parseFloat(record?.otHours || "0")), 0);
+    const rate = 10;
+    const totalMVR = totalHours * rate;
+
+    row.getCell(summaryHeaderStartCol).value = totalHours.toFixed(2);
+    row.getCell(summaryHeaderStartCol + 1).value = rate;
+    row.getCell(summaryHeaderStartCol + 2).value = totalMVR.toFixed(2);
+
+    row.eachCell(cell => {
+      cell.border = border;
+      cell.font = { size: 9 };
+      cell.alignment = {
+        vertical: "middle",
+        horizontal: "center",
+        wrapText: true
+      };
+    });
+
+    row.getCell(3).alignment = {
+      vertical: "middle",
+      horizontal: "left"
+    };
+
+    row.height = 21;
+    currentRow++;
+
+    // Space between sections
+    currentRow += 2;
+  }
+
+  addOvertimeSection(
+    `OVERTIME DATA`,
+    overtimeData,
+    otRange
+  );
+
+  // Food Allowance section
+  if (foodAllowance) {
+    sheet.mergeCells(currentRow, 1, currentRow, 4);
+    const titleCell = sheet.getCell(currentRow, 1);
+    titleCell.value = "FOOD ALLOWANCE";
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: "center", vertical: "middle" };
+    titleCell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFB4C7E7" }
+    };
+    titleCell.border = border;
+    sheet.getRow(currentRow).height = 28;
+    currentRow++;
+
+    // Header row
+    const headerRow = sheet.getRow(currentRow);
+    headerRow.getCell(1).value = "Period";
+    headerRow.getCell(2).value = "Days Worked";
+    headerRow.getCell(3).value = "Rate (MVR/day)";
+    headerRow.getCell(4).value = "Allowance (MVR)";
+    
+    styleHeader(headerRow);
+    headerRow.height = 23;
+    currentRow++;
+
+    // Data rows
+    const row1 = sheet.getRow(currentRow);
+    row1.getCell(1).value = "1st - 15th";
+    row1.getCell(2).value = Math.round(foodAllowance.firstHalf / 50);
+    row1.getCell(3).value = 50;
+    row1.getCell(4).value = foodAllowance.firstHalf;
+    row1.eachCell(cell => {
+      cell.border = border;
+      cell.font = { size: 9 };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+    });
+    currentRow++;
+
+    const row2 = sheet.getRow(currentRow);
+    row2.getCell(1).value = "16th - End of Month";
+    row2.getCell(2).value = Math.round(foodAllowance.secondHalf / 50);
+    row2.getCell(3).value = 50;
+    row2.getCell(4).value = foodAllowance.secondHalf;
+    row2.eachCell(cell => {
+      cell.border = border;
+      cell.font = { size: 9 };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+    });
+    currentRow++;
+
+    const row3 = sheet.getRow(currentRow);
+    row3.getCell(1).value = "Total";
+    row3.getCell(2).value = Math.round(foodAllowance.total / 50);
+    row3.getCell(3).value = "-";
+    row3.getCell(4).value = foodAllowance.total;
+    row3.eachCell(cell => {
+      cell.border = border;
+      cell.font = { bold: true, size: 9 };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+    });
+    currentRow++;
+
+    // Space between sections
+    currentRow += 2;
+  }
 
   // Leave legend
   sheet.mergeCells(currentRow, 1, currentRow, 4);

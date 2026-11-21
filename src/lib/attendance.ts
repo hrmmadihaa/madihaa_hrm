@@ -23,7 +23,93 @@ export const getAttendance = async (employeeId?: string, startDate?: Date, endDa
     let q = query(collection(db, ATTENDANCE_COLLECTION), orderBy('date', 'desc'));
     
     if (employeeId) {
-      q = query(q, where('employeeId', '==', employeeId));
+      // Try querying by userId first, then by employeeId as fallback
+      // Query by both fields using OR logic by making two queries
+      const q1 = query(
+        collection(db, ATTENDANCE_COLLECTION),
+        where('userId', '==', employeeId),
+        orderBy('date', 'desc')
+      );
+      
+      const q2 = query(
+        collection(db, ATTENDANCE_COLLECTION),
+        where('employeeId', '==', employeeId),
+        orderBy('date', 'desc')
+      );
+      
+      if (startDate && endDate) {
+        // Add date filters
+        const q1WithDate = query(
+          collection(db, ATTENDANCE_COLLECTION),
+          where('userId', '==', employeeId),
+          where('date', '>=', Timestamp.fromDate(startDate)),
+          where('date', '<=', Timestamp.fromDate(endDate)),
+          orderBy('date', 'desc')
+        );
+        
+        const q2WithDate = query(
+          collection(db, ATTENDANCE_COLLECTION),
+          where('employeeId', '==', employeeId),
+          where('date', '>=', Timestamp.fromDate(startDate)),
+          where('date', '<=', Timestamp.fromDate(endDate)),
+          orderBy('date', 'desc')
+        );
+        
+        try {
+          const querySnapshot1 = await getDocs(q1WithDate);
+          if (!querySnapshot1.empty) {
+            return querySnapshot1.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+              date: doc.data().date.toDate(),
+              checkInTime: doc.data().checkInTime?.toDate(),
+              checkOutTime: doc.data().checkOutTime?.toDate(),
+            })) as Attendance[];
+          }
+        } catch (e) {
+          // If index error, try second query
+          console.log('Query with userId failed, trying employeeId');
+        }
+        
+        try {
+          const querySnapshot2 = await getDocs(q2WithDate);
+          return querySnapshot2.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            date: doc.data().date.toDate(),
+            checkInTime: doc.data().checkInTime?.toDate(),
+            checkOutTime: doc.data().checkOutTime?.toDate(),
+          })) as Attendance[];
+        } catch (e) {
+          console.log('Query with employeeId also failed');
+          throw e;
+        }
+      } else {
+        // No date range, try both queries
+        try {
+          const querySnapshot1 = await getDocs(q1);
+          if (!querySnapshot1.empty) {
+            return querySnapshot1.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+              date: doc.data().date.toDate(),
+              checkInTime: doc.data().checkInTime?.toDate(),
+              checkOutTime: doc.data().checkOutTime?.toDate(),
+            })) as Attendance[];
+          }
+        } catch (e) {
+          console.log('Query with userId failed, trying employeeId');
+        }
+        
+        const querySnapshot2 = await getDocs(q2);
+        return querySnapshot2.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          date: doc.data().date.toDate(),
+          checkInTime: doc.data().checkInTime?.toDate(),
+          checkOutTime: doc.data().checkOutTime?.toDate(),
+        })) as Attendance[];
+      }
     }
     
     if (startDate && endDate) {
