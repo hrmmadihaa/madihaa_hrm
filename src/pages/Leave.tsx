@@ -5,7 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { AirportAutocomplete } from '../components/AirportAutocomplete';
 import { ExportButton } from '../components/ExportButton';
-import { createLeaveRequest, cancelLeaveRequest, getLeaveRequests, validateLeaveRequest, calculateLeaveDays, approveLeaveRequest, rejectLeaveRequest, deleteLeaveRequest, bulkDeleteLeaveRequests } from '../lib/leave';
+import { createLeaveRequest, cancelLeaveRequest, getLeaveRequests, validateLeaveRequest, calculateLeaveDays, approveLeaveRequest, rejectLeaveRequest, deleteLeaveRequest, bulkDeleteLeaveRequests, detectDuplicateLeaves } from '../lib/leave';
 import { useAuth } from '../contexts/AuthContext';
 import { getEmployees } from '../lib/employees';
 import { usePermissions } from '../hooks/usePermissions';
@@ -59,6 +59,9 @@ export const Leave = () => {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [bulkDeleteModal, setBulkDeleteModal] = useState({ show: false });
   const [bulkDeleteSubmitting, setBulkDeleteSubmitting] = useState(false);
+  const [duplicates, setDuplicates] = useState<Array<{ duplicate: LeaveRequest; original: LeaveRequest; type: 'exact' | 'overlap' }>>([]);
+  const [detectingDuplicates, setDetectingDuplicates] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [ticketRequests, setTicketRequests] = useState<TicketRequest[]>([]);
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [selectedLeaveForTicket, setSelectedLeaveForTicket] = useState<LeaveRequest | null>(null);
@@ -1044,7 +1047,7 @@ export const Leave = () => {
       ticketRequired: ticketRequired,
     } as Partial<LeaveRequest>;
 
-    const validationErrors = validateLeaveRequest(request);
+    const validationErrors = await validateLeaveRequest(request);
     if (validationErrors.length > 0) {
       setLeaveErrors(validationErrors);
       return;
@@ -1205,6 +1208,40 @@ export const Leave = () => {
 
   const handleCloseViewModal = () => {
     setViewModal({ show: false, request: null });
+  };
+
+  const handleDetectDuplicates = async () => {
+    setDetectingDuplicates(true);
+    try {
+      const foundDuplicates = await detectDuplicateLeaves();
+      setDuplicates(foundDuplicates);
+      if (foundDuplicates.length > 0) {
+        setShowDuplicateModal(true);
+      } else {
+        alert('No duplicate leave requests found.');
+      }
+    } catch (error) {
+      console.error('Error detecting duplicates:', error);
+      alert('Failed to detect duplicates. Please try again.');
+    } finally {
+      setDetectingDuplicates(false);
+    }
+  };
+
+  const handleDeleteDuplicates = async () => {
+    if (duplicates.length === 0) return;
+    
+    const duplicateIds = duplicates.map(d => d.duplicate.id);
+    try {
+      await bulkDeleteLeaveRequests(duplicateIds);
+      alert(`Successfully deleted ${duplicateIds.length} duplicate leave requests.`);
+      setShowDuplicateModal(false);
+      setDuplicates([]);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting duplicates:', error);
+      alert('Failed to delete duplicates. Please try again.');
+    }
   };
 
   const handleOpenTicketForm = (leave: LeaveRequest) => {
@@ -1528,6 +1565,18 @@ export const Leave = () => {
                   </Button>
                 )}
               </div>
+            )}
+
+            {can(PERMISSIONS.LEAVE_APPROVE) && (
+              <Button
+                onClick={handleDetectDuplicates}
+                variant="secondary"
+                loading={detectingDuplicates}
+                className="w-full sm:w-auto"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Detect Duplicates
+              </Button>
             )}
           </div>
         </CardContent>
@@ -2266,6 +2315,63 @@ export const Leave = () => {
                   Delete All
                 </Button>
                 <Button variant="secondary" onClick={() => setBulkDeleteModal({ show: false })}>
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Duplicate Detection Modal */}
+      {showDuplicateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-secondary-900 mb-4">
+                Found {duplicates.length} Duplicate/Overlapping Leave Requests
+              </h3>
+
+              <div className="mb-4 max-h-96 overflow-y-auto">
+                <p className="text-sm text-secondary-600 mb-4">
+                  The following duplicate or overlapping leave requests were detected. The earliest request for each date range will be kept as the original.
+                </p>
+                {duplicates.map((dup, index) => (
+                  <div key={index} className={`border rounded-lg p-3 mb-3 ${dup.type === 'exact' ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200'}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="text-sm font-medium text-secondary-900">
+                          Employee: {employees.find(emp => emp.id === dup.duplicate.employeeId)?.fullName || dup.duplicate.employeeId}
+                        </p>
+                        <p className="text-xs text-secondary-600">
+                          {typeLabels[dup.duplicate.type]} - {new Date(dup.duplicate.startDate).toLocaleDateString()} - {new Date(dup.duplicate.endDate).toLocaleDateString()}
+                        </p>
+                        {dup.type === 'overlap' && (
+                          <p className="text-xs text-orange-600 mt-1">
+                            Overlaps with: {typeLabels[dup.original.type]} ({new Date(dup.original.startDate).toLocaleDateString()} - {new Date(dup.original.endDate).toLocaleDateString()})
+                          </p>
+                        )}
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded ${dup.type === 'exact' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                        {dup.type === 'exact' ? 'Duplicate' : 'Overlap'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-secondary-500">
+                      <p>Original applied: {new Date(dup.original.appliedDate).toLocaleString()}</p>
+                      <p>{dup.type === 'exact' ? 'Duplicate' : 'Overlapping'} applied: {new Date(dup.duplicate.appliedDate).toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleDeleteDuplicates}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Delete All ({duplicates.length})
+                </Button>
+                <Button variant="secondary" onClick={() => setShowDuplicateModal(false)}>
                   Cancel
                 </Button>
               </div>

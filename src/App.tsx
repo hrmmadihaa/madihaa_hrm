@@ -34,6 +34,7 @@ import { FormsAndLetters } from './pages/FormsAndLetters';
 import OfferLetter from './pages/OfferLetter';
 import LOAGenerator from './components/LOAGenerator';
 import MonthlyAttendanceExcel from './pages/MonthlyAttendanceExcel';
+import { XpatsStaffDetails } from './pages/XpatsStaffDetails';
 
 function App() {
   return (
@@ -58,6 +59,7 @@ function App() {
             <Route path="employees" element={<Employees />} />
             <Route path="employees/new" element={<EmployeeProfilePage />} />
             <Route path="employees/:name" element={<EmployeeProfilePage isEditing={true} />} />
+            <Route path="xpats-staff" element={<XpatsStaffDetails />} />
             <Route path="personnel-files" element={<DigitalPersonnelFiles />} />
             <Route path="attendance" element={<Attendance />} />
             <Route path="leave" element={<Leave />} />

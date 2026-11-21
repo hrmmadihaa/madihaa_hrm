@@ -10,6 +10,7 @@ import { getAllWorkLocations } from '../lib/workLocation';
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
 import { generateAttendanceReport } from '../lib/reports';
+import { getLeaveRequests } from '../lib/leave';
 import { addDoc, collection, query, where, getDocs, updateDoc, doc, Timestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import * as XLSX from 'xlsx';
@@ -68,9 +69,6 @@ export const Attendance = () => {
   const [loadingDailyReport, setLoadingDailyReport] = useState(false);
   const [editingStatus, setEditingStatus] = useState<string | null>(null);
   const [savingStatus, setSavingStatus] = useState(false);
-  const [supervisorComment, setSupervisorComment] = useState('');
-  const [savingComment, setSavingComment] = useState(false);
-  const [savedComment, setSavedComment] = useState('');
   const [staffComments, setStaffComments] = useState<{ [key: string]: string }>({});
   const [staffCommentText, setStaffCommentText] = useState('');
   const [savingStaffComment, setSavingStaffComment] = useState(false);
@@ -116,7 +114,9 @@ export const Attendance = () => {
         getEmployees(),
         getAllWorkLocations()
       ]);
-      setEmployees(empData);
+      // Filter out past employees (resigned, terminated, etc.)
+      const activeEmployees = empData.filter(emp => emp.status === 'active');
+      setEmployees(activeEmployees);
       setWorkLocations(locData);
     } catch (error) {
       console.error('Error loading employees and locations:', error);
@@ -286,6 +286,70 @@ export const Attendance = () => {
       // Fetch all work locations
       const workLocations = await getAllWorkLocations();
 
+      // Fetch all approved leave requests
+      const allLeaveRequests = await getLeaveRequests();
+      const approvedLeaves = allLeaveRequests.filter(leave =>
+        leave.status === 'approved' &&
+        leave.startDate &&
+        leave.endDate
+      );
+
+      console.log('Daily Report Date:', dailyReportDate);
+      console.log('All approved leaves:', approvedLeaves.length);
+      console.log('Sample leave:', approvedLeaves[0]);
+
+      // Create a map of employee IDs to their leave info for the selected date
+      const leaveMap = new Map<string, { type: string; status: string }>();
+      approvedLeaves.forEach(leave => {
+        // Skip if dates are missing
+        if (!leave.startDate || !leave.endDate) return;
+
+        try {
+          // Helper function to get date string in YYYY-MM-DD format
+          const getDateString = (dateInput: any): string | null => {
+            if (!dateInput) return null;
+            
+            let date: Date;
+            if (typeof dateInput === 'string') {
+              date = new Date(dateInput);
+            } else if (dateInput instanceof Date) {
+              date = dateInput;
+            } else if (dateInput.toDate && typeof dateInput.toDate === 'function') {
+              // Handle Firestore Timestamp
+              date = dateInput.toDate();
+            } else {
+              return null;
+            }
+
+            if (isNaN(date.getTime())) return null;
+
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          };
+
+          const leaveStartStr = getDateString(leave.startDate);
+          const leaveEndStr = getDateString(leave.endDate);
+          const compareDateStr = typeof selectedDate === 'string'
+            ? (selectedDate as string).split('T')[0]
+            : getDateString(selectedDate as Date);
+
+          if (!leaveStartStr || !leaveEndStr || !compareDateStr) return;
+
+          if (compareDateStr >= leaveStartStr && compareDateStr <= leaveEndStr) {
+            leaveMap.set(leave.employeeId, {
+              type: leave.type,
+              status: 'on_leave'
+            });
+          }
+        } catch (error) {
+          console.error('Error processing leave for', leave.employeeId, error);
+        }
+      });
+
+      console.log('Final leave map:', Array.from(leaveMap.entries()));
+
       // Create a map of employee IDs to their attendance records for quick lookup
       const attendanceMap = new Map<string, any>();
       records.forEach(record => {
@@ -294,22 +358,25 @@ export const Attendance = () => {
 
       // Group all employees by work location assignment (including those without punches)
       const groupedByLocation: { [key: string]: any[] } = {};
-      
+
       employees.forEach(emp => {
         // Find the work location this employee is assigned to
-        const assignedLocation = workLocations.find(loc => 
+        const assignedLocation = workLocations.find(loc =>
           loc.assignedStaff?.includes(emp.id)
         );
-        
+
         const locationName = assignedLocation?.name || 'Unassigned';
-        
+
         if (!groupedByLocation[locationName]) {
           groupedByLocation[locationName] = [];
         }
 
         // Check if employee has attendance record for this date
         const attendanceRecord = attendanceMap.get(emp.employeeId);
-        
+
+        // Check if employee is on leave (use emp.id which matches Firebase auth ID)
+        const leaveInfo = leaveMap.get(emp.id);
+
         if (attendanceRecord) {
           // Employee has punch record
           groupedByLocation[locationName].push({
@@ -318,6 +385,32 @@ export const Attendance = () => {
             workLocation: locationName,
             position: emp.position || emp.jobTitle || emp.designation || 'N/A',
             lateArrival: attendanceRecord.lateArrival || false,
+          });
+        } else if (leaveInfo) {
+          // Employee is on leave
+          groupedByLocation[locationName].push({
+            id: emp.id,
+            employeeId: emp.employeeId,
+            employeeName: emp.fullName || 'Unknown',
+            workLocation: locationName,
+            position: emp.position || emp.jobTitle || emp.designation || 'N/A',
+            checkInTime: null,
+            checkOutTime: null,
+            status: leaveInfo.status,
+            leaveType: leaveInfo.type,
+            lateArrival: false,
+            date: startOfDay,
+            onLeave: true,
+          });
+        } else if (attendanceRecord?.isFridayOff) {
+          // Employee is marked as Friday OFF
+          groupedByLocation[locationName].push({
+            ...attendanceRecord,
+            employeeName: attendanceRecord.employeeName || emp.fullName || 'Unknown',
+            workLocation: locationName,
+            position: emp.position || emp.jobTitle || emp.designation || 'N/A',
+            lateArrival: false,
+            onFridayOff: true,
           });
         } else {
           // Employee has no punch record - show as absent/no punch
@@ -342,19 +435,7 @@ export const Attendance = () => {
         employees: data.sort((a, b) => (a.employeeName || '').localeCompare(b.employeeName || ''))
       })));
 
-      // Load saved comment for this date
-      const commentQuery = query(
-        collection(db, 'daily_report_comments'),
-        where('date', '==', dailyReportDate)
-      );
-      const commentSnapshot = await getDocs(commentQuery);
-      if (!commentSnapshot.empty) {
-        setSavedComment(commentSnapshot.docs[0].data().comment || '');
-        setSupervisorComment(commentSnapshot.docs[0].data().comment || '');
-      } else {
-        setSavedComment('');
-        setSupervisorComment('');
-      }
+      // Supervisor comment feature removed
 
       // Load staff comments for this date
       const staffCommentQuery = query(
@@ -380,45 +461,6 @@ export const Attendance = () => {
 
   const handlePrintDailyReport = () => {
     window.print();
-  };
-
-  const handleSaveComment = async () => {
-    if (!dailyReportDate) return;
-    
-    setSavingComment(true);
-    try {
-      const commentQuery = query(
-        collection(db, 'daily_report_comments'),
-        where('date', '==', dailyReportDate)
-      );
-      const commentSnapshot = await getDocs(commentQuery);
-      
-      if (!commentSnapshot.empty) {
-        // Update existing comment
-        await updateDoc(doc(db, 'daily_report_comments', commentSnapshot.docs[0].id), {
-          comment: supervisorComment,
-          updatedAt: Timestamp.now()
-        });
-      } else {
-        // Create new comment
-        await addDoc(collection(db, 'daily_report_comments'), {
-          date: dailyReportDate,
-          comment: supervisorComment,
-          supervisorId: user?.id,
-          supervisorName: user?.displayName || user?.email || 'Supervisor',
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now()
-        });
-      }
-      
-      setSavedComment(supervisorComment);
-      alert('Comment saved successfully');
-    } catch (error) {
-      console.error('Error saving comment:', error);
-      alert('Failed to save comment');
-    } finally {
-      setSavingComment(false);
-    }
   };
 
   const handleEditStatus = (recordId: string) => {
@@ -1608,7 +1650,8 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
             firstPunch: emp.firstPunch,
             lastPunch: emp.lastPunch,
             uploadDate: uploadDate,
-            attendanceDate: attendanceDate.toISOString()
+            attendanceDate: attendanceDate.toISOString(),
+            isOff: emp.isOff
           });
 
           // Use UTC methods to create date boundaries
@@ -1656,9 +1699,10 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
               date: Timestamp.fromDate(attendanceDate),
               checkInTime: emp.firstPunch ? Timestamp.fromDate(new Date(emp.firstPunch)) : null,
               checkOutTime: checkOutTime ? Timestamp.fromDate(checkOutTime) : null,
-              checkInMethod: 'biometric',
-              status: 'present',
+              checkInMethod: emp.isOff ? 'manual' : 'biometric',
+              status: emp.isOff ? 'friday_off' : 'present',
               lateArrival: emp.isLate || false,
+              isFridayOff: emp.isOff || false,
             });
           } else {
             const docId = querySnapshot.docs[0].id;
@@ -1668,6 +1712,8 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
               checkInTime: emp.firstPunch ? Timestamp.fromDate(new Date(emp.firstPunch)) : null,
               checkOutTime: checkOutTime ? Timestamp.fromDate(checkOutTime) : null,
               lateArrival: emp.isLate || false,
+              status: emp.isOff ? 'friday_off' : 'present',
+              isFridayOff: emp.isOff || false,
             });
           }
 
@@ -2106,42 +2152,6 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                     </p>
                   </div>
 
-                  {/* Supervisor Comment Section */}
-                  <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Supervisor Comment
-                    </label>
-                    <textarea
-                      value={supervisorComment}
-                      onChange={(e) => setSupervisorComment(e.target.value)}
-                      placeholder="Enter your comments for this daily report..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-                      rows={3}
-                    />
-                    <div className="flex gap-2 mt-2 no-print">
-                      <Button
-                        onClick={handleSaveComment}
-                        loading={savingComment}
-                        className="text-sm"
-                      >
-                        Save Comment
-                      </Button>
-                      {savedComment && (
-                        <span className="text-xs text-green-600 flex items-center mt-2">
-                          ✓ Comment saved
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Display saved comment in print view */}
-                  {savedComment && (
-                    <div className="mb-6 p-4 bg-white border-2 border-gray-300 rounded-lg print-only">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-2">Supervisor Comment:</h3>
-                      <p className="text-sm text-gray-900 whitespace-pre-wrap">{savedComment}</p>
-                    </div>
-                  )}
-
                   {dailyReportData.map((locationGroup) => (
                     <div key={locationGroup.location} className="mb-8">
                       <h2 className="text-xl font-semibold text-secondary-900 mb-4 border-b-2 border-secondary-300 pb-2">
@@ -2150,12 +2160,12 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                       <table className="w-full border-collapse">
                         <thead>
                           <tr className="bg-secondary-100">
-                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">Employee ID</th>
-                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">Name</th>
-                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">Position</th>
-                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">First Punch Time</th>
-                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">Status</th>
-                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700">Comment</th>
+                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700 w-24">Employee ID</th>
+                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700 w-40">Name</th>
+                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700 w-32">Position</th>
+                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700 w-28">First Punch Time</th>
+                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700 w-24">Status</th>
+                            <th className="border border-secondary-300 px-4 py-2 text-left text-sm font-semibold text-secondary-700 w-auto">Comment</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2165,10 +2175,18 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                               <td className="border border-secondary-300 px-4 py-2 text-sm">{employee.employeeName}</td>
                               <td className="border border-secondary-300 px-4 py-2 text-sm">{employee.position || 'N/A'}</td>
                               <td className="border border-secondary-300 px-4 py-2 text-sm">
-                                {employee.checkInTime ? new Date(employee.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}
+                                {employee.checkInTime ? new Date(employee.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : employee.onLeave ? employee.leaveType : 'N/A'}
                               </td>
                               <td className="border border-secondary-300 px-4 py-2 text-sm">
-                                {editingStatus === employee.id ? (
+                                {employee.onLeave ? (
+                                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-semibold capitalize">
+                                    {employee.leaveType} Leave
+                                  </span>
+                                ) : employee.onFridayOff ? (
+                                  <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-semibold">
+                                    Friday OFF
+                                  </span>
+                                ) : editingStatus === employee.id ? (
                                   <div className="flex flex-col gap-2">
                                     <select
                                       value={employee.lateArrival ? 'late' : 'ontime'}
@@ -2210,12 +2228,14 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                                     ) : (
                                       <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold">On Time</span>
                                     )}
-                                    <button
-                                      onClick={() => handleEditStatus(employee.id)}
-                                      className="text-xs text-blue-600 hover:text-blue-800 no-print"
-                                    >
-                                      Edit
-                                    </button>
+                                    {!employee.noPunch && (
+                                      <button
+                                        onClick={() => handleEditStatus(employee.id)}
+                                        className="text-xs text-blue-600 hover:text-blue-800 no-print"
+                                      >
+                                        Edit
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                               </td>
@@ -2705,6 +2725,13 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
           }
           .no-print {
             display: none !important;
+          }
+          #daily-report-print th:nth-child(4) {
+            width: 80px !important;
+          }
+          #daily-report-print th:nth-child(6) {
+            width: auto !important;
+            min-width: 200px;
           }
           @page {
             size: A4;

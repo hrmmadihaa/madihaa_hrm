@@ -67,6 +67,12 @@ export interface Employee {
   visaExpiryDate?: Date;
   biometricFingerprintUpdated?: Date;
   bankAccountNumber?: string;
+  visaCancellation?: {
+    submittedDate?: Date;
+    requestNumber?: string;
+    egovLink?: string;
+    cancelledAt?: Date;
+  };
 }
 
 export interface EmployeeAccommodation {
@@ -1086,4 +1092,214 @@ export interface SalaryIncrement {
   status: 'Pending' | 'Approved' | 'Rejected';
   createdAt: Date;
   updatedAt?: Date;
+}
+
+// Expat Staff Types
+export type ExpatCompany = 'Madihaa' | 'Batuta' | 'Madigrand';
+export type ExpatEmploymentStatus = 'active' | 'departed' | 'on_leave' | 'suspended';
+export type ExpatDocumentStatus = 'valid' | 'expiring_soon' | 'expired' | 'missing';
+export type ExpatRefundStatus = 'pending' | 'applied_for_refund' | 'refund_received' | 'refund_received_to_wallet' | 'reported_missing' | 'cancelled' | 'not_available';
+export type MedicalStatus = 'scheduled' | 'pending' | 'completed' | 'failed' | 'rescheduled' | 'overdue';
+export type MedicalApplicationStatus = 'submitted' | 'under_review' | 'approved' | 'rejected' | 'completed';
+
+export interface MedicalApplication {
+  id: string;
+  staffId: string;
+  staffName: string;
+  refNumber: string;
+  createdDate: Date;
+  lastSubmittedDate?: Date;
+  stateChangeRemarks?: string;
+  status: MedicalApplicationStatus;
+  egovLink?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ExpatStaff {
+  id: string;
+  employeeId: string;
+  internalId?: string;
+  fullName: string;
+  company: ExpatCompany;
+  nationality: string;
+  dateOfBirth?: Date;
+  mobileNumber: string;
+  occupation: string;
+  workSite: string;
+  employmentStatus: ExpatEmploymentStatus;
+  joiningDate: Date;
+  departureDate?: Date;
+  departureReason?: string;
+  personalDetails: ExpatPersonalDetails;
+  passport: ExpatPassport;
+  visa: ExpatVisa;
+  workPermit: ExpatWorkPermit;
+  medical: ExpatMedical;
+  insurance: ExpatInsurance;
+  quota: ExpatQuota;
+  deposit: ExpatDeposit;
+  documents: ExpatDocument[];
+  remarks?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+export interface ExpatPersonalDetails {
+  firstName: string;
+  lastName: string;
+  dateOfBirth?: Date;
+  nationality: string;
+  mobileNumber: string;
+  email?: string;
+  emergencyContact?: {
+    name: string;
+    relationship: string;
+    phone: string;
+  };
+}
+
+export interface ExpatPassport {
+  passportNumber: string;
+  issueDate?: Date;
+  expiryDate: Date;
+  remarks?: string;
+  documentUrl?: string;
+  status: ExpatDocumentStatus;
+  daysRemaining?: number;
+}
+
+export interface ExpatVisa {
+  visaNumber?: string;
+  referenceNumber?: string;
+  issueDate?: Date;
+  expiryDate: Date;
+  status: string;
+  remarks?: string;
+  documentUrl?: string;
+  daysRemaining?: number;
+  cancellation?: {
+    submittedDate?: Date;
+    requestNumber?: string;
+    egovLink?: string;
+    cancelledAt?: Date;
+  };
+}
+
+export interface ExpatWorkPermit {
+  workPermitNumber: string;
+  issueDate?: Date;
+  expiryDate: Date;
+  fee?: number;
+  status: string;
+  receiptNumber?: string;
+  remarks?: string;
+  documentUrl?: string;
+  daysRemaining?: number;
+}
+
+export interface ExpatMedical {
+  medicalDate?: Date;
+  nextDueDate: Date;
+  status: MedicalStatus;
+  remarks?: string;
+  documentUrl?: string;
+  daysRemaining?: number;
+}
+
+export interface ExpatInsurance {
+  provider: string;
+  policyNumber?: string;
+  startDate?: Date;
+  expiryDate: Date;
+  amount?: number;
+  status: string;
+  remarks?: string;
+  documentUrl?: string;
+  daysRemaining?: number;
+}
+
+export interface ExpatQuota {
+  quotaNumber?: string;
+  slotFee?: number;
+  paymentDate?: Date;
+  receiptNumber?: string;
+  status?: string;
+  remarks?: string;
+}
+
+export interface ExpatDeposit {
+  depositAmount: number;
+  depositPaid: number;
+  paymentDate?: Date;
+  receipt?: string;
+  depositStatus: string;
+  refundAmount?: number;
+  refundStatus: ExpatRefundStatus;
+  refundDate?: Date;
+  refundReference?: string;
+  remarks?: string;
+}
+
+export interface ExpatDocument {
+  id: string;
+  type: 'passport' | 'visa' | 'work_permit' | 'medical' | 'insurance' | 'receipt' | 'other';
+  name: string;
+  url: string;
+  uploadedAt: Date;
+  expiryDate?: Date;
+}
+
+export interface ExpatMedicalAppointment {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  company: ExpatCompany;
+  scheduledDate: Date;
+  status: MedicalStatus;
+  remarks?: string;
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export interface ExpatActivityLog {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  eventType: 'record_created' | 'passport_updated' | 'visa_renewed' | 'work_permit_renewed' | 'medical_completed' | 'insurance_renewed' | 'deposit_paid' | 'refund_received' | 'employment_ended' | 'other';
+  description: string;
+  performedBy: string;
+  performedAt: Date;
+}
+
+export interface ExpatDepositTransaction {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  company: ExpatCompany;
+  transactionType: 'deposit' | 'refund';
+  amount: number;
+  paymentDate: Date;
+  receipt?: string;
+  reference?: string;
+  status: string;
+  remarks?: string;
+  createdAt: Date;
+}
+
+export interface ExpatDashboardStats {
+  totalExpatStaff: number;
+  madihaaStaff: number;
+  batutaStaff: number;
+  madigrandStaff: number;
+  activeStaff: number;
+  departedStaff: number;
+  workPermitsExpiring: number;
+  passportsExpiring: number;
+  visasExpiring: number;
+  medicalExpiring: number;
+  insuranceExpiring: number;
+  pendingDeposits: number;
 }

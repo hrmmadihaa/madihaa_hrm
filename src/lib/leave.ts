@@ -146,7 +146,7 @@ export const calculateLeaveDays = (startDate: Date, endDate: Date) => {
   return Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
 };
 
-export const validateLeaveRequest = (leaveRequest: Partial<LeaveRequest>) => {
+export const validateLeaveRequest = async (leaveRequest: Partial<LeaveRequest>) => {
   const errors: string[] = [];
   if (!leaveRequest.employeeId) {
     errors.push('Employee ID is required.');
@@ -169,6 +169,37 @@ export const validateLeaveRequest = (leaveRequest: Partial<LeaveRequest>) => {
   if (leaveRequest.days !== undefined && leaveRequest.days <= 0) {
     errors.push('Leave duration must be at least one day.');
   }
+
+  // Check for duplicate/overlapping leave requests
+  if (leaveRequest.employeeId && leaveRequest.startDate && leaveRequest.endDate) {
+    try {
+      const existingRequests = await getLeaveRequests(leaveRequest.employeeId);
+      const newStart = new Date(leaveRequest.startDate);
+      const newEnd = new Date(leaveRequest.endDate);
+
+      for (const existing of existingRequests) {
+        // Skip cancelled or rejected requests
+        if (existing.status === 'cancelled' || existing.status === 'rejected') {
+          continue;
+        }
+
+        const existingStart = new Date(existing.startDate);
+        const existingEnd = new Date(existing.endDate);
+
+        // Check for date overlap
+        // Two ranges overlap if: (StartA <= EndB) and (EndA >= StartB)
+        if (newStart <= existingEnd && newEnd >= existingStart) {
+          const existingDates = `${existingStart.toLocaleDateString()} - ${existingEnd.toLocaleDateString()}`;
+          errors.push(`Duplicate leave: Employee already has a ${existing.status} leave request from ${existingDates} (${existing.type}).`);
+          break; // Only show first duplicate
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for duplicate leave requests:', error);
+      // Don't block submission if duplicate check fails
+    }
+  }
+
   return errors;
 };
 
@@ -440,6 +471,98 @@ export const getPendingLeaveRequests = async (approverId: string) => {
     );
   } catch (error) {
     console.error('Error fetching pending leave requests:', error);
+    throw error;
+  }
+};
+
+// Detect duplicate leave requests
+export const detectDuplicateLeaves = async () => {
+  try {
+    const allRequests = await getLeaveRequests();
+    const duplicates: Array<{ duplicate: LeaveRequest; original: LeaveRequest; type: 'exact' | 'overlap' }> = [];
+    const processed = new Set<string>();
+
+    // Sort by applied date to keep the earliest as original
+    const sorted = [...allRequests].sort((a, b) => a.appliedDate.getTime() - b.appliedDate.getTime());
+
+    for (const request of sorted) {
+      if (request.status === 'cancelled' || request.status === 'rejected') {
+        continue;
+      }
+
+      const key = `${request.employeeId}_${request.startDate.toISOString()}_${request.endDate.toISOString()}`;
+      
+      // Check for exact duplicate
+      if (processed.has(key)) {
+        const original = sorted.find(r => 
+          r.employeeId === request.employeeId &&
+          r.startDate.getTime() === request.startDate.getTime() &&
+          r.endDate.getTime() === request.endDate.getTime() &&
+          r.appliedDate.getTime() < request.appliedDate.getTime()
+        );
+        
+        if (original) {
+          duplicates.push({ duplicate: request, original, type: 'exact' });
+        }
+      } else {
+        processed.add(key);
+      }
+    }
+
+    // Check for overlapping dates (not exact duplicates)
+    const processedOverlaps = new Set<string>();
+    for (let i = 0; i < sorted.length; i++) {
+      const request = sorted[i];
+      if (request.status === 'cancelled' || request.status === 'rejected') {
+        continue;
+      }
+
+      const overlapKey = `${request.employeeId}_${request.startDate.toISOString()}_${request.endDate.toISOString()}`;
+      if (processedOverlaps.has(overlapKey)) continue;
+
+      for (let j = i + 1; j < sorted.length; j++) {
+        const other = sorted[j];
+        if (other.status === 'cancelled' || other.status === 'rejected') {
+          continue;
+        }
+
+        // Same employee
+        if (request.employeeId !== other.employeeId) continue;
+
+        // Skip if already marked as exact duplicate
+        const isExactDuplicate = duplicates.some(d => 
+          d.duplicate.id === other.id && d.type === 'exact'
+        );
+        if (isExactDuplicate) continue;
+
+        // Check for date overlap
+        // Two ranges overlap if: (StartA <= EndB) and (EndA >= StartB)
+        const requestStart = request.startDate.getTime();
+        const requestEnd = request.endDate.getTime();
+        const otherStart = other.startDate.getTime();
+        const otherEnd = other.endDate.getTime();
+
+        if (requestStart <= otherEnd && requestEnd >= otherStart) {
+          // Check if not exact duplicate (already handled above)
+          if (requestStart !== otherStart || requestEnd !== otherEnd) {
+            const overlapKey2 = `${other.employeeId}_${other.startDate.toISOString()}_${other.endDate.toISOString()}`;
+            if (!processedOverlaps.has(overlapKey2)) {
+              // Keep the earlier applied as original
+              const original = request.appliedDate.getTime() < other.appliedDate.getTime() ? request : other;
+              const duplicate = request.appliedDate.getTime() < other.appliedDate.getTime() ? other : request;
+              
+              duplicates.push({ duplicate, original, type: 'overlap' });
+              processedOverlaps.add(overlapKey2);
+            }
+          }
+        }
+      }
+      processedOverlaps.add(overlapKey);
+    }
+
+    return duplicates;
+  } catch (error) {
+    console.error('Error detecting duplicate leaves:', error);
     throw error;
   }
 };

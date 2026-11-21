@@ -4,7 +4,7 @@ import {
   Menu, X, Bell, User, LogOut, Settings,
   LayoutDashboard, Users, Calendar, CalendarCheck,
   DollarSign, Clock, BarChart, FileText, GraduationCap,
-  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle, Fuel, Wallet, Mail
+  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle, Fuel, Wallet, Mail, Globe
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
@@ -29,6 +29,7 @@ export const Layout: React.FC = () => {
   const adminNavigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Employees', href: '/employees', icon: Users },
+    { name: 'Xpats Staff', href: '/xpats-staff', icon: Globe },
     { name: 'Attendance', href: '/attendance', icon: Calendar },
     { name: 'Leave', href: '/leave', icon: CalendarCheck },
     { name: 'Friday Duty', href: '/friday-duty', icon: CalendarDays },

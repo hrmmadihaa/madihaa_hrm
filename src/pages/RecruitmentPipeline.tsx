@@ -52,6 +52,12 @@ interface Candidate {
   salary_payment?: string;
   job_description?: string;
   contract_duration?: string;
+  // Work Permit Applied fields
+  expat_reference_number?: string;
+  new_work_permit?: string;
+  submitted_date?: string;
+  egov_link?: string;
+  slot_number?: string;
 }
 
 const STAGES = [
@@ -85,6 +91,8 @@ export const RecruitmentPipeline: React.FC = () => {
   const [filterPosition, setFilterPosition] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedStage, setSelectedStage] = useState('all');
+  const [showWorkPermitModal, setShowWorkPermitModal] = useState(false);
+  const [pendingStageChange, setPendingStageChange] = useState<{ candidate: Candidate; newStage: string } | null>(null);
 
   const [formData, setFormData] = useState({
     Name: '',
@@ -117,7 +125,13 @@ export const RecruitmentPipeline: React.FC = () => {
     food_accommodation: '',
     salary_payment: '',
     job_description: '',
-    contract_duration: ''
+    contract_duration: '',
+    // Work Permit Applied fields
+    expat_reference_number: '',
+    new_work_permit: '',
+    submitted_date: '',
+    egov_link: '',
+    slot_number: ''
   });
 
   useEffect(() => {
@@ -183,6 +197,13 @@ export const RecruitmentPipeline: React.FC = () => {
   };
 
   const handleQuickStageChange = async (candidate: Candidate, newStage: string) => {
+    // If changing to work_permit_applied, show modal to collect work permit details
+    if (newStage === 'work_permit_applied') {
+      setPendingStageChange({ candidate, newStage });
+      setShowWorkPermitModal(true);
+      return;
+    }
+
     try {
       const docRef = doc(db, 'recruitment_candidates', candidate.id);
       await updateDoc(docRef, {
@@ -196,18 +217,68 @@ export const RecruitmentPipeline: React.FC = () => {
     }
   };
 
+  const handleWorkPermitSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingStageChange) return;
+
+    const { candidate, newStage } = pendingStageChange;
+
+    // Validate required fields
+    if (!formData.expat_reference_number || !formData.submitted_date || !formData.slot_number) {
+      alert('Please fill in all required fields: Expat Reference Number, Submitted Date, and Slot Number');
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'recruitment_candidates', candidate.id);
+      const updateData: any = {
+        stage: newStage,
+        expat_reference_number: formData.expat_reference_number,
+        new_work_permit: formData.new_work_permit,
+        submitted_date: formData.submitted_date,
+        egov_link: formData.egov_link,
+        slot_number: formData.slot_number,
+        last_updated: new Date().toISOString()
+      };
+
+      // If LOA status was not completed, set it to completed
+      if (candidate.loa_status !== 'completed') {
+        updateData.loa_status = 'completed';
+      }
+
+      await updateDoc(docRef, updateData);
+      setShowWorkPermitModal(false);
+      setPendingStageChange(null);
+      // Reset work permit fields
+      setFormData({
+        ...formData,
+        expat_reference_number: '',
+        new_work_permit: '',
+        submitted_date: '',
+        egov_link: '',
+        slot_number: ''
+      });
+      loadData();
+    } catch (error) {
+      console.error('Error updating stage with work permit details:', error);
+      alert('Failed to update stage');
+    }
+  };
+
   const handleLOAStatusChange = async (candidate: Candidate, loaStatus: 'pending' | 'completed' | null) => {
+    // If LOA is completed, show modal to collect work permit details before moving to Work Permit Applied stage
+    if (loaStatus === 'completed') {
+      setPendingStageChange({ candidate, newStage: 'work_permit_applied' });
+      setShowWorkPermitModal(true);
+      return;
+    }
+
     try {
       const docRef = doc(db, 'recruitment_candidates', candidate.id);
       const updateData: any = {
         loa_status: loaStatus,
         last_updated: new Date().toISOString()
       };
-      
-      // If LOA is completed, move to Work Permit Applied stage
-      if (loaStatus === 'completed') {
-        updateData.stage = 'work_permit_applied';
-      }
       
       await updateDoc(docRef, updateData);
       loadData();
@@ -249,7 +320,12 @@ export const RecruitmentPipeline: React.FC = () => {
       food_accommodation: candidate.food_accommodation || '',
       salary_payment: candidate.salary_payment || '',
       job_description: candidate.job_description || '',
-      contract_duration: candidate.contract_duration || ''
+      contract_duration: candidate.contract_duration || '',
+      expat_reference_number: candidate.expat_reference_number || '',
+      new_work_permit: candidate.new_work_permit || '',
+      submitted_date: candidate.submitted_date || '',
+      egov_link: candidate.egov_link || '',
+      slot_number: candidate.slot_number || ''
     });
     setShowModal(true);
   };
@@ -285,7 +361,12 @@ export const RecruitmentPipeline: React.FC = () => {
       food_accommodation: '',
       salary_payment: '',
       job_description: '',
-      contract_duration: ''
+      contract_duration: '',
+      expat_reference_number: '',
+      new_work_permit: '',
+      submitted_date: '',
+      egov_link: '',
+      slot_number: ''
     });
   };
 
@@ -1228,12 +1309,148 @@ export const RecruitmentPipeline: React.FC = () => {
                 </div>
               </div>
 
+              {/* Work Permit Applied Fields - Show when stage is work_permit_applied or later */}
+              {editingCandidate && ['work_permit_applied', 'payment_pending', 'payment_completed', 'entry_pass_pending', 'entry_pass_received', 'ticket_purchased', 'ticket_approved', 'departed', 'van_arranged', 'airport_pickup', 'arrived', 'onboarded'].includes(editingCandidate.stage) && (
+                <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <h3 className="text-lg font-semibold text-orange-800 mb-4">Work Permit Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Expat Reference Number *</label>
+                      <input
+                        type="text"
+                        value={formData.expat_reference_number}
+                        onChange={(e) => setFormData({ ...formData, expat_reference_number: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="e.g., WR1/2026/122334"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">New Work Permit</label>
+                      <input
+                        type="text"
+                        value={formData.new_work_permit}
+                        onChange={(e) => setFormData({ ...formData, new_work_permit: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="e.g., New Work Permit"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Submitted Date *</label>
+                      <input
+                        type="date"
+                        value={formData.submitted_date}
+                        onChange={(e) => setFormData({ ...formData, submitted_date: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">E-Gov Link</label>
+                      <input
+                        type="url"
+                        value={formData.egov_link}
+                        onChange={(e) => setFormData({ ...formData, egov_link: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="https://xpat.egov.mv/EmploymentApproval/EmploymentApproval/ViewDetails?id=..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Slot Number *</label>
+                      <input
+                        type="text"
+                        value={formData.slot_number}
+                        onChange={(e) => setFormData({ ...formData, slot_number: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="e.g., QS00482680"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 mt-6">
                 <Button type="button" variant="secondary" onClick={() => { setShowModal(false); setEditingCandidate(null); resetForm(); }}>
                   Cancel
                 </Button>
                 <Button type="submit">
                   {editingCandidate ? 'Update' : 'Add'} Candidate
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Work Permit Details Modal */}
+      {showWorkPermitModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">Work Permit Details</h2>
+              <button onClick={() => { setShowWorkPermitModal(false); setPendingStageChange(null); }}>
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleWorkPermitSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Expat Reference Number *</label>
+                  <input
+                    type="text"
+                    value={formData.expat_reference_number}
+                    onChange={(e) => setFormData({ ...formData, expat_reference_number: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., WR1/2026/122334"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">New Work Permit</label>
+                  <input
+                    type="text"
+                    value={formData.new_work_permit}
+                    onChange={(e) => setFormData({ ...formData, new_work_permit: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., New Work Permit"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Submitted Date *</label>
+                  <input
+                    type="date"
+                    value={formData.submitted_date}
+                    onChange={(e) => setFormData({ ...formData, submitted_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">E-Gov Link</label>
+                  <input
+                    type="url"
+                    value={formData.egov_link}
+                    onChange={(e) => setFormData({ ...formData, egov_link: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="https://xpat.egov.mv/EmploymentApproval/EmploymentApproval/ViewDetails?id=..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Slot Number *</label>
+                  <input
+                    type="text"
+                    value={formData.slot_number}
+                    onChange={(e) => setFormData({ ...formData, slot_number: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., QS00482680"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <Button type="button" variant="secondary" onClick={() => { setShowWorkPermitModal(false); setPendingStageChange(null); }}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  Save & Change Stage
                 </Button>
               </div>
             </form>

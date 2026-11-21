@@ -159,6 +159,12 @@ const firestoreToEmployee = (doc: any): Employee => {
     qtaPaid: data.qtaPaid,
     sn: data.sn,
     biometricFingerprintUpdated: timestampToDate(data.biometricFingerprintUpdated),
+    visaCancellation: data.visaCancellation ? {
+      submittedDate: timestampToDate(data.visaCancellation.submittedDate),
+      requestNumber: data.visaCancellation.requestNumber,
+      egovLink: data.visaCancellation.egovLink,
+      cancelledAt: timestampToDate(data.visaCancellation.cancelledAt),
+    } : undefined,
   };
 };
 

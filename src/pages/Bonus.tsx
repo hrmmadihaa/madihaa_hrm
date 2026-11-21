@@ -773,15 +773,18 @@ export const Bonus = () => {
       }) : []
     );
 
+    // Calculate total amount from data
+    const totalAmount = dataToUse.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
     const groupedByLocation: { [key: string]: { locationName: string; employees: any[] } } = {};
-    
+
     dataToUse.forEach((item: any) => {
       const emp = employees.find(e => e.id === item.id);
-      const assignedLocation = workLocations.find(loc => 
+      const assignedLocation = workLocations.find(loc =>
         loc.assignedStaff?.includes(emp?.id)
       );
       const locationName = assignedLocation?.name || 'Unassigned';
-      
+
       if (!groupedByLocation[locationName]) {
         groupedByLocation[locationName] = {
           locationName,
@@ -792,14 +795,14 @@ export const Bonus = () => {
     });
 
     const doc = new jsPDF();
-    
+
     doc.setFontSize(20);
     doc.text('Bonus Report', 14, 20);
-    
+
     doc.setFontSize(12);
     doc.text(`Date: ${bonusDate || 'N/A'}`, 14, 30);
     doc.text(`Description: ${description || 'N/A'}`, 14, 38);
-    doc.text(`Total Amount: MVR ${bonusAmount || '0.00'}`, 14, 46);
+    doc.text(`Total Amount: MVR ${totalAmount.toFixed(2)}`, 14, 46);
     doc.text(`Total Employees: ${dataToUse.length}`, 14, 54);
 
     let yPos = 65;
@@ -898,16 +901,19 @@ export const Bonus = () => {
 
   const handleDownloadPDF = () => {
     const doc = new jsPDF();
-    
+
+    // Calculate total amount from preview data
+    const totalAmount = previewData.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
     // Group by work location
     const groupedByLocation: { [key: string]: any[] } = {};
     previewData.forEach((item) => {
       const emp = employees.find(e => e.id === item.id);
-      const assignedLocation = workLocations.find(loc => 
+      const assignedLocation = workLocations.find(loc =>
         loc.assignedStaff?.includes(emp?.id)
       );
       const locationName = assignedLocation?.name || 'Unassigned';
-      
+
       if (!groupedByLocation[locationName]) {
         groupedByLocation[locationName] = [];
       }
@@ -920,7 +926,7 @@ export const Bonus = () => {
     doc.setFontSize(11);
     doc.text(`Date: ${bonusDate}`, 14, 30);
     doc.text(`Description: ${description || 'N/A'}`, 14, 37);
-    doc.text(`Total Amount: MVR ${parseFloat(bonusAmount).toFixed(2)}`, 14, 44);
+    doc.text(`Total Amount: MVR ${totalAmount.toFixed(2)}`, 14, 44);
     doc.text(`Total Employees: ${previewData.length}`, 14, 51);
 
     let yPos = 60;
@@ -1396,9 +1402,15 @@ export const Bonus = () => {
                     ) : (
                       <>
                         <p>Employees: {selectedEmployees.length}</p>
+                        <p>Amounts Entered: {selectedEmployees.filter(empId => customAmounts[empId] && parseFloat(customAmounts[empId]) > 0).length} / {selectedEmployees.length}</p>
                         <p className="font-semibold text-primary-700">
-                          Total Amount: MVR {selectedEmployees.reduce((sum, empId) => sum + parseFloat(customAmounts[empId] || '0'), 0).toFixed(2)}
+                          Total Amount: MVR {selectedEmployees.reduce((sum, empId) => sum + (parseFloat(customAmounts[empId]) || 0), 0).toFixed(2)}
                         </p>
+                        {selectedEmployees.filter(empId => !customAmounts[empId] || parseFloat(customAmounts[empId]) <= 0).length > 0 && (
+                          <p className="text-xs text-orange-600">
+                            Please enter amounts for all {selectedEmployees.filter(empId => !customAmounts[empId] || parseFloat(customAmounts[empId]) <= 0).length} remaining employees
+                          </p>
+                        )}
                       </>
                     )}
                   </div>
@@ -1432,6 +1444,26 @@ export const Bonus = () => {
                     <>
                       <Save className="w-5 h-5 mr-2" />
                       {editingBatch ? 'Update Bonus Batch' : 'Distribute Bonus'}
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {customAmountMode && (
+                <Button
+                  onClick={handleSave}
+                  disabled={saving || selectedEmployees.length === 0}
+                  className="w-full"
+                >
+                  {saving ? (
+                    <>
+                      <span className="animate-spin mr-2">⟳</span>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5 mr-2" />
+                      Save Custom Amounts
                     </>
                   )}
                 </Button>

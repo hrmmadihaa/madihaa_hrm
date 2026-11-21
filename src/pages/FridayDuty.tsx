@@ -15,6 +15,7 @@ interface Employee {
   fullName: string;
   department: string;
   designation?: string;
+  status?: string;
 }
 
 interface FridayScheduleEntry {
@@ -41,16 +42,20 @@ export const FridayDuty = () => {
   // Group employees by work location
   const employeesByWorkLocation = useCallback(() => {
     const grouped: { [key: string]: Employee[] } = {};
-    
+
     // Initialize with all work locations
     workLocations.forEach(loc => {
       if (loc.name) {
         grouped[loc.name] = [];
       }
     });
-    
-    // Add employees to their assigned work locations
-    employees.forEach(emp => {
+
+    // Add employees to their assigned work locations (only active employees)
+    const activeEmployees = employees.filter(emp => emp.status === 'active' || emp.status === undefined || emp.status === null);
+    console.log('Friday Duty - Total employees:', employees.length, 'Active employees:', activeEmployees.length);
+    console.log('Friday Duty - Sample employee statuses:', employees.slice(0, 5).map(e => ({ name: e.fullName, status: e.status })));
+
+    activeEmployees.forEach(emp => {
       // Find the work location this employee is assigned to
       const workLocation = workLocations.find(loc => loc.assignedStaff?.includes(emp.id));
       if (workLocation && workLocation.name) {
@@ -61,14 +66,14 @@ export const FridayDuty = () => {
         grouped['Unassigned'].push(emp);
       }
     });
-    
+
     // Remove empty work locations
     Object.keys(grouped).forEach(key => {
       if (grouped[key].length === 0) {
         delete grouped[key];
       }
     });
-    
+
     return grouped as Record<string, Employee[]>;
   }, [employees, workLocations]);
 
@@ -257,46 +262,57 @@ export const FridayDuty = () => {
 
   const handleStatusChange = (dateString: string, empId: string, status: 'On' | 'Off' | 'Holiday') => {
     const employee = employees.find(emp => emp.empId === empId);
-    const oldStatus = scheduleData[dateString]?.[empId]?.status || 'On';
-    
-    console.log('Friday Duty - Status change:', {
-      date: dateString,
-      employeeId: empId,
-      employeeName: employee?.fullName || 'Unknown',
-      oldStatus,
-      newStatus: status,
-      user: auth.currentUser?.email
+
+    // Check if employee has approved leave for this Friday
+    const friday = new Date(dateString);
+    const hasLeave = leaveRequests.some(leave => {
+      if (leave.employeeId !== employee?.id) return false;
+      if (leave.status !== 'approved') return false;
+
+      const leaveStart = new Date(leave.startDate);
+      const leaveEnd = new Date(leave.endDate);
+      leaveStart.setHours(0, 0, 0, 0);
+      leaveEnd.setHours(23, 59, 59, 999);
+
+      return friday >= leaveStart && friday <= leaveEnd;
     });
-    
+
+    if (hasLeave && status !== 'Off') {
+      alert(`Cannot change status for ${employee?.fullName}. Employee is on approved leave from ${leaveRequests.find(l => l.employeeId === employee?.id && l.status === 'approved')?.startDate?.toLocaleDateString()} to ${leaveRequests.find(l => l.employeeId === employee?.id && l.status === 'approved')?.endDate?.toLocaleDateString()}. Please modify the leave request first.`);
+      return;
+    }
+
     setScheduleData(prev => {
       const updated = { ...prev };
       if (!updated[dateString]) updated[dateString] = {};
       if (!updated[dateString][empId]) updated[dateString][empId] = { status: 'On', remarks: '' };
       updated[dateString][empId].status = status;
-      
-      console.log('Friday Duty - Updated scheduleData for this change:', {
-        date: dateString,
-        empId,
-        entry: updated[dateString][empId]
-      });
-      
       return updated;
     });
   };
 
   const handleRemarksChange = (dateString: string, empId: string, remarks: string) => {
     const employee = employees.find(emp => emp.empId === empId);
-    const oldRemarks = scheduleData[dateString]?.[empId]?.remarks || '';
-    
-    console.log('Friday Duty - Remarks change:', {
-      date: dateString,
-      employeeId: empId,
-      employeeName: employee?.fullName || 'Unknown',
-      oldRemarks,
-      newRemarks: remarks,
-      user: auth.currentUser?.email
+
+    // Check if employee has approved leave for this Friday
+    const friday = new Date(dateString);
+    const hasLeave = leaveRequests.some(leave => {
+      if (leave.employeeId !== employee?.id) return false;
+      if (leave.status !== 'approved') return false;
+
+      const leaveStart = new Date(leave.startDate);
+      const leaveEnd = new Date(leave.endDate);
+      leaveStart.setHours(0, 0, 0, 0);
+      leaveEnd.setHours(23, 59, 59, 999);
+
+      return friday >= leaveStart && friday <= leaveEnd;
     });
-    
+
+    if (hasLeave) {
+      alert(`Cannot change remarks for ${employee?.fullName}. Employee is on approved leave. Please modify the leave request first.`);
+      return;
+    }
+
     setScheduleData(prev => {
       const updated = { ...prev };
       if (!updated[dateString]) updated[dateString] = {};
@@ -720,27 +736,64 @@ export const FridayDuty = () => {
                           const entry = scheduleData[dateString]?.[employee.empId];
                           const status = entry?.status || 'On';
                           const remarks = entry?.remarks || '';
+
+                          // Check if employee has approved leave for this Friday
+                          const leaveRequest = leaveRequests.find(leave => {
+                            if (leave.employeeId !== employee.id) return false;
+                            if (leave.status !== 'approved') return false;
+
+                            const leaveStart = new Date(leave.startDate);
+                            const leaveEnd = new Date(leave.endDate);
+                            leaveStart.setHours(0, 0, 0, 0);
+                            leaveEnd.setHours(23, 59, 59, 999);
+
+                            return friday >= leaveStart && friday <= leaveEnd;
+                          });
+
+                          const hasLeave = !!leaveRequest;
+
                           return (
                             <React.Fragment key={index}>
                               <td className="border border-secondary-300 px-2 py-2">
-                                <select
-                                  value={status}
-                                  onChange={(e) => handleStatusChange(dateString, employee.empId, e.target.value as 'On' | 'Off' | 'Holiday')}
-                                  className="w-full px-2 py-1 border border-secondary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                                >
-                                  <option value="On">On</option>
-                                  <option value="Off">Off</option>
-                                  <option value="Holiday">Holiday</option>
-                                </select>
+                                {hasLeave ? (
+                                  <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-medium">
+                                    {leaveRequest.type === 'annual' ? 'Annual Leave' :
+                                     leaveRequest.type === 'medical' ? 'Medical Leave' :
+                                     leaveRequest.type === 'emergency' ? 'Emergency Leave' :
+                                     leaveRequest.type === 'unpaid' ? 'Unpaid Leave' :
+                                     leaveRequest.type === 'duty' ? 'Duty Leave' :
+                                     leaveRequest.type === 'off_day' ? 'Off Day' :
+                                     leaveRequest.type === 'maternity' ? 'Maternity Leave' :
+                                     leaveRequest.type === 'paternity' ? 'Paternity Leave' :
+                                     leaveRequest.type === 'compassionate' ? 'Compassionate Leave' :
+                                     leaveRequest.type.charAt(0).toUpperCase() + leaveRequest.type.slice(1)}
+                                  </div>
+                                ) : (
+                                  <select
+                                    value={status}
+                                    onChange={(e) => handleStatusChange(dateString, employee.empId, e.target.value as 'On' | 'Off' | 'Holiday')}
+                                    className="w-full px-2 py-1 border border-secondary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                                  >
+                                    <option value="On">On</option>
+                                    <option value="Off">Off</option>
+                                    <option value="Holiday">Holiday</option>
+                                  </select>
+                                )}
                               </td>
                               <td className="border border-secondary-300 px-2 py-2">
-                                <input
-                                  type="text"
-                                  value={remarks}
-                                  onChange={(e) => handleRemarksChange(dateString, employee.empId, e.target.value)}
-                                  placeholder="Remarks..."
-                                  className="w-full px-2 py-1 border border-secondary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                                />
+                                {hasLeave ? (
+                                  <div className="text-sm text-secondary-400 italic">
+                                    -
+                                  </div>
+                                ) : (
+                                  <input
+                                    type="text"
+                                    value={remarks}
+                                    onChange={(e) => handleRemarksChange(dateString, employee.empId, e.target.value)}
+                                    placeholder="Remarks..."
+                                    className="w-full px-2 py-1 border border-secondary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                                  />
+                                )}
                               </td>
                             </React.Fragment>
                           );
