@@ -23,6 +23,8 @@ import type {
   ReviewRating,
   PerformanceReportSummary,
 } from '../types';
+import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 export const Performance = () => {
   const [cycles, setCycles] = useState<PerformanceCycle[]>([]);
@@ -68,7 +70,7 @@ export const Performance = () => {
   const handleSubmitSampleReview = async () => {
     setActionLoading(true);
     try {
-      await submitPerformanceReview({
+      const result = await submitPerformanceReview({
         employeeId: '',
         reviewerId: '',
         period: '',
@@ -78,6 +80,12 @@ export const Performance = () => {
         status: 'submitted',
         createdAt: new Date(),
       });
+      await logActivity(
+        'created',
+        'performance_review',
+        result,
+        `Submitted performance review`
+      );
       await loadData();
     } catch (error) {
       console.error('Unable to submit performance review:', error);
@@ -90,6 +98,12 @@ export const Performance = () => {
     setActionLoading(true);
     try {
       await updatePerformanceReviewStatus(reviewId, 'reviewed');
+      await logActivity(
+        'updated',
+        'performance_review',
+        reviewId,
+        `Marked performance review as reviewed`
+      );
       await loadData();
     } catch (error) {
       console.error('Unable to update review status:', error);
@@ -302,7 +316,7 @@ export const Performance = () => {
                       <span className="text-xs text-secondary-600">{cycle.status}</span>
                     </div>
                     <p className="text-sm text-secondary-600 mt-2">{cycle.description}</p>
-                    <p className="text-sm text-secondary-500 mt-2">{new Date(cycle.startDate).toLocaleDateString()} - {new Date(cycle.endDate).toLocaleDateString()}</p>
+                    <p className="text-sm text-secondary-500 mt-2">{formatDate(new Date(cycle.startDate))} - {formatDate(new Date(cycle.endDate))}</p>
                   </div>
                 ))
               )}

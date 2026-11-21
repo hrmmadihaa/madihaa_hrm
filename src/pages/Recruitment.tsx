@@ -23,6 +23,7 @@ import {
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
 import type { JobRequisition, Vacancy, CandidateApplication, InterviewSchedule, Offer, OnboardingTask, RecruitmentReportSummary } from '../types';
+import { formatDate } from '../lib/dateUtils';
 
 export const Recruitment = () => {
   const { can } = usePermissions();
@@ -366,7 +367,7 @@ export const Recruitment = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-secondary-600">Created:</span>
-                    <span className="font-medium">{new Date(req.createdAt).toLocaleDateString()}</span>
+                    <span className="font-medium">{formatDate(new Date(req.createdAt))}</span>
                   </div>
                 </div>
                 <div className="flex justify-end">
@@ -413,7 +414,7 @@ export const Recruitment = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">{req.department}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">{req.grade}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">{req.status}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">{new Date(req.createdAt).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">{formatDate(new Date(req.createdAt))}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900 space-x-2">
                       {can(PERMISSIONS.RECRUITMENT_MANAGE) && req.status === 'draft' && (
                         <Button variant="secondary" size="sm" onClick={() => handleSubmitRequisition(req.id)} disabled={actionLoading}>
@@ -653,7 +654,7 @@ export const Recruitment = () => {
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">{offer.applicationId}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">{offer.status}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">{new Date(offer.offerDate).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">{formatDate(new Date(offer.offerDate))}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
                         {offer.status === 'sent' && (
                           <Button variant="secondary" size="sm" onClick={() => updateOfferStatus(offer.id, 'accepted')} disabled={actionLoading}>
@@ -676,7 +677,7 @@ export const Recruitment = () => {
                     <div key={task.id} className="flex items-center justify-between p-4 rounded-lg border border-secondary-200 bg-secondary-50">
                       <div>
                         <p className="font-medium text-secondary-900">{task.task}</p>
-                        <p className="text-sm text-secondary-600">Assigned to {task.assignedTo} • Due {new Date(task.dueDate).toLocaleDateString()}</p>
+                        <p className="text-sm text-secondary-600">Assigned to {task.assignedTo} • Due {formatDate(new Date(task.dueDate))}</p>
                       </div>
                       <Button variant={task.completed ? 'ghost' : 'secondary'} size="sm" onClick={() => handleCompleteOnboardingTask(task.id)} disabled={actionLoading || task.completed}>
                         {task.completed ? 'Completed' : 'Complete'}

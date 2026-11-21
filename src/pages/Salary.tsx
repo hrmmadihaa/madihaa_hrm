@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getEmployees } from '../lib/employees';
 import { Button } from '../components/ui/Button';
 import { DollarSign, Plus, Search } from 'lucide-react';
+import { formatDate } from '../lib/dateUtils';
 
 interface SalaryRecord {
   id: string;
@@ -464,7 +465,7 @@ export const Salary: React.FC = () => {
                       .map((increment) => (
                       <tr key={increment.id}>
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(increment.effectiveDate).toLocaleDateString()}
+                          {formatDate(new Date(increment.effectiveDate))}
                         </td>
                         <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
                           MVR {increment.previousSalary.toLocaleString()}
@@ -558,7 +559,7 @@ export const Salary: React.FC = () => {
                     {getEmployeeIncrements(historyEmployeeId).map((increment) => (
                       <tr key={increment.id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(increment.effectiveDate).toLocaleDateString()}
+                          {formatDate(new Date(increment.effectiveDate))}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           MVR {increment.previousSalary.toLocaleString()}
@@ -859,7 +860,7 @@ export const Salary: React.FC = () => {
               {/* Letter Content */}
               <div className="space-y-4">
                 <div className="text-right text-sm text-gray-600">
-                  Date: {new Date().toLocaleDateString()}
+                  Date: {formatDate(new Date())}
                 </div>
 
                 <div className="mb-4">
@@ -875,7 +876,7 @@ export const Salary: React.FC = () => {
                 <div className="space-y-2 text-sm">
                   <p>Dear {selectedIncrement.employeeName},</p>
                   <p className="mb-4">
-                    We are delighted to inform you that, in recognition of your outstanding performance and valuable contributions to Madihaa Pvt Ltd, your salary has been reviewed and increased. This increment is effective from {new Date(selectedIncrement.effectiveDate).toLocaleDateString()}.
+                    We are delighted to inform you that, in recognition of your outstanding performance and valuable contributions to Madihaa Pvt Ltd, your salary has been reviewed and increased. This increment is effective from {formatDate(new Date(selectedIncrement.effectiveDate))}.
                   </p>
 
                   <table className="w-full border-collapse border border-gray-300 mb-4">

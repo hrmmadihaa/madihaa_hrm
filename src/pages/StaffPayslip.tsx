@@ -8,6 +8,7 @@ import type { Payroll as PayrollRecord, Employee } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import madihaaLogo from '/Madihaa 2026 (1).png';
+import { formatDate } from '../lib/dateUtils';
 
 export const StaffPayslip = () => {
   const { user } = useAuth();
@@ -196,7 +197,7 @@ export const StaffPayslip = () => {
     doc.setFont('helvetica', 'bold');
     doc.text('Paid Date:', 20, infoY);
     doc.setFont('helvetica', 'normal');
-    doc.text(payroll.processedDate ? new Date(payroll.processedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '00-Jan-00', 50, infoY);
+    doc.text(payroll.processedDate ? formatDate(new Date(payroll.processedDate)) : '00-Jan-00', 50, infoY);
 
     doc.setFont('helvetica', 'bold');
     doc.text('Credited A/C No:', 20, infoY + 8);
@@ -423,7 +424,7 @@ export const StaffPayslip = () => {
                 <div className="space-y-2 mb-6">
                   <div className="flex">
                     <span className="font-semibold w-36">Paid Date:</span>
-                    <span className="text-gray-700">{payroll.processedDate ? new Date(payroll.processedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '00-Jan-00'}</span>
+                    <span className="text-gray-700">{payroll.processedDate ? formatDate(new Date(payroll.processedDate)) : '00-Jan-00'}</span>
                   </div>
                   <div className="flex">
                     <span className="font-semibold w-36">Credited A/C No:</span>

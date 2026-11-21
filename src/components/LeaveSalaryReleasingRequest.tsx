@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { formatDate } from "../lib/dateUtils";
 
 type Employee = {
   id: string;
@@ -47,7 +48,7 @@ const displayDate = (value: string) => {
   const date = new Date(`${value}T00:00:00`);
   return Number.isNaN(date.getTime())
     ? value
-    : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    : formatDate(date);
 };
 
 const calculateDays = (start: string, end: string) => {

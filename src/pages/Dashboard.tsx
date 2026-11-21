@@ -10,6 +10,7 @@ import { getAllWorkLocations } from '../lib/workLocation';
 import { useNavigate } from 'react-router-dom';
 import madihaaLogo from '/Madihaa 2026 (1).png';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { formatDate } from '../lib/dateUtils';
 
 export const Dashboard = () => {
   const [employees, setEmployees] = useState<any[]>([]);
@@ -207,8 +208,8 @@ export const Dashboard = () => {
           events.push({
             id: `probation-${emp.id}`,
             title: `${emp.fullName} - Probation Completion`,
-            date: probationEndDate.toLocaleDateString(),
-            hireDate: hireDate ? hireDate.toLocaleDateString() : 'N/A',
+            date: formatDate(probationEndDate),
+            hireDate: hireDate ? formatDate(hireDate) : 'N/A',
             daysRemaining: daysUntilProbationEnd
           });
         }
@@ -241,7 +242,7 @@ export const Dashboard = () => {
           events.push({
             id: `birthday-${emp.id}`,
             title: `${emp.fullName}'s Birthday`,
-            date: birthdayThisYear.toLocaleDateString(),
+            date: formatDate(birthdayThisYear),
             daysRemaining: daysUntilBirthday
           });
         }
@@ -271,8 +272,8 @@ export const Dashboard = () => {
         events.push({
           id: `anniversary-${emp.id}`,
           title: `${emp.fullName} - ${yearsOfService} Year${yearsOfService > 1 ? 's' : ''} Anniversary`,
-          date: anniversaryThisYear.toLocaleDateString(),
-          hireDate: joinDate.toLocaleDateString(),
+          date: formatDate(anniversaryThisYear),
+          hireDate: formatDate(joinDate),
           yearsOfService,
           daysRemaining: daysUntilAnniversary
         });
@@ -318,7 +319,7 @@ export const Dashboard = () => {
             alerts[label].push({
               id: `${field}-${emp.id}`,
               title: `${emp.fullName}`,
-              date: expDate.toLocaleDateString(),
+              date: formatDate(expDate),
               documentType: label,
               daysRemaining: daysUntilExpiry,
               employeeId: emp.employeeId,
@@ -358,7 +359,7 @@ export const Dashboard = () => {
         <div className="text-right">
           <p className="text-sm text-secondary-600">Today's Date</p>
           <p className="text-xl font-semibold text-secondary-900">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            {formatDate(new Date())}
           </p>
         </div>
       </div>
@@ -440,7 +441,7 @@ export const Dashboard = () => {
                       <div className="text-right">
                         <p className="text-sm font-medium text-secondary-900 capitalize">{leave.leaveType || 'Leave'}</p>
                         <p className="text-xs text-secondary-600">
-                          {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}
+                          {formatDate(new Date(leave.startDate))} - {formatDate(new Date(leave.endDate))}
                         </p>
                       </div>
                       <span className={`px-3 py-1 text-xs font-medium rounded-full ${

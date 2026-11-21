@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import type { EmployeeDocument } from '../../types';
+import { formatDate } from '../../lib/dateUtils';
 
 interface PassportIDProps {
   documents?: EmployeeDocument[];
@@ -145,7 +146,7 @@ export const PassportIDDetails = ({ documents = [], onNext, onPrev, onSave }: Pa
                   <div>
                     <p className="text-sm font-medium">{doc.name}</p>
                     <p className="text-xs text-secondary-600">
-                      Expires: {doc.expiryDate?.toLocaleDateString()}
+                      Expires: {doc.expiryDate ? formatDate(new Date(doc.expiryDate)) : 'N/A'}
                     </p>
                   </div>
                   <button
@@ -202,7 +203,7 @@ export const PassportIDDetails = ({ documents = [], onNext, onPrev, onSave }: Pa
                   <div>
                     <p className="text-sm font-medium">{doc.name}</p>
                     <p className="text-xs text-secondary-600">
-                      Expires: {doc.expiryDate?.toLocaleDateString()}
+                      Expires: {doc.expiryDate ? formatDate(new Date(doc.expiryDate)) : 'N/A'}
                     </p>
                   </div>
                   <button

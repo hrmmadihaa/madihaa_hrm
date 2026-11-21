@@ -10,6 +10,7 @@ import type { DisciplinaryAction } from '../types';
 import { updateDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { usePermissions } from '../hooks/usePermissions';
+import { formatDate } from '../lib/dateUtils';
 
 export const StaffDisciplinary = () => {
   const { user } = useAuth();
@@ -290,7 +291,7 @@ export const StaffDisciplinary = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
-                      {action.incidentDate instanceof Date ? action.incidentDate.toLocaleDateString() : 'N/A'}
+                      {action.incidentDate instanceof Date ? formatDate(action.incidentDate) : 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[action.status]}`}>
@@ -298,7 +299,7 @@ export const StaffDisciplinary = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
-                      {action.reportedDate instanceof Date ? action.reportedDate.toLocaleDateString() : 'N/A'}
+                      {action.reportedDate instanceof Date ? formatDate(action.reportedDate) : 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
@@ -368,13 +369,13 @@ export const StaffDisciplinary = () => {
                 <div>
                   <span className="text-secondary-600">Incident Date:</span>
                   <p className="font-medium">
-                    {viewModal.action.incidentDate instanceof Date ? viewModal.action.incidentDate.toLocaleDateString() : 'N/A'}
+                    {viewModal.action.incidentDate instanceof Date ? formatDate(viewModal.action.incidentDate) : 'N/A'}
                   </p>
                 </div>
                 <div>
                   <span className="text-secondary-600">Reported Date:</span>
                   <p className="font-medium">
-                    {viewModal.action.reportedDate instanceof Date ? viewModal.action.reportedDate.toLocaleDateString() : 'N/A'}
+                    {viewModal.action.reportedDate instanceof Date ? formatDate(viewModal.action.reportedDate) : 'N/A'}
                   </p>
                 </div>
                 <div>

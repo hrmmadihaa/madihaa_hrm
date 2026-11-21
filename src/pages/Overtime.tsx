@@ -24,6 +24,8 @@ import { generateOvertimeReport } from '../lib/reports';
 import type { OvertimeRequest, OvertimeSummary, Employee } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 export const Overtime = () => {
   const { user } = useAuth();
@@ -160,8 +162,8 @@ export const Overtime = () => {
     return {
       start: cycleStart,
       end: cycleEnd,
-      startFormatted: cycleStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      endFormatted: cycleEnd.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+      startFormatted: formatDate(cycleStart),
+      endFormatted: formatDate(cycleEnd)
     };
   };
 
@@ -235,7 +237,13 @@ export const Overtime = () => {
           return;
         }
 
-        await createOvertimeRequest(request);
+        const result = await createOvertimeRequest(request);
+        await logActivity(
+          'created',
+          'overtime_request',
+          result || request.employeeId,
+          `Created overtime request for ${request.date}`
+        );
       }
 
       setDailyEntries({});
@@ -286,6 +294,12 @@ export const Overtime = () => {
       for (const requestId of selectedRequests) {
         await approveOvertimeRequest(requestId, user.employeeId, user.email || 'Admin');
       }
+      await logActivity(
+        'approved',
+        'overtime_request',
+        undefined,
+        `Approved ${selectedRequests.size} overtime requests`
+      );
       setSelectedRequests(new Set());
       await loadData();
       alert('Overtime requests approved successfully!');
@@ -304,6 +318,12 @@ export const Overtime = () => {
       for (const requestId of selectedRequests) {
         await rejectOvertimeRequest(requestId, user.employeeId, user.email || 'Admin');
       }
+      await logActivity(
+        'rejected',
+        'overtime_request',
+        undefined,
+        `Rejected ${selectedRequests.size} overtime requests`
+      );
       setSelectedRequests(new Set());
       await loadData();
       alert('Overtime requests rejected successfully!');
@@ -467,7 +487,7 @@ export const Overtime = () => {
       const entry = dailyEntries[date] || { startTime: '', finishTime: '', breakMinutes: 30, purpose: '' };
       const hours = calculateOvertime(entry.startTime, entry.finishTime, entry.breakMinutes.toString());
       return [
-        new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
+formatDate(new Date(date)),
         entry.startTime,
         entry.finishTime,
         entry.breakMinutes,
@@ -515,7 +535,7 @@ export const Overtime = () => {
     doc.setFontSize(14);
     doc.text(`Overtime Summary - ${payrollCycle.startFormatted} to ${payrollCycle.endFormatted}`, 14, 15);
 
-    const headers = ['Employee', 'ID', ...cycleDates.map(d => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })), 'Total'];
+    const headers = ['Employee', 'ID', ...cycleDates.map(d => formatDate(new Date(d))), 'Total'];
     const body = employees.map(employee => {
       const employeeRequests = overtimeRequests.filter(r => r.employeeId === employee.id);
       let totalHours = 0;
@@ -546,7 +566,7 @@ export const Overtime = () => {
   };
 
   const exportSummaryToExcel = () => {
-    const headers = ['Employee', 'ID', ...cycleDates.map(d => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })), 'Total'];
+    const headers = ['Employee', 'ID', ...cycleDates.map(d => formatDate(new Date(d))), 'Total'];
     const body = employees.map(employee => {
       const employeeRequests = overtimeRequests.filter(r => r.employeeId === employee.id);
       let totalHours = 0;
@@ -754,7 +774,7 @@ export const Overtime = () => {
                     return (
                       <tr key={date} className="border-t border-secondary-200">
                         <td className="px-3 py-2 whitespace-nowrap">
-                          {new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                          {formatDate(new Date(date))}
                         </td>
                         <td className="px-3 py-2">
                           <input
@@ -852,7 +872,7 @@ export const Overtime = () => {
                     <th className="px-3 py-2 text-left">Employee</th>
                     {cycleDates.map(date => (
                       <th key={date} className="px-2 py-2 text-center text-xs">
-                        {new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                        {formatDate(new Date(date))}
                       </th>
                     ))}
                     <th className="px-3 py-2 text-center">Total</th>
@@ -1049,7 +1069,7 @@ export const Overtime = () => {
                           return dates.map((date, idx) => (
                             <th key={idx} className="px-1 py-2 text-center font-medium min-w-[35px]">
                               <div>{date.getUTCDate()}</div>
-                              <div className="text-[10px] text-secondary-500">{date.toLocaleDateString('en-GB', { month: 'short' })}</div>
+                              <div className="text-[10px] text-secondary-500">{formatDate(date).split('/')[1]}</div>
                             </th>
                           ));
                         })()}
@@ -1166,7 +1186,7 @@ export const Overtime = () => {
                           return (
                             <tr key={idx} className="border-t border-secondary-200">
                               <td className="px-3 py-2 whitespace-nowrap">
-                                {date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                {formatDate(date)}
                               </td>
                               <td className="px-3 py-2 text-center">
                                 {record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-'}
@@ -1247,7 +1267,7 @@ export const Overtime = () => {
                             />
                           )}
                           <span className="font-bold text-secondary-900 text-sm">
-                            {new Date(record.date).toLocaleDateString()}
+                            {formatDate(new Date(record.date))}
                           </span>
                         </div>
                         <span className="text-xs font-medium text-primary-600 bg-primary-50 px-2 py-1 rounded">
@@ -1332,7 +1352,7 @@ export const Overtime = () => {
                             {record.employeeName}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
-                            {new Date(record.date).toLocaleDateString()}
+                            {formatDate(new Date(record.date))}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
                             {record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}
@@ -1425,7 +1445,7 @@ export const Overtime = () => {
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-secondary-400" />
                   <span className="font-bold text-secondary-900 text-sm">
-                    {new Date(request.date).toLocaleDateString()}
+                    {formatDate(new Date(request.date))}
                   </span>
                 </div>
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[request.status]}`}>
@@ -1443,7 +1463,7 @@ export const Overtime = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-secondary-600">Requested:</span>
-                  <span className="font-medium">{new Date(request.requestedDate).toLocaleDateString()}</span>
+                  <span className="font-medium">{formatDate(new Date(request.requestedDate))}</span>
                 </div>
                 <div className="text-secondary-600">
                   <span className="font-medium">Reason:</span> {request.reason}
@@ -1536,7 +1556,7 @@ export const Overtime = () => {
                     <div className="flex items-center">
                       <Calendar className="w-4 h-4 text-secondary-400 mr-2" />
                       <span className="text-sm text-secondary-900">
-                        {new Date(request.date).toLocaleDateString()}
+                        {formatDate(new Date(request.date))}
                       </span>
                     </div>
                   </td>
@@ -1555,7 +1575,7 @@ export const Overtime = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
-                    {new Date(request.requestedDate).toLocaleDateString()}
+                    {formatDate(new Date(request.requestedDate))}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">

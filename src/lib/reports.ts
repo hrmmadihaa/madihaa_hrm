@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatDate } from './dateUtils';
 
 // Export to Excel
 export const exportToExcel = (data: any[], filename: string) => {
@@ -64,7 +65,7 @@ export const generateEmployeeReport = (employees: any[]) => {
     'Department': emp.department,
     'Designation': emp.designation,
     'Status': emp.status,
-    'Join Date': new Date(emp.joinDate).toLocaleDateString(),
+    'Join Date': formatDate(new Date(emp.joinDate)),
   }));
   
   return reportData;
@@ -74,7 +75,7 @@ export const generateEmployeeReport = (employees: any[]) => {
 export const generateAttendanceReport = (attendance: any[]) => {
   const reportData = attendance.map(att => ({
     'Employee ID': att.employeeId,
-    'Date': new Date(att.date).toLocaleDateString(),
+    'Date': formatDate(new Date(att.date)),
     'Check In': att.checkInTime ? new Date(att.checkInTime).toLocaleTimeString() : 'N/A',
     'Check Out': att.checkOutTime ? new Date(att.checkOutTime).toLocaleTimeString() : 'N/A',
     'Status': att.status,
@@ -89,11 +90,11 @@ export const generateLeaveReport = (leaves: any[]) => {
   const reportData = leaves.map(leave => ({
     'Employee ID': leave.employeeId,
     'Type': leave.type,
-    'Start Date': new Date(leave.startDate).toLocaleDateString(),
-    'End Date': new Date(leave.endDate).toLocaleDateString(),
+    'Start Date': formatDate(new Date(leave.startDate)),
+    'End Date': formatDate(new Date(leave.endDate)),
     'Days': leave.days,
     'Status': leave.status,
-    'Applied Date': new Date(leave.appliedDate).toLocaleDateString(),
+    'Applied Date': formatDate(new Date(leave.appliedDate)),
   }));
   
   return reportData;
@@ -118,7 +119,7 @@ export const generatePayrollReport = (payroll: any[]) => {
 export const generateOvertimeReport = (overtime: any[]) => {
   const reportData = overtime.map(ot => ({
     'Employee ID': ot.employeeId,
-    'Date': new Date(ot.date).toLocaleDateString(),
+    'Date': formatDate(new Date(ot.date)),
     'Start Time': ot.startTime,
     'End Time': ot.endTime,
     'Hours': ot.hours,

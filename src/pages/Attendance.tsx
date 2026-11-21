@@ -15,6 +15,8 @@ import { addDoc, collection, query, where, getDocs, updateDoc, doc, Timestamp, d
 import { db } from '../lib/firebase';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
+import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 export const Attendance = () => {
   const { user } = useAuth();
@@ -473,6 +475,12 @@ export const Attendance = () => {
       await updateDoc(doc(db, 'attendance', recordId), {
         lateArrival: newStatus
       });
+      await logActivity(
+        'updated',
+        'attendance',
+        recordId,
+        `Updated late arrival status to ${newStatus}`
+      );
 
       // Update local data
       setDailyReportData(prevData =>
@@ -822,6 +830,13 @@ export const Attendance = () => {
           errorCount++;
         }
       }
+
+      await logActivity(
+        'updated',
+        'attendance',
+        undefined,
+        `Uploaded ${successCount} attendance records for ${uploadDate}`
+      );
 
       setSaveSuccess(`Saved ${successCount} records successfully${errorCount > 0 ? ` (${errorCount} errors)` : ''}`);
       setTimeout(() => setSaveSuccess(null), 5000);
@@ -1882,12 +1897,7 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                 })}
               </p>
               <p className="text-primary-100 mt-1">
-                {currentTime.toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
+                {formatDate(currentTime)}
               </p>
             </div>
             <div className="flex gap-3 items-center">
@@ -2148,7 +2158,7 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                   <div className="text-center mb-6">
                     <h1 className="text-2xl font-bold text-secondary-900">Daily Attendance Report</h1>
                     <p className="text-lg text-secondary-600 mt-2">
-                      Date: {dailyReportDate ? new Date(dailyReportDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+                      Date: {dailyReportDate ? formatDate(new Date(dailyReportDate)) : ''}
                     </p>
                   </div>
 
@@ -2600,7 +2610,7 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
                           <td className="py-3 px-4 text-sm text-secondary-900">{record.employeeId || record.id}</td>
                           <td className="py-3 px-4 text-sm text-secondary-900">{record.employeeName || 'N/A'}</td>
                           <td className="py-3 px-4 text-sm text-secondary-900">
-                            {record.date ? record.date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) : 'N/A'}
+                            {record.date ? formatDate(record.date) : 'N/A'}
                           </td>
                           <td className="py-3 px-4 text-sm text-secondary-900">
                             {editingFirebaseRecord === record.id ? (

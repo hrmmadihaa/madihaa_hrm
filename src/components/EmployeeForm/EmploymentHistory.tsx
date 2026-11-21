@@ -3,6 +3,7 @@ import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { Trash2 } from 'lucide-react';
 import type { EmploymentRecord } from '../../types';
+import { formatDate } from '../../lib/dateUtils';
 
 interface EmploymentHistoryProps {
   records?: EmploymentRecord[];
@@ -167,7 +168,7 @@ export const EmploymentHistory = ({ records = [], employee, onNext, onPrev, onSa
                         {getTypeLabel(record.type)}
                       </span>
                       <p className="text-sm text-secondary-600">
-                        {record.effectiveDate.toLocaleDateString()}
+                        {formatDate(record.effectiveDate)}
                       </p>
                     </div>
                     <p className="mt-2 text-secondary-900">{record.description}</p>

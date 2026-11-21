@@ -3,6 +3,7 @@ import { AlertTriangle, Eye, Printer } from 'lucide-react';
 import { getDisciplinaryActionsByEmployee } from '../../lib/disciplinary';
 import type { DisciplinaryAction, Employee } from '../../types';
 import jsPDF from 'jspdf';
+import { formatDate } from '../../lib/dateUtils';
 
 interface DisciplinaryHistoryProps {
   employee?: Partial<Employee>;
@@ -111,8 +112,8 @@ export const DisciplinaryHistory = ({ employee, onPrev, onNext }: DisciplinaryHi
     const incidentInfo = [
       ['Type:', action.type.replace('_', ' ').toUpperCase()],
       ['Severity:', action.severity.toUpperCase()],
-      ['Incident Date:', action.incidentDate instanceof Date ? action.incidentDate.toLocaleDateString() : 'N/A'],
-      ['Reported Date:', action.reportedDate instanceof Date ? action.reportedDate.toLocaleDateString() : 'N/A'],
+      ['Incident Date:', action.incidentDate instanceof Date ? formatDate(action.incidentDate) : 'N/A'],
+      ['Reported Date:', action.reportedDate instanceof Date ? formatDate(action.reportedDate) : 'N/A'],
       ['Status:', action.status.toUpperCase()],
     ];
     
@@ -180,7 +181,7 @@ export const DisciplinaryHistory = ({ employee, onPrev, onNext }: DisciplinaryHi
     
     // Footer
     doc.setFontSize(10);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 280, { align: 'center' });
+    doc.text(`Generated on: ${formatDate(new Date())}`, 105, 280, { align: 'center' });
     
     doc.save(`disciplinary-action-${action.employeeName.replace(/\s+/g, '-')}.pdf`);
   };
@@ -278,7 +279,7 @@ export const DisciplinaryHistory = ({ employee, onPrev, onNext }: DisciplinaryHi
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
-                      {action.incidentDate instanceof Date ? action.incidentDate.toLocaleDateString() : 'N/A'}
+                      {action.incidentDate instanceof Date ? formatDate(action.incidentDate) : 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[action.status]}`}>
@@ -286,7 +287,7 @@ export const DisciplinaryHistory = ({ employee, onPrev, onNext }: DisciplinaryHi
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
-                      {action.reportedDate instanceof Date ? action.reportedDate.toLocaleDateString() : 'N/A'}
+                      {action.reportedDate instanceof Date ? formatDate(action.reportedDate) : 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
@@ -335,13 +336,13 @@ export const DisciplinaryHistory = ({ employee, onPrev, onNext }: DisciplinaryHi
                 <div>
                   <span className="text-secondary-600">Incident Date:</span>
                   <p className="font-medium">
-                    {viewModal.action.incidentDate instanceof Date ? viewModal.action.incidentDate.toLocaleDateString() : 'N/A'}
+                    {viewModal.action.incidentDate instanceof Date ? formatDate(viewModal.action.incidentDate) : 'N/A'}
                   </p>
                 </div>
                 <div>
                   <span className="text-secondary-600">Reported Date:</span>
                   <p className="font-medium">
-                    {viewModal.action.reportedDate instanceof Date ? viewModal.action.reportedDate.toLocaleDateString() : 'N/A'}
+                    {viewModal.action.reportedDate instanceof Date ? formatDate(viewModal.action.reportedDate) : 'N/A'}
                   </p>
                 </div>
                 <div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { collection, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useSearchParams } from 'react-router-dom';
+import { formatDate } from '../lib/dateUtils';
 
 type Candidate = {
   id: string;
@@ -36,11 +37,7 @@ export default function OfferLetter() {
                       candidate?.nationality?.toLowerCase().includes('maldivian');
 
   const [details, setDetails] = useState({
-    letterDate: new Date().toLocaleDateString('en-GB', { 
-      day: 'numeric', 
-      month: 'long', 
-      year: 'numeric' 
-    }),
+    letterDate: formatDate(new Date()),
     position: "",
     department: "",
     employmentType: "",
@@ -78,11 +75,7 @@ export default function OfferLetter() {
             position: selectedCandidate.POSITION || "",
             department: selectedCandidate.department || "",
             employmentType: selectedCandidate.employment_type || "Probation",
-            startDate: selectedCandidate['D.O.J'] ? new Date(selectedCandidate['D.O.J']).toLocaleDateString('en-GB', { 
-              day: 'numeric', 
-              month: 'long', 
-              year: 'numeric' 
-            }) : "",
+            startDate: selectedCandidate['D.O.J'] ? formatDate(new Date(selectedCandidate['D.O.J'])) : "",
             salary: selectedCandidate.salary || "",
             workingHours: selectedCandidate.working_hours || "9:00 to 17:30",
             workLocation: selectedCandidate.work_location || "Head Office",
@@ -98,11 +91,7 @@ export default function OfferLetter() {
           position: firstCandidate.POSITION || "",
           department: firstCandidate.department || "",
           employmentType: firstCandidate.employment_type || "Probation",
-          startDate: firstCandidate['D.O.J'] ? new Date(firstCandidate['D.O.J']).toLocaleDateString('en-GB', { 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric' 
-          }) : "",
+          startDate: firstCandidate['D.O.J'] ? formatDate(new Date(firstCandidate['D.O.J'])) : "",
           salary: firstCandidate.salary || "",
           workingHours: firstCandidate.working_hours || "9:00 to 17:30",
           workLocation: firstCandidate.work_location || "Head Office",
@@ -125,11 +114,7 @@ export default function OfferLetter() {
         position: selectedCandidate.POSITION || "",
         department: selectedCandidate.department || "",
         employmentType: selectedCandidate.employment_type || "Probation",
-        startDate: selectedCandidate['D.O.J'] ? new Date(selectedCandidate['D.O.J']).toLocaleDateString('en-GB', { 
-          day: 'numeric', 
-          month: 'long', 
-          year: 'numeric' 
-        }) : "",
+        startDate: selectedCandidate['D.O.J'] ? formatDate(new Date(selectedCandidate['D.O.J'])) : "",
         salary: selectedCandidate.salary || "",
         workingHours: selectedCandidate.working_hours || "9:00 to 17:30",
         workLocation: selectedCandidate.work_location || "Head Office",

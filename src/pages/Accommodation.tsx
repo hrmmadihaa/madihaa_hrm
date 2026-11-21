@@ -28,6 +28,7 @@ import {
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
 import { collection, doc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
+import { logActivity } from '../lib/activityLog';
 import { db } from '../lib/firebase';
 import type { Accommodation as AccommodationType, Bed } from '../types';
 
@@ -144,6 +145,12 @@ export const Accommodation = () => {
         // If bed has assigned employee, unassign them first
         if (bedData.assignedEmployeeId) {
           await deleteAssignment(bedData.assignedEmployeeId);
+          await logActivity(
+            'deleted',
+            'accommodation_assignment',
+            bedData.assignedEmployeeId,
+            `Unassigned employee from bed`
+          );
           await updateEmployee(bedData.assignedEmployeeId, {
             accommodation: undefined
           });
@@ -159,10 +166,16 @@ export const Accommodation = () => {
 
   const handleUnassignEmployee = async (bed: Bed) => {
     if (!window.confirm('Are you sure you want to unassign this employee?')) return;
-    
+
     try {
       if (bed.assignedEmployeeId) {
         await deleteAssignment(bed.assignedEmployeeId);
+        await logActivity(
+          'deleted',
+          'accommodation_assignment',
+          bed.assignedEmployeeId,
+          `Unassigned employee from bed`
+        );
       }
       await updateBed(bed.id, {
         assignedEmployeeId: undefined,
@@ -291,6 +304,12 @@ export const Accommodation = () => {
         accommodationId: selectedItem.accommodationId,
         assignedDate: new Date()
       });
+      await logActivity(
+        'created',
+        'accommodation_assignment',
+        employee.id,
+        `Assigned ${employee.fullName} to bed`
+      );
       
       // Get accommodation details to update employee record
       const accommodation = accommodations.find(a => a.id === selectedItem.accommodationId);

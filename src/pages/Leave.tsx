@@ -18,6 +18,7 @@ import * as XLSX from 'xlsx';
 import { auth } from '../lib/firebase';
 import LeaveApplication from '../components/LeaveApplication';
 import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 export const Leave = () => {
   const { user } = useAuth();
@@ -1827,7 +1828,7 @@ export const Leave = () => {
                         <div className="flex justify-between">
                           <span className="text-secondary-600">Duration:</span>
                           <span className="font-medium">
-                            {new Date(request.startDate).toLocaleDateString()} - {new Date(request.endDate).toLocaleDateString()}
+                            {formatDate(new Date(request.startDate))} - {formatDate(new Date(request.endDate))}
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -1836,7 +1837,7 @@ export const Leave = () => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-secondary-600">Applied:</span>
-                          <span className="font-medium">{new Date(request.appliedDate).toLocaleDateString()}</span>
+                          <span className="font-medium">{formatDate(new Date(request.appliedDate))}</span>
                         </div>
                         <div className="text-secondary-600">
                           <span className="font-medium">Reason:</span> {request.reason}
@@ -1981,7 +1982,7 @@ export const Leave = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-secondary-900">
-                            {new Date(request.startDate).toLocaleDateString()} - {new Date(request.endDate).toLocaleDateString()}
+                            {formatDate(new Date(request.startDate))} - {formatDate(new Date(request.endDate))}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1993,7 +1994,7 @@ export const Leave = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
-                          {new Date(request.appliedDate).toLocaleDateString()}
+                          {formatDate(new Date(request.appliedDate))}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end space-x-2">
@@ -2111,7 +2112,7 @@ export const Leave = () => {
                             {ticket.departureCity} → {ticket.destinationCity}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
-                            {new Date(ticket.departureDate).toLocaleDateString()} - {new Date(ticket.returnDate).toLocaleDateString()}
+                            {formatDate(new Date(ticket.departureDate))} - {formatDate(new Date(ticket.returnDate))}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600 capitalize">
                             {ticket.ticketType.replace('_', ' ')}
@@ -2187,7 +2188,7 @@ export const Leave = () => {
                   <strong>Type:</strong> {typeLabels[approvalModal.request.type]}
                 </p>
                 <p className="text-sm text-secondary-600">
-                  <strong>Dates:</strong> {new Date(approvalModal.request.startDate).toLocaleDateString()} - {new Date(approvalModal.request.endDate).toLocaleDateString()}
+                  <strong>Dates:</strong> {formatDate(new Date(approvalModal.request.startDate))} - {formatDate(new Date(approvalModal.request.endDate))}
                 </p>
                 <p className="text-sm text-secondary-600">
                   <strong>Days:</strong> {approvalModal.request.days}
@@ -2289,7 +2290,7 @@ export const Leave = () => {
                   <strong>Type:</strong> {typeLabels[deleteModal.request.type]}
                 </p>
                 <p className="text-sm text-secondary-600">
-                  <strong>Dates:</strong> {new Date(deleteModal.request.startDate).toLocaleDateString()} - {new Date(deleteModal.request.endDate).toLocaleDateString()}
+                  <strong>Dates:</strong> {formatDate(new Date(deleteModal.request.startDate))} - {formatDate(new Date(deleteModal.request.endDate))}
                 </p>
               </div>
 
@@ -2363,11 +2364,11 @@ export const Leave = () => {
                           Employee: {employees.find(emp => emp.id === dup.duplicate.employeeId)?.fullName || dup.duplicate.employeeId}
                         </p>
                         <p className="text-xs text-secondary-600">
-                          {typeLabels[dup.duplicate.type]} - {new Date(dup.duplicate.startDate).toLocaleDateString()} - {new Date(dup.duplicate.endDate).toLocaleDateString()}
+                          {typeLabels[dup.duplicate.type]} - {formatDate(new Date(dup.duplicate.startDate))} - {formatDate(new Date(dup.duplicate.endDate))}
                         </p>
                         {dup.type === 'overlap' && (
                           <p className="text-xs text-orange-600 mt-1">
-                            Overlaps with: {typeLabels[dup.original.type]} ({new Date(dup.original.startDate).toLocaleDateString()} - {new Date(dup.original.endDate).toLocaleDateString()})
+                            Overlaps with: {typeLabels[dup.original.type]} ({formatDate(new Date(dup.original.startDate))} - {formatDate(new Date(dup.original.endDate))})
                           </p>
                         )}
                       </div>
@@ -2519,7 +2520,7 @@ export const Leave = () => {
                   <strong>Type:</strong> {typeLabels[viewModal.request.type]}
                 </p>
                 <p className="text-sm text-secondary-600">
-                  <strong>Dates:</strong> {new Date(viewModal.request.startDate).toLocaleDateString()} - {new Date(viewModal.request.endDate).toLocaleDateString()}
+                  <strong>Dates:</strong> {formatDate(new Date(viewModal.request.startDate))} - {formatDate(new Date(viewModal.request.endDate))}
                 </p>
                 <p className="text-sm text-secondary-600">
                   <strong>Days:</strong> {viewModal.request.days}
@@ -2531,7 +2532,7 @@ export const Leave = () => {
                   <strong>Status:</strong> {viewModal.request.status}
                 </p>
                 <p className="text-sm text-secondary-600">
-                  <strong>Applied Date:</strong> {new Date(viewModal.request.appliedDate).toLocaleDateString()}
+                  <strong>Applied Date:</strong> {formatDate(new Date(viewModal.request.appliedDate))}
                 </p>
                 {viewModal.request.approvals && viewModal.request.approvals.length > 0 && (
                   <div className="text-sm text-secondary-600">
@@ -2539,7 +2540,7 @@ export const Leave = () => {
                     <ul className="ml-4 mt-1">
                       {viewModal.request.approvals.map((approval, idx) => (
                         <li key={idx}>
-                          {approval.approverName} - {approval.status} ({approval.actionDate ? new Date(approval.actionDate).toLocaleDateString() : ''})
+                          {approval.approverName} - {approval.status} ({approval.actionDate ? formatDate(new Date(approval.actionDate)) : ''})
                           {approval.comments && <span className="ml-2">- {approval.comments}</span>}
                         </li>
                       ))}
@@ -2584,7 +2585,7 @@ export const Leave = () => {
               
               <div className="mb-4 p-4 bg-secondary-50 rounded-lg">
                 <p className="text-sm text-secondary-600">
-                  <strong>Leave Dates:</strong> {new Date(selectedLeaveForTicket.startDate).toLocaleDateString()} - {new Date(selectedLeaveForTicket.endDate).toLocaleDateString()}
+                  <strong>Leave Dates:</strong> {formatDate(new Date(selectedLeaveForTicket.startDate))} - {formatDate(new Date(selectedLeaveForTicket.endDate))}
                 </p>
                 <p className="text-sm text-secondary-600">
                   <strong>Leave Type:</strong> {typeLabels[selectedLeaveForTicket.type]}

@@ -14,6 +14,7 @@ import {
 import { db } from './firebase';
 import type { LeaveRequest, LeaveBalance, LeaveType } from '../types';
 import { createTicketRequest } from './ticket';
+import { formatDate } from './dateUtils';
 
 const LEAVE_REQUESTS_COLLECTION = 'leave_requests';
 const LEAVE_BALANCES_COLLECTION = 'leave_balances';
@@ -189,7 +190,7 @@ export const validateLeaveRequest = async (leaveRequest: Partial<LeaveRequest>) 
         // Check for date overlap
         // Two ranges overlap if: (StartA <= EndB) and (EndA >= StartB)
         if (newStart <= existingEnd && newEnd >= existingStart) {
-          const existingDates = `${existingStart.toLocaleDateString()} - ${existingEnd.toLocaleDateString()}`;
+          const existingDates = `${formatDate(existingStart)} - ${formatDate(existingEnd)}`;
           errors.push(`Duplicate leave: Employee already has a ${existing.status} leave request from ${existingDates} (${existing.type}).`);
           break; // Only show first duplicate
         }

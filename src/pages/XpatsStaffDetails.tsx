@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Users, Building2, AlertTriangle, FileText, 
+import {
+  Users, Building2, AlertTriangle, FileText,
   Shield, Heart, DollarSign, LogOut, Search,
   Plus, Upload, Clock
 } from 'lucide-react';
@@ -9,8 +9,8 @@ import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { ExportButton } from '../components/ExportButton';
 import { ExpatStaffForm } from '../components/ExpatStaffForm';
-import type { 
-  ExpatStaff, 
+import type {
+  ExpatStaff,
   ExpatCompany,
   ExpatDashboardStats,
   Employee,
@@ -21,12 +21,14 @@ import {
   updateExpatStaff
 } from '../lib/expatStaff';
 import { getEmployees, updateEmployee } from '../lib/employees';
-import { 
-  getAllMedicalApplications, 
+import {
+  getAllMedicalApplications,
   createMedicalApplication
 } from '../lib/medicalApplications';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 type TabType = 'overview' | 'all-staff' | 'ongoing' | 'work-visa' | 'medical' | 'insurance' | 'deposits' | 'left-staffs' | 'expiry-center' | 'reports';
 
@@ -150,8 +152,20 @@ export const XpatsStaffDetails = () => {
     try {
       if (editingStaff) {
         await updateExpatStaff(editingStaff.id, staff);
+        await logActivity(
+          'updated',
+          'expat_staff',
+          editingStaff.id,
+          `Updated expat staff`
+        );
       } else {
-        await createExpatStaff(staff);
+        const result = await createExpatStaff(staff);
+        await logActivity(
+          'created',
+          'expat_staff',
+          result,
+          `Created expat staff`
+        );
       }
       setShowAddModal(false);
       setEditingStaff(null);
@@ -621,7 +635,7 @@ export const XpatsStaffDetails = () => {
                             {emp.ppIdNumber || 'N/A'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
-                            {emp.visaExpiryDate ? new Date(emp.visaExpiryDate).toLocaleDateString() : 'N/A'}
+                            {emp.visaExpiryDate ? formatDate(new Date(emp.visaExpiryDate)) : 'N/A'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <span className={`px-2 py-1 text-xs rounded ${getDocumentStatusColor(calculateDaysRemaining(emp.wpExpDate))}`}>
@@ -822,7 +836,7 @@ export const XpatsStaffDetails = () => {
                                 {emp.wpNo || 'N/A'}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
-                                {emp.visaExpiryDate ? new Date(emp.visaExpiryDate).toLocaleDateString() : 'N/A'}
+                                {emp.visaExpiryDate ? formatDate(new Date(emp.visaExpiryDate)) : 'N/A'}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                                 {daysRemaining !== undefined ? daysRemaining : 'N/A'}
@@ -891,10 +905,10 @@ export const XpatsStaffDetails = () => {
                             {app.staffName}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
-                            {new Date(app.createdDate).toLocaleDateString()}
+                            {formatDate(new Date(app.createdDate))}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
-                            {app.lastSubmittedDate ? new Date(app.lastSubmittedDate).toLocaleDateString() : 'N/A'}
+                            {app.lastSubmittedDate ? formatDate(new Date(app.lastSubmittedDate)) : 'N/A'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                             {app.stateChangeRemarks || 'N/A'}
@@ -996,10 +1010,10 @@ export const XpatsStaffDetails = () => {
                                 {emp.department || 'N/A'}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
-                                {emp.joinDate ? new Date(emp.joinDate).toLocaleDateString() : 'N/A'}
+                                {emp.joinDate ? formatDate(new Date(emp.joinDate)) : 'N/A'}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
-                                {emp.medExpDate ? new Date(emp.medExpDate).toLocaleDateString() : 'N/A'}
+                                {emp.medExpDate ? formatDate(new Date(emp.medExpDate)) : 'N/A'}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                                 {daysRemaining !== undefined ? daysRemaining : 'N/A'}
@@ -1108,7 +1122,7 @@ export const XpatsStaffDetails = () => {
                                 {emp.insuranceNumber || 'N/A'}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
-                                {emp.insuranceExpDate ? new Date(emp.insuranceExpDate).toLocaleDateString() : 'N/A'}
+                                {emp.insuranceExpDate ? formatDate(new Date(emp.insuranceExpDate)) : 'N/A'}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                                 {daysRemaining !== undefined ? daysRemaining : 'N/A'}
@@ -1269,7 +1283,7 @@ export const XpatsStaffDetails = () => {
                             {emp.status === 'resigned' ? 'Resigned' : 'Terminated'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
-                            {emp.visaCancellation?.submittedDate ? new Date(emp.visaCancellation.submittedDate).toLocaleDateString() : 'N/A'}
+                            {emp.visaCancellation?.submittedDate ? formatDate(new Date(emp.visaCancellation.submittedDate)) : 'N/A'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                             {emp.visaCancellation?.requestNumber || 'N/A'}
@@ -1387,7 +1401,7 @@ export const XpatsStaffDetails = () => {
                             {doc.number}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
-                            {doc.expiry ? new Date(doc.expiry).toLocaleDateString() : 'N/A'}
+                            {doc.expiry ? formatDate(new Date(doc.expiry)) : 'N/A'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                             {doc.days}

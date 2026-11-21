@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useSearchParams } from 'react-router-dom';
+import { formatDate } from '../lib/dateUtils';
 
 type Candidate = {
   id: string;
@@ -131,16 +132,12 @@ const initialData: LOAData = {
     "I agree to the terms and conditions stated above and accept this offer of employment.",
 };
 
-const formatDate = (value: string) => {
+const formatLOADate = (value: string) => {
   if (!value) return "________________";
 
   const d = new Date(value + "T00:00:00");
 
-  return d.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  return formatDate(d);
 };
 
 const money = (data: LOAData) => {
@@ -212,7 +209,7 @@ export default function LOAGenerator() {
         emergencyContact: candidate.emergency_contact || "",
         jobTitle: candidate.POSITION || prev.jobTitle,
         businessActivity: candidate.business_activity || prev.businessActivity,
-        commencementDate: candidate['D.O.J'] ? formatDate(candidate['D.O.J']) : "",
+        commencementDate: candidate['D.O.J'] ? formatLOADate(candidate['D.O.J']) : "",
         basicSalary: candidate.salary || prev.basicSalary,
         salaryCurrency: candidate.salary_currency || prev.salaryCurrency,
         exchangeRate: candidate.exchange_rate || prev.exchangeRate,
@@ -754,7 +751,7 @@ export default function LOAGenerator() {
               <div className="loa-rule" />
 
               <div className="loa-date">
-                Date: {formatDate(data.letterDate)}
+                Date: {formatLOADate(data.letterDate)}
               </div>
 
               <h2 className="loa-title">
@@ -799,7 +796,7 @@ export default function LOAGenerator() {
                   {detail("Food & Accommodation", data.foodAccommodation)}
                   {detail("Date of Salary Payment", data.salaryPayment)}
                   {detail("Work Site", data.workSite)}
-                  {detail("Date of Commencement", formatDate(data.commencementDate))}
+                  {detail("Date of Commencement", formatLOADate(data.commencementDate))}
                   {detail("Job Description", data.jobDescription)}
                   {detail("Working Hours", data.workingHours)}
                   {detail("Work Status", `Contract - ${data.contractDuration}`)}

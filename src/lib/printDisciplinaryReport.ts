@@ -1,7 +1,8 @@
 import jsPDF from 'jspdf';
 import type { DisciplinaryAction } from '../types';
+import { formatDate } from './dateUtils';
 
-const formatDate = (value: any): string => {
+const formatReportDate = (value: any): string => {
   if (!value) return 'N/A';
 
   const date = value instanceof Date
@@ -12,7 +13,7 @@ const formatDate = (value: any): string => {
 
   return Number.isNaN(date.getTime())
     ? 'N/A'
-    : date.toLocaleDateString('en-GB');
+    : formatDate(date);
 };
 
 const getActionType = (type: string) => {
@@ -207,8 +208,8 @@ export const printDisciplinaryReport = async (
   const incidentInfo = [
     ['Type:', getActionType(action.type)],
     ['Severity:', action.severity.toUpperCase()],
-    ['Incident Date:', formatDate(action.incidentDate)],
-    ['Reported Date:', formatDate(action.reportedDate)],
+    ['Incident Date:', formatReportDate(action.incidentDate)],
+    ['Reported Date:', formatReportDate(action.reportedDate)],
     ['Status:', action.status.toUpperCase()],
   ];
 
@@ -426,7 +427,7 @@ export const printDisciplinaryReport = async (
     doc.setTextColor(90, 90, 90);
 
     doc.text(
-      `Generated on: ${formatDate(new Date())}`,
+      `Generated on: ${formatReportDate(new Date())}`,
       margin,
       pageHeight - 10
     );

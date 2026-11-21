@@ -5,6 +5,7 @@ import { getEmployees } from '../lib/employees';
 import { getLeaveRequests } from '../lib/leave';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { formatDate } from '../lib/dateUtils';
 
 export const ProbationNonRenewalLetter: React.FC = () => {
   const [selectedEmployee, setSelectedEmployee] = useState('');
@@ -308,7 +309,7 @@ export const ProbationNonRenewalLetter: React.FC = () => {
 
             {/* Date */}
             <div className="text-right text-xs text-gray-600 mb-3">
-              Date: {new Date().toLocaleDateString()}
+              Date: {formatDate(new Date())}
             </div>
 
             {/* Employee Details */}
@@ -333,8 +334,8 @@ export const ProbationNonRenewalLetter: React.FC = () => {
 
               <p>
                 <strong>Employment Details:</strong><br />
-                Join Date: {joinDate ? new Date(joinDate).toLocaleDateString() : 'N/A'}<br />
-                Probation End Date: {probationEndDate ? new Date(probationEndDate).toLocaleDateString() : 'N/A'}
+                Join Date: {joinDate ? formatDate(new Date(joinDate)) : 'N/A'}<br />
+                Probation End Date: {probationEndDate ? formatDate(new Date(probationEndDate)) : 'N/A'}
               </p>
 
               <p>
@@ -356,7 +357,7 @@ export const ProbationNonRenewalLetter: React.FC = () => {
 
               <p className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
                 <strong>IMPORTANT NOTICE:</strong><br />
-                - Your employment will officially end on {probationEndDate ? new Date(probationEndDate).toLocaleDateString() : 'the probation end date'}<br />
+                - Your employment will officially end on {probationEndDate ? formatDate(new Date(probationEndDate)) : 'the probation end date'}<br />
                 - Please complete all exit formalities with the HR department<br />
                 - Return all company property including ID card, keys, and any equipment<br />
                 - Clear any outstanding dues or advances before the final working day

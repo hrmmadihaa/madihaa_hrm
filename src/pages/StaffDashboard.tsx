@@ -6,6 +6,7 @@ import { getEmployeeById, getEmployees } from '../lib/employees';
 import { getDisciplinaryActionsByEmployee } from '../lib/disciplinary';
 import type { Employee, DisciplinaryAction } from '../types';
 import jsPDF from 'jspdf';
+import { formatDate } from '../lib/dateUtils';
 
 export const StaffDashboard = () => {
   const { user } = useAuth();
@@ -93,11 +94,6 @@ export const StaffDashboard = () => {
     );
   }
 
-  const formatDate = (date: Date | string | undefined) => {
-    if (!date) return 'N/A';
-    const d = new Date(date);
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
 
   const severityColors = {
     minor: 'bg-blue-100 text-blue-800',
@@ -190,8 +186,8 @@ export const StaffDashboard = () => {
                    action.type === 'final_warning' ? 'Final Warning' :
                    action.type === 'termination' ? 'Termination' : action.type],
         ['Severity:', action.severity.toUpperCase()],
-        ['Incident Date:', action.incidentDate instanceof Date ? action.incidentDate.toLocaleDateString() : 'N/A'],
-        ['Reported Date:', action.reportedDate instanceof Date ? action.reportedDate.toLocaleDateString() : 'N/A'],
+        ['Incident Date:', action.incidentDate instanceof Date ? formatDate(action.incidentDate) : 'N/A'],
+        ['Reported Date:', action.reportedDate instanceof Date ? formatDate(action.reportedDate) : 'N/A'],
         ['Status:', action.status.toUpperCase()],
       ];
       
@@ -259,7 +255,7 @@ export const StaffDashboard = () => {
       
       // Footer
       doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 280, { align: 'center' });
+      doc.text(`Generated on: ${formatDate(new Date())}`, 105, 280, { align: 'center' });
       
       // Open PDF in new tab for printing instead of downloading
       const pdfBlob = doc.output('blob');
@@ -523,7 +519,7 @@ export const StaffDashboard = () => {
                       </div>
                     </div>
                     <div className="text-sm text-secondary-600">
-                      <p>Date: {action.incidentDate instanceof Date ? action.incidentDate.toLocaleDateString() : 'N/A'}</p>
+                      <p>Date: {action.incidentDate instanceof Date ? formatDate(action.incidentDate) : 'N/A'}</p>
                       <p className="mt-1">{action.description.substring(0, 100)}{action.description.length > 100 ? '...' : ''}</p>
                     </div>
                   </div>
@@ -562,13 +558,13 @@ export const StaffDashboard = () => {
                 <div>
                   <span className="text-secondary-600">Incident Date:</span>
                   <p className="font-medium">
-                    {viewModal.action.incidentDate instanceof Date ? viewModal.action.incidentDate.toLocaleDateString() : 'N/A'}
+                    {viewModal.action.incidentDate instanceof Date ? formatDate(viewModal.action.incidentDate) : 'N/A'}
                   </p>
                 </div>
                 <div>
                   <span className="text-secondary-600">Reported Date:</span>
                   <p className="font-medium">
-                    {viewModal.action.reportedDate instanceof Date ? viewModal.action.reportedDate.toLocaleDateString() : 'N/A'}
+                    {viewModal.action.reportedDate instanceof Date ? formatDate(viewModal.action.reportedDate) : 'N/A'}
                   </p>
                 </div>
                 <div>

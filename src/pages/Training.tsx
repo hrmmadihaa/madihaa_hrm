@@ -28,6 +28,8 @@ import type {
   TrainingNotification,
   TrainingReportSummary,
 } from '../types';
+import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 export const Training = () => {
   const { can } = usePermissions();
@@ -83,13 +85,19 @@ export const Training = () => {
     if (!newNeedTitle || !newNeedDepartment) return;
     setCreating(true);
     try {
-      await createTrainingNeedsAnalysis({
+      const result = await createTrainingNeedsAnalysis({
         title: newNeedTitle,
         department: newNeedDepartment,
         impactArea: 'competency_gap',
         status: 'draft',
         createdBy: 'HR Manager',
       });
+      await logActivity(
+        'created',
+        'training_needs_analysis',
+        result,
+        `Created training needs analysis: ${newNeedTitle}`
+      );
       setNewNeedTitle('');
       setNewNeedDepartment('');
       await loadData();
@@ -220,7 +228,7 @@ export const Training = () => {
                         <p className="font-semibold text-secondary-900">{need.title}</p>
                         <p className="text-sm text-secondary-600">{need.department} • {need.status}</p>
                       </div>
-                      <span className="text-xs uppercase tracking-wider text-secondary-500">{new Date(need.createdAt).toLocaleDateString()}</span>
+                      <span className="text-xs uppercase tracking-wider text-secondary-500">{formatDate(new Date(need.createdAt))}</span>
                     </div>
                     <p className="mt-2 text-sm text-secondary-700">Impact: {need.impactArea}</p>
                   </div>
@@ -252,7 +260,7 @@ export const Training = () => {
                     <div className="space-y-2 text-sm mb-4">
                       <div className="flex justify-between">
                         <span className="text-secondary-600">Date:</span>
-                        <span className="font-medium">{session.sessionDate ? new Date(session.sessionDate).toLocaleDateString() : 'N/A'}</span>
+                        <span className="font-medium">{session.sessionDate ? formatDate(new Date(session.sessionDate)) : 'N/A'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-secondary-600">Location:</span>
@@ -284,7 +292,7 @@ export const Training = () => {
                     sessions.map((session) => (
                       <motion.tr key={session.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="hover:bg-secondary-50">
                         <td className="px-4 py-4 text-sm text-secondary-900">{session.courseTitle}</td>
-                        <td className="px-4 py-4 text-sm text-secondary-600">{new Date(session.sessionDate).toLocaleDateString()}</td>
+                        <td className="px-4 py-4 text-sm text-secondary-600">{formatDate(new Date(session.sessionDate))}</td>
                         <td className="px-4 py-4 text-sm text-secondary-600">{session.location}</td>
                         <td className="px-4 py-4 text-sm font-medium text-secondary-900">{session.status}</td>
                       </motion.tr>

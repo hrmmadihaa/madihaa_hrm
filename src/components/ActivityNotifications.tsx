@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Bell, X } from 'lucide-react';
 import { subscribeToRecentActivities, type ActivityLog } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 export const ActivityNotifications = () => {
   const [activities, setActivities] = useState<ActivityLog[]>([]);
@@ -8,13 +9,18 @@ export const ActivityNotifications = () => {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
+    console.log('ActivityNotifications - Subscribing to activities');
     const unsubscribe = subscribeToRecentActivities((newActivities) => {
+      console.log('ActivityNotifications - Received activities:', newActivities);
       const previousCount = activities.length;
       setActivities(newActivities);
       setUnreadCount(newActivities.length - previousCount);
     }, 10);
 
-    return () => unsubscribe();
+    return () => {
+      console.log('ActivityNotifications - Unsubscribing');
+      unsubscribe();
+    };
   }, []);
 
   const formatTime = (timestamp: any) => {
@@ -27,7 +33,7 @@ export const ActivityNotifications = () => {
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
-    return date.toLocaleDateString();
+    return formatDate(date);
   };
 
   const getActionColor = (action: string) => {

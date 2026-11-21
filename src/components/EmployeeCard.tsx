@@ -1,6 +1,7 @@
 import { User, Calendar, Briefcase, MapPin, MoreVertical, Camera, Trash2 } from 'lucide-react';
 import type { Employee } from '../types';
 import { calculateDuration } from '../lib/employees';
+import { formatDate } from '../lib/dateUtils';
 
 interface EmployeeCardProps {
   employee: Employee;
@@ -123,11 +124,7 @@ export const EmployeeCard = ({ employee, onClick, onPhotoUpload, uploadingPhoto,
             <div>
               <p className="text-xs text-gray-500 font-medium">Joined</p>
               <p className="text-sm font-semibold text-gray-900">
-                {employee.joinDate ? new Date(employee.joinDate).toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric'
-                }) : 'N/A'}
+                {employee.joinDate ? formatDate(new Date(employee.joinDate)) : 'N/A'}
               </p>
             </div>
           </div>

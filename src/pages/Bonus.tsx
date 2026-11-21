@@ -8,6 +8,8 @@ import { addDoc, collection, Timestamp, getDocs, query, where, doc, deleteDoc } 
 import { db } from '../lib/firebase';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 export const Bonus = () => {
   const [employees, setEmployees] = useState<any[]>([]);
@@ -531,6 +533,13 @@ export const Bonus = () => {
       }
       console.log('Finished creating all records');
 
+      await logActivity(
+        'updated',
+        'bonus',
+        existingBatchId,
+        `Updated bonus batch for ${uniqueSelectedEmployees.length} employees`
+      );
+
       alert('Bonus batch updated successfully');
       setEditingBatch(null);
       setSelectedEmployees([]);
@@ -664,7 +673,7 @@ export const Bonus = () => {
   };
 
   const handleDeleteBatch = async (bonus: any) => {
-    if (!confirm(`Are you sure you want to delete this bonus batch from ${bonus.date?.toDate?.() ? new Date(bonus.date.toDate()).toLocaleDateString() : 'N/A'}? This will delete all ${bonus.distributedAmong} bonus records.`)) {
+    if (!confirm(`Are you sure you want to delete this bonus batch from ${bonus.date?.toDate?.() ? formatDate(new Date(bonus.date.toDate())) : 'N/A'}? This will delete all ${bonus.distributedAmong} bonus records.`)) {
       return;
     }
 
@@ -702,6 +711,12 @@ export const Bonus = () => {
     try {
       setLoading(true);
       await deleteDoc(doc(db, 'bonuses', bonus.id));
+      await logActivity(
+        'deleted',
+        'bonus',
+        bonus.id,
+        `Deleted bonus for ${bonus.employeeName} (MVR ${bonus.amount.toFixed(2)})`
+      );
       alert('Bonus record deleted successfully');
       loadBonusHistory();
     } catch (error) {
@@ -863,7 +878,7 @@ export const Bonus = () => {
     doc.text('Bonus Report', 14, 20);
     
     doc.setFontSize(12);
-    doc.text(`Date: ${bonus.date?.toDate?.() ? new Date(bonus.date.toDate()).toLocaleDateString() : 'N/A'}`, 14, 30);
+    doc.text(`Date: ${bonus.date?.toDate?.() ? formatDate(new Date(bonus.date.toDate())) : 'N/A'}`, 14, 30);
     doc.text(`Description: ${bonus.description || 'N/A'}`, 14, 38);
     doc.text(`Total Amount: MVR ${bonus.totalBonusAmount.toFixed(2)}`, 14, 46);
     doc.text(`Total Employees: ${batchEmployees.length}`, 14, 54);
@@ -1013,6 +1028,13 @@ export const Bonus = () => {
         });
       }
 
+      await logActivity(
+        'created',
+        'bonus',
+        batchId,
+        `Created bonus batch for ${selectedEmployees.length} employees (Total: ${totalAmount})`
+      );
+
       alert(`Bonus distributed successfully to ${selectedEmployees.length} employees`);
       setSelectedEmployees([]);
       setBonusAmount('');
@@ -1097,7 +1119,7 @@ export const Bonus = () => {
                         <span className="text-secondary-400">{isExpanded ? '▼' : '▶'}</span>
                         <div>
                           <p className="text-sm font-medium text-secondary-900">
-                            {bonus.date?.toDate?.() ? new Date(bonus.date.toDate()).toLocaleDateString() : 'N/A'}
+                            {bonus.date?.toDate?.() ? formatDate(new Date(bonus.date.toDate())) : 'N/A'}
                           </p>
                           <p className="text-xs text-secondary-600">{bonus.description}</p>
                         </div>

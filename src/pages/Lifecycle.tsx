@@ -13,6 +13,8 @@ import type {
   ExitInterview,
   OffboardingTask,
 } from '../types';
+import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 export const Lifecycle = () => {
   const [exitInterviews, setExitInterviews] = useState<ExitInterview[]>([]);
@@ -49,13 +51,19 @@ export const Lifecycle = () => {
     if (!newTaskDescription || !newTaskAssignee) return;
     setActionLoading(true);
     try {
-      await createOffboardingTask({
+      const result = await createOffboardingTask({
         employeeId: '',
         description: newTaskDescription,
         assignedTo: newTaskAssignee,
         dueDate: new Date(),
         completed: false,
       });
+      await logActivity(
+        'created',
+        'offboarding_task',
+        result,
+        `Created offboarding task: ${newTaskDescription}`
+      );
       setNewTaskDescription('');
       setNewTaskAssignee('');
       await loadData();
@@ -70,6 +78,12 @@ export const Lifecycle = () => {
     setActionLoading(true);
     try {
       await completeOffboardingTask(taskId);
+      await logActivity(
+        'updated',
+        'offboarding_task',
+        taskId,
+        `Completed offboarding task`
+      );
       await loadData();
     } catch (error) {
       console.error('Unable to complete offboarding task:', error);
@@ -194,7 +208,7 @@ export const Lifecycle = () => {
                       </span>
                     </div>
                     <div className="mt-3 flex items-center justify-between">
-                      <p className="text-sm text-secondary-500">Due {new Date(task.dueDate).toLocaleDateString()}</p>
+                      <p className="text-sm text-secondary-500">Due {formatDate(new Date(task.dueDate))}</p>
                       {!task.completed && (
                         <Button size="sm" onClick={() => handleCompleteTask(task.id)} loading={actionLoading}>
                           Complete
@@ -224,7 +238,7 @@ export const Lifecycle = () => {
                         <p className="font-semibold text-secondary-900">{interview.employeeName}</p>
                         <p className="text-sm text-secondary-600">{interview.reason}</p>
                       </div>
-                      <span className="text-xs uppercase tracking-wider text-secondary-500">{new Date(interview.interviewDate).toLocaleDateString()}</span>
+                      <span className="text-xs uppercase tracking-wider text-secondary-500">{formatDate(new Date(interview.interviewDate))}</span>
                     </div>
                     <p className="mt-2 text-sm text-secondary-700">{interview.feedback}</p>
                   </div>

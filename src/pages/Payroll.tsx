@@ -13,6 +13,8 @@ import { generatePayrollReport } from '../lib/reports';
 import type { Payroll as PayrollRecord, PayrollSummary, Employee } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 export const Payroll = () => {
   const { can } = usePermissions();
@@ -159,7 +161,7 @@ export const Payroll = () => {
     // Footer
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
-    doc.text('Generated on: ' + new Date().toLocaleDateString(), 20, 280);
+    doc.text('Generated on: ' + formatDate(new Date()), 20, 280);
     doc.text('This is a computer-generated document.', 105, 280, { align: 'center' });
     
     // Save PDF
@@ -176,6 +178,12 @@ export const Payroll = () => {
       setProcessing(true);
       const payrollIds = payrollData.map(p => p.id);
       await processPayrollRun(payrollIds, user?.id || 'system');
+      await logActivity(
+        'processed',
+        'payroll',
+        undefined,
+        `Processed payroll for ${months[selectedMonth - 1]} ${selectedYear} (${payrollIds.length} employees)`
+      );
       await loadPayrollData();
       alert('Payroll processed successfully!');
     } catch (error) {
@@ -200,6 +208,12 @@ export const Payroll = () => {
     try {
       setGenerating(true);
       await generatePayrollFromEmployees(selectedMonth, selectedYear);
+      await logActivity(
+        'generated',
+        'payroll',
+        undefined,
+        `Generated payroll for ${months[selectedMonth - 1]} ${selectedYear}`
+      );
       await loadPayrollData();
       alert('Payroll generated successfully!');
     } catch (error) {

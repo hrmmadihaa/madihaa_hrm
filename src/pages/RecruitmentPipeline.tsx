@@ -4,6 +4,8 @@ import { Plus, Search, FileText } from 'lucide-react';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
+import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 interface Candidate {
   id: string;
@@ -165,15 +167,27 @@ export const RecruitmentPipeline: React.FC = () => {
           ...formData,
           last_updated: new Date().toISOString()
         });
+        await logActivity(
+          'updated',
+          'recruitment_candidate',
+          editingCandidate.id,
+          `Updated candidate ${formData.Name} for ${formData.POSITION}`
+        );
       } else {
         // Create new - let Firebase generate the ID
-        await addDoc(collection(db, 'recruitment_candidates'), {
+        const docRef = await addDoc(collection(db, 'recruitment_candidates'), {
           ...formData,
           stage: 'cv_received',
           status: 'Pending',
           created_date: new Date().toISOString(),
           last_updated: new Date().toISOString()
         });
+        await logActivity(
+          'created',
+          'recruitment_candidate',
+          docRef.id,
+          `Added new candidate ${formData.Name} for ${formData.POSITION}`
+        );
       }
       setShowModal(false);
       setEditingCandidate(null);
@@ -188,7 +202,14 @@ export const RecruitmentPipeline: React.FC = () => {
   const handleDeleteCandidate = async (candidateId: string) => {
     if (!confirm('Are you sure you want to delete this candidate?')) return;
     try {
+      const candidate = candidates.find(c => c.id === candidateId);
       await deleteDoc(doc(db, 'recruitment_candidates', candidateId));
+      await logActivity(
+        'deleted',
+        'recruitment_candidate',
+        candidateId,
+        `Deleted candidate ${candidate?.Name} for ${candidate?.POSITION}`
+      );
       loadData();
     } catch (error) {
       console.error('Error deleting candidate:', error);
@@ -210,6 +231,12 @@ export const RecruitmentPipeline: React.FC = () => {
         stage: newStage,
         last_updated: new Date().toISOString()
       });
+      await logActivity(
+        'updated',
+        'recruitment_candidate',
+        candidate.id,
+        `Changed stage for ${candidate.Name} to ${newStage}`
+      );
       loadData();
     } catch (error) {
       console.error('Error updating stage:', error);
@@ -439,20 +466,12 @@ export const RecruitmentPipeline: React.FC = () => {
 
   const saveOfferLetterToFirestore = async (candidate: Candidate) => {
     const today = new Date();
-    const formattedDate = today.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
+    const formattedDate = formatDate(today);
 
     const isMaldivian = candidate.Nationality?.toLowerCase().includes('maldives') ||
                         candidate.Nationality?.toLowerCase().includes('maldivian');
 
-    const startDate = candidate.date_of_joining ? new Date(candidate.date_of_joining).toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    }) : 'TBD';
+    const startDate = candidate.date_of_joining ? formatDate(new Date(candidate.date_of_joining)) : 'TBD';
 
     const salary = candidate.salary ? parseFloat(candidate.salary).toLocaleString('en-MV', {
       style: 'currency',

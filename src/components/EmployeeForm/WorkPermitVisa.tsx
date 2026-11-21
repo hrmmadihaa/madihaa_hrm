@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import type { EmployeeDocument } from '../../types';
+import { formatDate } from '../../lib/dateUtils';
 
 interface VisaPermitData {
   workPermitNumber: string;
@@ -161,7 +162,7 @@ export const WorkPermitVisa = ({ documents = [], onNext, onPrev, onSave }: WorkP
                   <div>
                     <p className="text-sm font-medium">{doc.name}</p>
                     <p className="text-xs text-secondary-600">
-                      Expires: {doc.expiryDate?.toLocaleDateString()}
+                      Expires: {doc.expiryDate ? formatDate(new Date(doc.expiryDate)) : 'N/A'}
                     </p>
                   </div>
                   <button
@@ -253,7 +254,7 @@ export const WorkPermitVisa = ({ documents = [], onNext, onPrev, onSave }: WorkP
                   <div>
                     <p className="text-sm font-medium">{doc.name}</p>
                     <p className="text-xs text-secondary-600">
-                      Expires: {doc.expiryDate?.toLocaleDateString()}
+                      Expires: {doc.expiryDate ? formatDate(new Date(doc.expiryDate)) : 'N/A'}
                     </p>
                   </div>
                   <button

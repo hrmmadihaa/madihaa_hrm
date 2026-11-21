@@ -14,6 +14,8 @@ import { generateEmployeeReport } from '../lib/reports';
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
 import type { Employee } from '../types';
+import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 export const Employees = () => {
   const navigate = useNavigate();
@@ -55,7 +57,14 @@ export const Employees = () => {
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this employee?')) {
       try {
+        const employee = employees.find(e => e.id === id);
         await deleteEmployee(id);
+        await logActivity(
+          'deleted',
+          'employee',
+          id,
+          `Deleted employee ${employee?.fullName} (${employee?.employeeId})`
+        );
         loadEmployees();
       } catch (error) {
         alert('Failed to delete employee: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -75,8 +84,14 @@ export const Employees = () => {
       try {
         const { uploadImage } = await import('../lib/cloudinary');
         const cloudinaryUrl = await uploadImage(file, 'employee_images', employeeId);
-        
+
         await updateEmployee(employee.id, { photo: cloudinaryUrl });
+        await logActivity(
+          'updated',
+          'employee',
+          employee.id,
+          `Updated photo for ${employee.fullName}`
+        );
         loadEmployees();
         alert('Photo uploaded successfully!');
       } catch (error) {
@@ -116,6 +131,12 @@ export const Employees = () => {
       setImportResults(results);
 
       if (results.success > 0) {
+        await logActivity(
+          'created',
+          'employee',
+          undefined,
+          `Imported ${results.success} employees from JSON`
+        );
         loadEmployees();
       }
     } catch (error) {
@@ -132,10 +153,16 @@ export const Employees = () => {
 
   const handleNormalizeNames = async () => {
     if (!window.confirm('This will normalize all employee names to title case format. Continue?')) return;
-    
+
     setImporting(true);
     try {
       const results = await normalizeExistingEmployeeNames();
+      await logActivity(
+        'updated',
+        'employee',
+        undefined,
+        `Normalized ${results.updated} employee names`
+      );
       alert(`Normalized ${results.updated} employee names. ${results.failed} failed.`);
       loadEmployees();
     } catch (error) {
@@ -147,10 +174,16 @@ export const Employees = () => {
 
   const handleRemoveDuplicates = async () => {
     if (!window.confirm('This will remove duplicate employees from the database (keeping only the most recent version of each employee). Continue?')) return;
-    
+
     setImporting(true);
     try {
       const results = await removeDuplicateEmployees();
+      await logActivity(
+        'deleted',
+        'employee',
+        undefined,
+        `Removed ${results.removed} duplicate employees`
+      );
       alert(`Removed ${results.removed} duplicate employees. Kept ${results.kept} unique employees. ${results.errors.length} errors.`);
       loadEmployees();
     } catch (error) {
@@ -526,7 +559,7 @@ export const Employees = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
                       {employee.joinDate instanceof Date && !isNaN(employee.joinDate.getTime())
-                        ? employee.joinDate.toLocaleDateString()
+                        ? formatDate(employee.joinDate)
                         : 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

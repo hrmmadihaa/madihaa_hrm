@@ -9,6 +9,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import type { WorkLocation } from '../types';
 import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 interface Employee {
   id: string;
@@ -279,7 +280,7 @@ export const FridayDuty = () => {
     });
 
     if (hasLeave && status !== 'Off') {
-      alert(`Cannot change status for ${employee?.fullName}. Employee is on approved leave from ${leaveRequests.find(l => l.employeeId === employee?.id && l.status === 'approved')?.startDate?.toLocaleDateString()} to ${leaveRequests.find(l => l.employeeId === employee?.id && l.status === 'approved')?.endDate?.toLocaleDateString()}. Please modify the leave request first.`);
+      alert(`Cannot change status for ${employee?.fullName}. Employee is on approved leave from ${leaveRequests.find(l => l.employeeId === employee?.id && l.status === 'approved')?.startDate ? formatDate(new Date(leaveRequests.find(l => l.employeeId === employee?.id && l.status === 'approved')?.startDate)) : 'N/A'} to ${leaveRequests.find(l => l.employeeId === employee?.id && l.status === 'approved')?.endDate ? formatDate(new Date(leaveRequests.find(l => l.employeeId === employee?.id && l.status === 'approved')?.endDate)) : 'N/A'}. Please modify the leave request first.`);
       return;
     }
 
@@ -537,7 +538,7 @@ export const FridayDuty = () => {
     }
   };
 
-  const formatDate = (date: Date) => {
+  const formatDisplayDate = (date: Date) => {
     return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
   };
 
@@ -691,7 +692,7 @@ export const FridayDuty = () => {
                   </th>
                   {currentFridays.map((friday, index) => (
                     <th key={index} colSpan={2} className="border border-secondary-300 px-4 py-2 bg-secondary-100 text-center font-semibold text-secondary-700">
-                      {formatDate(friday)}
+                      {formatDisplayDate(friday)}
                     </th>
                   ))}
                 </tr>

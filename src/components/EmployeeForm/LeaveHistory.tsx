@@ -3,6 +3,7 @@ import { Calendar, Eye } from 'lucide-react';
 import { getLeaveRequests } from '../../lib/leave';
 import { getEmployees } from '../../lib/employees';
 import type { LeaveRequest, Employee, LeaveType } from '../../types';
+import { formatDate } from '../../lib/dateUtils';
 
 interface LeaveHistoryProps {
   employee?: Partial<Employee>;
@@ -168,7 +169,7 @@ export const LeaveHistory = ({ employee, onPrev, onNext }: LeaveHistoryProps) =>
   const formatDateWithDay = (date: Date) => {
     const d = new Date(date);
     const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
-    const dateStr = d.toLocaleDateString();
+    const dateStr = formatDate(d);
     return `${dateStr} (${dayName})`;
   };
 
@@ -266,7 +267,7 @@ export const LeaveHistory = ({ employee, onPrev, onNext }: LeaveHistoryProps) =>
       {leavePeriod && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-800">
-            <strong>Leave Period:</strong> {leavePeriod.start.toLocaleDateString()} to {leavePeriod.end.toLocaleDateString()}
+            <strong>Leave Period:</strong> {formatDate(leavePeriod.start)} to {formatDate(leavePeriod.end)}
           </p>
           <p className="text-xs text-blue-600 mt-1">Showing approved leave days within the current leave year (based on hire date)</p>
         </div>
@@ -331,7 +332,7 @@ export const LeaveHistory = ({ employee, onPrev, onNext }: LeaveHistoryProps) =>
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
-                      {new Date(request.appliedDate).toLocaleDateString()}
+                      {formatDate(new Date(request.appliedDate))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
@@ -389,7 +390,7 @@ export const LeaveHistory = ({ employee, onPrev, onNext }: LeaveHistoryProps) =>
               </div>
               <div className="flex justify-between">
                 <span className="text-secondary-600">Applied Date:</span>
-                <span className="font-medium">{new Date(viewModal.request.appliedDate).toLocaleDateString()}</span>
+                <span className="font-medium">{formatDate(new Date(viewModal.request.appliedDate))}</span>
               </div>
               <div>
                 <span className="text-secondary-600">Reason:</span>
@@ -404,7 +405,7 @@ export const LeaveHistory = ({ employee, onPrev, onNext }: LeaveHistoryProps) =>
                         <div><strong>Approver:</strong> {approval.approverName}</div>
                         <div><strong>Status:</strong> {approval.status}</div>
                         {approval.comments && <div><strong>Comments:</strong> {approval.comments}</div>}
-                        {approval.actionDate && <div><strong>Date:</strong> {new Date(approval.actionDate).toLocaleDateString()}</div>}
+                        {approval.actionDate && <div><strong>Date:</strong> {formatDate(new Date(approval.actionDate))}</div>}
                       </div>
                     ))}
                   </div>

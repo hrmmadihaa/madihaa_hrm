@@ -5,6 +5,7 @@ import { getEmployees } from '../lib/employees';
 import { getLeaveRequests } from '../lib/leave';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { formatDate } from '../lib/dateUtils';
 
 export const HolidayStatusLetter: React.FC = () => {
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
@@ -294,7 +295,7 @@ export const HolidayStatusLetter: React.FC = () => {
 
             {/* Date */}
             <div className="text-right text-xs text-gray-600 mb-3">
-              Date: {new Date().toLocaleDateString()}
+              Date: {formatDate(new Date())}
             </div>
 
             {/* Employee Names */}
@@ -318,14 +319,14 @@ export const HolidayStatusLetter: React.FC = () => {
 
               <p>
                 <strong>Holiday Period Details:</strong><br />
-                Holiday Start Date: {new Date(holidayStartDate).toLocaleDateString()}<br />
-                Holiday End Date: {new Date(holidayEndDate).toLocaleDateString()}<br />
-                Expected Return to Work: {new Date(reportDate).toLocaleDateString()}
-                {actualReturnDate && <><br />Actual Return Date: {new Date(actualReturnDate).toLocaleDateString()}</>}
+                Holiday Start Date: {formatDate(new Date(holidayStartDate))}<br />
+                Holiday End Date: {formatDate(new Date(holidayEndDate))}<br />
+                Expected Return to Work: {formatDate(new Date(reportDate))}
+                {actualReturnDate && <><br />Actual Return Date: {formatDate(new Date(actualReturnDate))}</>}
               </p>
 
               <p>
-                You were required to report back to work on {new Date(reportDate).toLocaleDateString()}. As of this date, you have failed to do so without providing any valid written documentation or explanation for your absence.
+                You were required to report back to work on {formatDate(new Date(reportDate))}. As of this date, you have failed to do so without providing any valid written documentation or explanation for your absence.
               </p>
 
               <p className="bg-red-50 border-l-4 border-red-400 p-4">

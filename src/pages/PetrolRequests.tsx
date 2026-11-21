@@ -7,6 +7,8 @@ import { getAllWorkLocations } from '../lib/workLocation';
 import { getEmployees } from '../lib/employees';
 import { Button } from '../components/ui/Button';
 import { Plus, Filter, Check, X } from 'lucide-react';
+import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 interface PetrolRequest {
   id: string;
@@ -140,7 +142,13 @@ export const PetrolRequests: React.FC = () => {
       };
 
       const docRef = await addDoc(collection(db, 'petrol_requests'), newRequest);
-      
+      await logActivity(
+        'created',
+        'petrol_request',
+        docRef.id,
+        `Created petrol request for ${formData.vehicleNumber} (${formData.driverName})`
+      );
+
       // Find previous request for this vehicle to get previous KM End
       const vehicleRequests = requests.filter(r => r.vehicleNumber === formData.vehicleNumber);
       const sortedVehicleRequests = vehicleRequests.sort((a, b) => 
@@ -202,6 +210,12 @@ export const PetrolRequests: React.FC = () => {
         approvedBy: approvedBy,
         updatedAt: new Date()
       });
+      await logActivity(
+        newStatus === 'Approved' ? 'approved' : 'updated',
+        'petrol_request',
+        requestId,
+        `${newStatus === 'Approved' ? 'Approved' : 'Sent for approval'} petrol request`
+      );
 
       alert(isSuperAdmin() ? 'Request approved successfully!' : 'Request sent to Super Admin for approval');
       loadData();
@@ -222,6 +236,12 @@ export const PetrolRequests: React.FC = () => {
         approvedBy: user?.displayName || user?.email || role,
         updatedAt: new Date()
       });
+      await logActivity(
+        'rejected',
+        'petrol_request',
+        requestId,
+        `Rejected petrol request`
+      );
 
       alert('Request rejected successfully');
       loadData();
@@ -598,7 +618,7 @@ export const PetrolRequests: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{vehicleNumber}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{latestRequest.driverName}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(latestRequest.requestDate).toLocaleDateString()}
+                      {formatDate(new Date(latestRequest.requestDate))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{latestRequest.kmEnd}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{totals.totalPetrol.toFixed(2)}</td>
@@ -694,7 +714,7 @@ export const PetrolRequests: React.FC = () => {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px 0' }}>Request Date</p>
-                  <p style={{ fontSize: '12px', fontWeight: '600', color: '#111827', margin: '0' }}>{new Date(lastSubmittedRequest.requestDate).toLocaleDateString()}</p>
+                  <p style={{ fontSize: '12px', fontWeight: '600', color: '#111827', margin: '0' }}>{formatDate(new Date(lastSubmittedRequest.requestDate))}</p>
                 </div>
               </div>
 

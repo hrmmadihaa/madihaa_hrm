@@ -13,6 +13,7 @@ import {
 } from '../lib/personnelFiles';
 import { getEmployees } from '../lib/employees';
 import type { Employee } from '../types';
+import { formatDate } from '../lib/dateUtils';
 
 export const DigitalPersonnelFiles = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'expiring' | 'expired' | 'alerts'>('overview');
@@ -257,7 +258,7 @@ export const DigitalPersonnelFiles = () => {
                       {doc.expiryDate && (
                         <p className="text-xs text-secondary-600">
                           <Calendar className="w-3 h-3 inline mr-1" />
-                          Expires: {new Date(doc.expiryDate).toLocaleDateString()}
+                          Expires: {formatDate(new Date(doc.expiryDate))}
                           {doc.daysUntilExpiry !== null && (
                             <span className={doc.status === 'active' ? 'text-green-600' : 'text-red-600'}>
                               ({doc.daysUntilExpiry} days)
@@ -305,7 +306,7 @@ export const DigitalPersonnelFiles = () => {
                   <div className="flex-1">
                     <p className="font-medium text-secondary-900">{doc.name}</p>
                     <p className="text-sm text-secondary-600">
-                      Expires in {doc.daysUntilExpiry} days • {new Date(doc.expiryDate).toLocaleDateString()}
+                      Expires in {doc.daysUntilExpiry} days • {formatDate(new Date(doc.expiryDate))}
                     </p>
                   </div>
                   <Button variant="secondary" size="sm">
@@ -336,7 +337,7 @@ export const DigitalPersonnelFiles = () => {
                   <div className="flex-1">
                     <p className="font-medium text-secondary-900">{doc.name}</p>
                     <p className="text-sm text-red-600">
-                      Expired {doc.daysOverdue} days ago • {new Date(doc.expiryDate).toLocaleDateString()}
+                      Expired {doc.daysOverdue} days ago • {formatDate(new Date(doc.expiryDate))}
                     </p>
                   </div>
                   <Button onClick={() => alert('Renew document')} size="sm" className="bg-red-600 hover:bg-red-700">

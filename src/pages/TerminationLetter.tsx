@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./TerminationLetter.css";
+import { formatDate } from '../lib/dateUtils';
 
 type Language = "en" | "dv" | "both";
 
@@ -41,14 +42,10 @@ const defaultData: TerminationData = {
   companyRegNo: "C14/1985",
 };
 
-const formatDate = (value: string) => {
+const formatLetterDate = (value: string) => {
   if (!value) return "_______________";
 
-  return new Date(value + "T00:00:00").toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  return formatDate(new Date(value + "T00:00:00"));
 };
 
 const translations = {
@@ -115,7 +112,7 @@ export default function TerminationLetter({
   const replaceValues = (text: string) =>
     text
       .replace("{regNo}", data.companyRegNo)
-      .replace("{date}", formatDate(data.effectiveDate));
+      .replace("{date}", formatLetterDate(data.effectiveDate));
 
   const printLetter = () => {
     window.print();
@@ -164,7 +161,7 @@ export default function TerminationLetter({
         <div className="letter-rule" />
 
         <div className="letter-date">
-          {t.date} {formatDate(data.letterDate)}
+          {t.date} {formatLetterDate(data.letterDate)}
         </div>
 
         <h2 className="letter-subject">{t.subject}</h2>

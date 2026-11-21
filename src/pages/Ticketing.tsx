@@ -8,6 +8,8 @@ import { getAllTicketRequests, updateTicketStatus, updateTicketRequest } from '.
 import { TICKET_WORKFLOW_STEPS, TICKET_WORKFLOW_LABELS } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import type { LeaveRequest, TicketRequest } from '../types';
+import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 export const Ticketing = () => {
   const { user } = useAuth();
@@ -54,6 +56,12 @@ export const Ticketing = () => {
   const handleTicketStatusChange = async (ticketId: string, newStatus: TicketRequest['status']) => {
     try {
       await updateTicketStatus(ticketId, newStatus);
+      await logActivity(
+        'updated',
+        'ticket_request',
+        ticketId,
+        `Changed ticket status to ${newStatus}`
+      );
       await loadData(); // Reload data to reflect changes
     } catch (error) {
       console.error('Error updating ticket status:', error);
@@ -89,6 +97,12 @@ export const Ticketing = () => {
         vehicleDriver: editingTicket.vehicleDriver,
         vehicleNumber: editingTicket.vehicleNumber,
       });
+      await logActivity(
+        'updated',
+        'ticket_request',
+        editingTicket.id,
+        `Updated ticket details for ${editingTicket.ticketType}`
+      );
       await loadData();
       setShowEditModal(false);
       setEditingTicket(null);
@@ -105,6 +119,12 @@ export const Ticketing = () => {
         isLeaveExtended: true,
         originalReturnDate: ticket.returnDate
       });
+      await logActivity(
+        'updated',
+        'ticket_request',
+        ticket.id,
+        `Extended leave for ticket`
+      );
       await loadData();
     } catch (error) {
       console.error('Error extending leave:', error);
@@ -118,6 +138,12 @@ export const Ticketing = () => {
         isTicketChanged: true,
         changeReason: reason
       });
+      await logActivity(
+        'updated',
+        'ticket_request',
+        ticket.id,
+        `Changed ticket: ${reason}`
+      );
       await loadData();
       setShowTicketChangeModal(false);
     } catch (error) {
@@ -337,7 +363,7 @@ export const Ticketing = () => {
                       <div className="flex items-center gap-2">
                         <Plane className="w-4 h-4 text-gray-400" />
                         <span className="text-secondary-600">
-                          {new Date(ticket.departureDate).toLocaleDateString()}
+                          {formatDate(new Date(ticket.departureDate))}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -464,7 +490,7 @@ export const Ticketing = () => {
                             </div>
                             <div>
                               <span className="text-gray-500">Return:</span>
-                              <span className="ml-2">{new Date(ticket.returnDate).toLocaleDateString()}</span>
+                              <span className="ml-2">{formatDate(new Date(ticket.returnDate))}</span>
                             </div>
                             <div>
                               <span className="text-gray-500">Passengers:</span>
@@ -483,7 +509,7 @@ export const Ticketing = () => {
                             </div>
                             <div>
                               <span className="text-gray-500">Date:</span>
-                              <span className="ml-2">{ticket.settlementDate ? new Date(ticket.settlementDate).toLocaleDateString() : '-'}</span>
+                              <span className="ml-2">{ticket.settlementDate ? formatDate(new Date(ticket.settlementDate)) : '-'}</span>
                             </div>
                             <div className="col-span-2">
                               <span className="text-gray-500">Handed To:</span>
@@ -737,7 +763,7 @@ export const Ticketing = () => {
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Extend Leave</h2>
             <p className="text-sm text-gray-600 mb-4">
-              Current return date: {new Date(editingTicket.returnDate).toLocaleDateString()}
+              Current return date: {formatDate(new Date(editingTicket.returnDate))}
             </p>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">New Return Date</label>

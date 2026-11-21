@@ -9,6 +9,8 @@ import { getDisciplinaryActions, createDisciplinaryAction, updateDisciplinaryAct
 import { getAllWorkLocations } from '../lib/workLocation';
 import { printDisciplinaryReport } from '../lib/printDisciplinaryReport';
 import type { DisciplinaryAction, DisciplinaryType, DisciplinarySeverity, DisciplinaryStatus, Employee } from '../types';
+import { logActivity } from '../lib/activityLog';
+import { formatDate } from '../lib/dateUtils';
 
 export const Disciplinary = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -135,8 +137,20 @@ export const Disciplinary = () => {
 
       if (editingAction) {
         await updateDisciplinaryAction(editingAction.id, actionData);
+        await logActivity(
+          'updated',
+          'disciplinary_action',
+          editingAction.id,
+          `Updated disciplinary action for ${selectedEmployee?.fullName}`
+        );
       } else {
-        await createDisciplinaryAction(actionData);
+        const result = await createDisciplinaryAction(actionData);
+        await logActivity(
+          'created',
+          'disciplinary_action',
+          result,
+          `Created disciplinary action for ${selectedEmployee?.fullName}`
+        );
       }
 
       setShowForm(false);
@@ -174,7 +188,15 @@ export const Disciplinary = () => {
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this disciplinary action?')) {
       try {
+        const action = disciplinaryActions.find(a => a.id === id);
+        const employee = employees.find(emp => emp.id === action?.employeeId);
         await deleteDisciplinaryAction(id);
+        await logActivity(
+          'deleted',
+          'disciplinary_action',
+          id,
+          `Deleted disciplinary action for ${employee?.fullName}`
+        );
         loadData();
       } catch (error) {
         alert('Failed to delete: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -657,7 +679,7 @@ export const Disciplinary = () => {
                         <div>
                           <span className="text-secondary-600">Incident Date:</span>
                           <span className="ml-2 font-medium">
-                            {action.incidentDate instanceof Date ? action.incidentDate.toLocaleDateString() : 'N/A'}
+                            {action.incidentDate instanceof Date ? formatDate(action.incidentDate) : 'N/A'}
                           </span>
                         </div>
                       </div>

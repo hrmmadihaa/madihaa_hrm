@@ -4,6 +4,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { formatDate } from "../lib/dateUtils";
 
 import "./LeaveApplication.css";
 
@@ -92,10 +93,10 @@ const getString = (...values: unknown[]): string => {
   return "";
 };
 
-const formatDate = (value: string) => {
+const formatLeaveDate = (value: string) => {
   if (!value) return "";
   const d = new Date(value + "T00:00:00");
-  return d.toLocaleDateString("en-GB");
+  return formatDate(d);
 };
 
 const countDays = (
@@ -253,7 +254,7 @@ export default function LeaveApplication() {
     window.print();
   };
 
-  const date = (value: string) => formatDate(value) || "____________";
+  const date = (value: string) => formatLeaveDate(value) || "____________";
 
   return (
     <div className="leave-app">
