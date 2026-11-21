@@ -8,6 +8,7 @@ import { getLeaveRequests, createLeaveRequest, deleteLeaveRequest } from '../lib
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import type { WorkLocation } from '../types';
+import { logActivity } from '../lib/activityLog';
 
 interface Employee {
   id: string;
@@ -396,6 +397,13 @@ export const FridayDuty = () => {
       // Use merge: false to completely overwrite and remove any empty fields
       await setDoc(doc(db, 'friday_schedules', 'current'), cleanedData);
       console.log('Friday Duty - Schedule data saved successfully');
+
+      await logActivity(
+        'updated',
+        'friday_schedule',
+        'current',
+        `Updated Friday schedule: ${changeSummary.offCount} Off, ${changeSummary.onCount} On, ${changeSummary.holidayCount} Holiday`
+      );
 
       // Refresh leave requests to get latest data
       const updatedLeaveRequests = await getLeaveRequests();

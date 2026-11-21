@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import {
-  Menu, X, Bell, User, LogOut, Settings,
+  Menu, X, User, LogOut, Settings,
   LayoutDashboard, Users, Calendar, CalendarCheck,
   DollarSign, Clock, BarChart, FileText, GraduationCap,
   Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle, Fuel, Wallet, Mail, Globe
@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import madihaaLogo from '/Madihaa 2026 (1).png';
+import { ActivityNotifications } from '../ActivityNotifications';
 
 export const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -235,10 +236,7 @@ export const Layout: React.FC = () => {
             </button>
 
             <div className="flex items-center space-x-4">
-              <button className="relative p-2 text-secondary-600 hover:text-secondary-900">
-                <Bell className="w-6 h-6" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <ActivityNotifications />
               <button className="p-2 text-secondary-600 hover:text-secondary-900">
                 <Settings className="w-6 h-6" />
               </button>

@@ -8,6 +8,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { EmployeeCard } from '../components/EmployeeCard';
 import { ExportButton } from '../components/ExportButton';
 import { getEmployees, deleteEmployee, updateEmployee } from '../lib/employees';
+import { getLeaveRequests } from '../lib/leave';
 import { importEmployeesFromJSON, validateMasterEmployeeJSON, normalizeExistingEmployeeNames, removeDuplicateEmployees } from '../lib/importEmployees';
 import { generateEmployeeReport } from '../lib/reports';
 import { usePermissions } from '../hooks/usePermissions';
@@ -19,6 +20,7 @@ export const Employees = () => {
   const { can, isSuperAdmin } = usePermissions();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -32,9 +34,13 @@ export const Employees = () => {
   const loadEmployees = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getEmployees();
-      setAllEmployees(data);
-      setEmployees(data);
+      const [empData, leaveData] = await Promise.all([
+        getEmployees(),
+        getLeaveRequests()
+      ]);
+      setAllEmployees(empData);
+      setEmployees(empData);
+      setLeaveRequests(leaveData);
     } catch (error) {
       console.error('Error loading employees:', error);
     } finally {
@@ -155,26 +161,41 @@ export const Employees = () => {
   };
 
   const filteredEmployees = employees.filter(employee => {
-    const matchesSearch = 
+    const matchesSearch =
       employee.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.department.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesStatus = filterStatus === 'all' || employee.status === filterStatus;
-    
+
     // Filter based on active tab
     const validStatuses = ['active', 'resigned', 'terminated', 'on_leave'];
     const hasValidStatus = validStatuses.includes(employee.status);
-    
-    const matchesTab = activeTab === 'current' 
+
+    // Check if employee has active approved leave
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const hasActiveLeave = leaveRequests.some(leave => {
+      if (leave.employeeId !== employee.id) return false;
+      if (leave.status !== 'approved') return false;
+
+      const leaveStart = new Date(leave.startDate);
+      const leaveEnd = new Date(leave.endDate);
+      leaveStart.setHours(0, 0, 0, 0);
+      leaveEnd.setHours(23, 59, 59, 999);
+
+      return today >= leaveStart && today <= leaveEnd;
+    });
+
+    const matchesTab = activeTab === 'current'
       ? employee.status === 'active'
       : activeTab === 'on_leave'
-      ? (employee.status === 'on_leave')
+      ? hasActiveLeave
       : activeTab === 'no_status'
       ? !hasValidStatus
       : (employee.status === 'resigned' || employee.status === 'terminated');
-    
+
     return matchesSearch && matchesStatus && matchesTab;
   });
 

@@ -17,6 +17,7 @@ import type { LeaveRequest, LeaveType } from '../types';
 import * as XLSX from 'xlsx';
 import { auth } from '../lib/firebase';
 import LeaveApplication from '../components/LeaveApplication';
+import { logActivity } from '../lib/activityLog';
 
 export const Leave = () => {
   const { user } = useAuth();
@@ -1055,7 +1056,13 @@ export const Leave = () => {
 
     setSubmittingLeave(true);
     try {
-      await createLeaveRequest(request);
+      const result = await createLeaveRequest(request);
+      await logActivity(
+        'created',
+        'leave_request',
+        result,
+        `Leave request for ${request.type} from ${request.startDate} to ${request.endDate}`
+      );
       setNewLeaveType('annual');
       setNewStartDate('');
       setNewEndDate('');
@@ -1097,7 +1104,7 @@ export const Leave = () => {
 
     try {
       setApprovalSubmitting(true);
-      
+
       if (approvalModal.action === 'approve') {
         await approveLeaveRequest(
           approvalModal.request.id,
@@ -1106,6 +1113,12 @@ export const Leave = () => {
           0, // Level 0 approval
           approvalComments || undefined
         );
+        await logActivity(
+          'approved',
+          'leave_request',
+          approvalModal.request.id,
+          `Approved ${approvalModal.request.type} leave for ${approvalModal.request.startDate} to ${approvalModal.request.endDate}`
+        );
       } else {
         await rejectLeaveRequest(
           approvalModal.request.id,
@@ -1113,6 +1126,12 @@ export const Leave = () => {
           user.displayName || 'Admin',
           0, // Level 0 approval
           approvalComments || undefined
+        );
+        await logActivity(
+          'rejected',
+          'leave_request',
+          approvalModal.request.id,
+          `Rejected ${approvalModal.request.type} leave for ${approvalModal.request.startDate} to ${approvalModal.request.endDate}`
         );
       }
 
