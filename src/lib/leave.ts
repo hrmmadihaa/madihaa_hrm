@@ -197,7 +197,7 @@ export const validateLeaveRequest = async (leaveRequest: Partial<LeaveRequest>) 
       }
     } catch (error) {
       console.error('Error checking for duplicate leave requests:', error);
-      // Don't block submission if duplicate check fails
+      errors.push('Unable to validate duplicate leave requests. Please try again.');
     }
   }
 
