@@ -5,6 +5,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
@@ -419,6 +420,21 @@ export const generatePayrollFromEmployees = async (month: number, year: number) 
         type: 'deduction' as const
       });
 
+      // Add custom deductions for this employee
+      const customDeductions = await getCustomDeductionsForPayroll(employee.id, month, year);
+      for (const customDeduction of customDeductions) {
+        let deductionAmount = customDeduction.amount;
+        if (customDeduction.type === 'percentage') {
+          deductionAmount = (basicSalary * customDeduction.amount) / 100;
+        }
+        deductions.push({
+          id: customDeduction.id,
+          name: customDeduction.name,
+          amount: deductionAmount,
+          type: 'deduction' as const
+        });
+      }
+
       const totalDeductions = deductions.reduce((sum, d) => sum + d.amount, 0);
       const netSalary = grossSalary - totalDeductions;
 
@@ -727,5 +743,122 @@ export const calculatePensionDeductions = async (basicSalary: number) => {
   } catch (error) {
     console.error('Error calculating pension:', error);
     throw error;
+  }
+};
+
+// Custom Deductions Management
+const DEDUCTIONS_COLLECTION = 'deductions';
+
+export interface CustomDeduction {
+  id?: string;
+  employeeId: string;
+  employeeName: string;
+  employeeIdNumber: string;
+  name: string;
+  amount: number;
+  type: 'fixed' | 'percentage';
+  month?: number;
+  year?: number;
+  isRecurring: boolean;
+  numberOfMonths?: number; // Number of months the deduction should apply
+  reason?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export const addCustomDeduction = async (deduction: Omit<CustomDeduction, 'id' | 'createdAt' | 'updatedAt'>) => {
+  try {
+    const docRef = await addDoc(collection(db, DEDUCTIONS_COLLECTION), {
+      ...deduction,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding custom deduction:', error);
+    throw error;
+  }
+};
+
+export const getCustomDeductions = async (employeeId?: string, month?: number, year?: number) => {
+  try {
+    let q = query(collection(db, DEDUCTIONS_COLLECTION), orderBy('createdAt', 'desc'));
+    
+    if (employeeId) {
+      q = query(q, where('employeeId', '==', employeeId));
+    }
+    
+    if (month !== undefined && year !== undefined) {
+      q = query(q, where('month', '==', month), where('year', '==', year));
+    }
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate(),
+      updatedAt: doc.data().updatedAt?.toDate(),
+    })) as CustomDeduction[];
+  } catch (error) {
+    console.error('Error fetching custom deductions:', error);
+    throw error;
+  }
+};
+
+export const updateCustomDeduction = async (id: string, deduction: Partial<CustomDeduction>) => {
+  try {
+    const docRef = doc(db, DEDUCTIONS_COLLECTION, id);
+    await updateDoc(docRef, {
+      ...deduction,
+      updatedAt: new Date()
+    });
+  } catch (error) {
+    console.error('Error updating custom deduction:', error);
+    throw error;
+  }
+};
+
+export const deleteCustomDeduction = async (id: string) => {
+  try {
+    const docRef = doc(db, DEDUCTIONS_COLLECTION, id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error('Error deleting custom deduction:', error);
+    throw error;
+  }
+};
+
+export const getCustomDeductionsForPayroll = async (employeeId: string, month: number, year: number) => {
+  try {
+    // Get deductions for the specific month/year
+    const specificDeductions = await getCustomDeductions(employeeId, month, year);
+    
+    // Get all recurring deductions for this employee
+    const allDeductions = await getCustomDeductions(employeeId);
+    const recurringDeductions = allDeductions.filter(d => d.isRecurring);
+    
+    // Check which recurring deductions should apply to this month
+    const applicableRecurring = recurringDeductions.filter(d => {
+      if (!d.month || !d.year || !d.numberOfMonths) return false;
+      
+      const startDate = new Date(d.year, d.month - 1, 1);
+      const targetDate = new Date(year, month - 1, 1);
+      const endDate = new Date(d.year, d.month - 1 + d.numberOfMonths, 0);
+      
+      return targetDate >= startDate && targetDate <= endDate;
+    });
+    
+    // Combine specific deductions and applicable recurring deductions
+    const allApplicable = [...specificDeductions, ...applicableRecurring];
+    
+    return allApplicable.map(d => ({
+      id: d.id,
+      name: d.name,
+      amount: d.amount,
+      type: d.type
+    }));
+  } catch (error) {
+    console.error('Error fetching custom deductions for payroll:', error);
+    return [];
   }
 };

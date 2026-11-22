@@ -4,7 +4,7 @@ import {
   Menu, X, User, LogOut, Settings,
   LayoutDashboard, Users, Calendar, CalendarCheck,
   DollarSign, Clock, BarChart, FileText, GraduationCap,
-  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle, Fuel, Wallet, Mail, Globe
+  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle, Fuel, Wallet, Mail, Globe, Minus
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
@@ -37,6 +37,7 @@ export const Layout: React.FC = () => {
     { name: 'Disciplinary', href: '/disciplinary', icon: AlertTriangle },
     { name: 'Payroll', href: '/payroll', icon: DollarSign },
     { name: 'Bonus', href: '/bonus', icon: Gift },
+    { name: 'Deductions', href: '/deductions', icon: Minus },
     { name: 'Overtime', href: '/overtime', icon: Clock },
     { name: 'Petrol Requests', href: '/petrol-requests', icon: Fuel },
     { name: 'Salary', href: '/salary', icon: Wallet },

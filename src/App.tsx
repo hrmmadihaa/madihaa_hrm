@@ -11,6 +11,7 @@ import { Attendance } from './pages/Attendance';
 import { Leave } from './pages/Leave';
 import { Payroll } from './pages/Payroll';
 import { Bonus } from './pages/Bonus';
+import { Deductions } from './pages/Deductions';
 import { Overtime } from './pages/Overtime';
 import { Reports } from './pages/Reports';
 import { RecruitmentPipeline } from './pages/RecruitmentPipeline';
@@ -67,6 +68,7 @@ function App() {
             <Route path="leave" element={<Leave />} />
             <Route path="payroll" element={<Payroll />} />
             <Route path="bonus" element={<Bonus />} />
+            <Route path="deductions" element={<Deductions />} />
             <Route path="overtime" element={<Overtime />} />
             <Route path="reports" element={<Reports />} />
             <Route path="recruitment" element={<Ticketing />} />
