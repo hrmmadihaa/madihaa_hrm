@@ -8,6 +8,7 @@ import { ExportButton } from '../components/ExportButton';
 import { createLeaveRequest, cancelLeaveRequest, getLeaveRequests, validateLeaveRequest, calculateLeaveDays, approveLeaveRequest, rejectLeaveRequest, deleteLeaveRequest, bulkDeleteLeaveRequests, detectDuplicateLeaves } from '../lib/leave';
 import { useAuth } from '../contexts/AuthContext';
 import { getEmployees } from '../lib/employees';
+import { getAllWorkLocations } from '../lib/workLocation';
 import { usePermissions } from '../hooks/usePermissions';
 import { PERMISSIONS } from '../lib/permissions';
 import { generateLeaveReport } from '../lib/reports';
@@ -32,10 +33,14 @@ export const Leave = () => {
   
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'tickets'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'tickets' | 'annual_plan'>('pending');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<LeaveType | 'all'>('all');
   const [listEmployeeSearch, setListEmployeeSearch] = useState('');
   const [employeeSearch, setEmployeeSearch] = useState('');
+  const [annualPlanSearch, setAnnualPlanSearch] = useState('');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [showCalendarView, setShowCalendarView] = useState(false);
+  const [workLocations, setWorkLocations] = useState<any[]>([]);
   const [showLeaveForm, setShowLeaveForm] = useState(false);
   const [newLeaveType, setNewLeaveType] = useState<LeaveType>('annual');
   const [newStartDate, setNewStartDate] = useState('');
@@ -85,14 +90,16 @@ export const Leave = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [requests, empData, tickets] = await Promise.all([
+      const [requests, empData, tickets, locations] = await Promise.all([
         getLeaveRequests(),
         getEmployees(),
-        getAllTicketRequests()
+        getAllTicketRequests(),
+        getAllWorkLocations()
       ]);
       setLeaveRequests(requests);
       setEmployees(empData);
       setTicketRequests(tickets);
+      setWorkLocations(locations);
     } catch (error) {
       console.error('Error loading leave data:', error);
     } finally {
@@ -229,6 +236,82 @@ export const Leave = () => {
       default: return 'annual';
     }
   };
+
+  // Calculate accumulated annual leave for each employee
+  const calculateAnnualLeaveAccumulation = () => {
+    const accumulationData = employees.map(emp => {
+      const nationality = emp.country?.toLowerCase() || '';
+      const isBangladeshi = nationality.includes('bangladesh');
+      
+      // Entitlement period: 1 year for Indian/Maldivian, 2 years for Bangladeshi
+      const entitlementYears = isBangladeshi ? 2 : 1;
+      const totalEntitlementDays = isBangladeshi ? 60 : 30; // 60 days for Bangladeshi (2 years), 30 days for others (1 year)
+      
+      // Find last COMPLETED annual leave return date (must be in the past)
+      const today = new Date();
+      const annualLeaveRequests = leaveRequests.filter(req => 
+        req.employeeId === emp.id && 
+        req.type === 'annual' && 
+        req.status === 'approved' &&
+        new Date(req.endDate) < today // Only include completed leaves
+      );
+      
+      // Sort by return date descending
+      annualLeaveRequests.sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
+      
+      const lastReturnDate = annualLeaveRequests.length > 0 
+        ? new Date(annualLeaveRequests[0].endDate) 
+        : new Date(emp.joinDate); // Fallback to join date if no completed annual leave
+      
+      // Calculate days since last return
+      const daysSinceLastReturn = Math.floor((today.getTime() - lastReturnDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Calculate accumulated days based on entitlement period
+      const daysPerYear = 30;
+      const accumulatedDays = Math.min(
+        Math.floor((daysSinceLastReturn / 365) * daysPerYear * entitlementYears),
+        totalEntitlementDays
+      );
+      
+      // Calculate days taken since last return
+      const daysTaken = annualLeaveRequests.reduce((sum, req) => {
+        const reqReturnDate = new Date(req.endDate);
+        if (reqReturnDate >= lastReturnDate) {
+          return sum + (req.days || 0);
+        }
+        return sum;
+      }, 0);
+      
+      const remainingDays = Math.max(0, accumulatedDays - daysTaken);
+      
+      return {
+        employee: emp,
+        nationality: emp.country || 'Unknown',
+        lastReturnDate,
+        entitlementYears,
+        totalEntitlementDays,
+        accumulatedDays,
+        daysTaken,
+        remainingDays,
+        nextEligibleDate: new Date(lastReturnDate.getTime() + (entitlementYears * 365 * 24 * 60 * 60 * 1000))
+      };
+    });
+    
+    return accumulationData;
+  };
+
+  const annualLeaveData = useMemo(() => calculateAnnualLeaveAccumulation(), [employees, leaveRequests]);
+
+  // Filter annual leave data by search
+  const filteredAnnualLeaveData = useMemo(() => {
+    if (!annualPlanSearch.trim()) return annualLeaveData;
+    const searchTerm = annualPlanSearch.toLowerCase();
+    return annualLeaveData.filter(data =>
+      data.employee.fullName.toLowerCase().includes(searchTerm) ||
+      data.employee.employeeId.toLowerCase().includes(searchTerm) ||
+      data.nationality.toLowerCase().includes(searchTerm)
+    );
+  }, [annualLeaveData, annualPlanSearch]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1596,6 +1679,16 @@ export const Leave = () => {
                   Tickets ({ticketRequests.length})
                 </button>
               )}
+              <button
+                onClick={() => setActiveTab('annual_plan')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === 'annual_plan'
+                    ? 'bg-purple-100 text-purple-800'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                Annual Leave Plan
+              </button>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -2253,6 +2346,203 @@ export const Leave = () => {
                 </tbody>
               </table>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Annual Leave Plan Section */}
+      {activeTab === 'annual_plan' && (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-secondary-900">Annual Leave Plan - Staff Accumulation</h2>
+                <p className="text-sm text-secondary-600 mt-1">
+                  Indian & Maldivian staff: 30 days after 1 year | Bangladeshi staff: 60 days after 2 years
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                  >
+                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setShowCalendarView(!showCalendarView)}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm whitespace-nowrap"
+                  >
+                    {showCalendarView ? 'Show Table' : 'Show Calendar'}
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search by name, ID, or nationality..."
+                  value={annualPlanSearch}
+                  onChange={(e) => setAnnualPlanSearch(e.target.value)}
+                  className="w-full sm:w-64 px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!showCalendarView ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-secondary-50 border-b border-secondary-200">
+                    <tr>
+                      <th className="px-4 py-3 text-xs font-medium text-secondary-600 uppercase">Employee</th>
+                      <th className="px-4 py-3 text-xs font-medium text-secondary-600 uppercase">ID</th>
+                      <th className="px-4 py-3 text-xs font-medium text-secondary-600 uppercase">Nationality</th>
+                      <th className="px-4 py-3 text-xs font-medium text-secondary-600 uppercase">Last Return Date</th>
+                      <th className="px-4 py-3 text-xs font-medium text-secondary-600 uppercase">Entitlement</th>
+                      <th className="px-4 py-3 text-xs font-medium text-secondary-600 uppercase">Accumulated</th>
+                      <th className="px-4 py-3 text-xs font-medium text-secondary-600 uppercase">Taken</th>
+                      <th className="px-4 py-3 text-xs font-medium text-secondary-600 uppercase">Remaining</th>
+                      <th className="px-4 py-3 text-xs font-medium text-secondary-600 uppercase">Next Eligible</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-secondary-200">
+                    {filteredAnnualLeaveData.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="px-4 py-8 text-center text-sm text-secondary-500">No employee data found</td>
+                      </tr>
+                    ) : (
+                      filteredAnnualLeaveData.map((data) => (
+                      <tr key={data.employee.id} className="hover:bg-secondary-50">
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-secondary-900 font-medium max-w-[200px] truncate">
+                          {data.employee.fullName}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-secondary-600">
+                          {data.employee.employeeId}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-secondary-600">
+                          {data.nationality}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-secondary-600">
+                          {formatDate(data.lastReturnDate)}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-secondary-600">
+                          {data.totalEntitlementDays} days ({data.entitlementYears} yr{data.entitlementYears > 1 ? 's' : ''})
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-secondary-600">
+                          {data.accumulatedDays} days
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-secondary-600">
+                          {data.daysTaken} days
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            data.remainingDays > 0 
+                              ? 'bg-green-100 text-green-800' 
+                              : data.remainingDays === 0 
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                          }`}>
+                            {data.remainingDays} days
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-secondary-600">
+                          {formatDate(data.nextEligibleDate)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            ) : (
+              <div className="space-y-6">
+                {workLocations.map((location) => {
+                  // Use all annual leave data for calendar, not filtered
+                  const locationEmployees = annualLeaveData.filter(
+                    data => data.employee.workLocation === location.name
+                  );
+                  
+                  if (locationEmployees.length === 0) return null;
+                  
+                  return (
+                    <div key={location.id} className="border border-secondary-200 rounded-lg overflow-hidden">
+                      <div className="bg-secondary-50 px-4 py-3 border-b border-secondary-200">
+                        <h3 className="font-semibold text-secondary-900">{location.name}</h3>
+                        <p className="text-sm text-secondary-600">{locationEmployees.length} staff members</p>
+                      </div>
+                      <div className="p-4 overflow-x-auto">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {Array.from({ length: 12 }, (_, monthIndex) => {
+                            const monthDate = new Date(selectedYear, monthIndex, 1);
+                            const monthName = monthDate.toLocaleString('default', { month: 'long' });
+                            const daysInMonth = new Date(selectedYear, monthIndex + 1, 0).getDate();
+                            const firstDayOfWeek = monthDate.getDay();
+                            
+                            return (
+                              <div key={monthIndex} className="border border-secondary-200 rounded-lg overflow-hidden">
+                                <div className="bg-secondary-100 px-3 py-2 text-center font-semibold text-secondary-900">
+                                  {monthName} {selectedYear}
+                                </div>
+                                <div className="p-2">
+                                  <div className="grid grid-cols-7 gap-1 text-center text-xs">
+                                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
+                                      <div key={day} className="font-medium text-secondary-600 py-1">{day}</div>
+                                    ))}
+                                    {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                                      <div key={`empty-${i}`} className="p-1"></div>
+                                    ))}
+                                    {Array.from({ length: daysInMonth }).map((_, dayIndex) => {
+                                      const day = dayIndex + 1;
+                                      const currentDate = new Date(selectedYear, monthIndex, day);
+                                      const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
+                                      
+                                      // Find leaves on this day for this location's employees
+                                      const leavesOnDay = locationEmployees.flatMap(data => {
+                                        const employeeLeaves = leaveRequests.filter(
+                                          req => req.employeeId === data.employee.id &&
+                                                 req.type === 'annual' &&
+                                                 req.status === 'approved' &&
+                                                 new Date(req.startDate) <= currentDate &&
+                                                 new Date(req.endDate) >= currentDate
+                                        );
+                                        if (employeeLeaves.length > 0) {
+                                          return [{ employee: data.employee.fullName, employeeId: data.employee.employeeId }];
+                                        }
+                                        return [];
+                                      });
+                                      
+                                      return (
+                                        <div
+                                          key={day}
+                                          className={`p-1 text-xs rounded cursor-pointer transition-colors ${
+                                            isWeekend 
+                                              ? 'bg-secondary-100 text-secondary-400' 
+                                              : 'hover:bg-secondary-50'
+                                          } ${leavesOnDay.length > 0 ? 'bg-blue-100 text-blue-900 font-medium' : ''}`}
+                                          title={leavesOnDay.length > 0 ? leavesOnDay.map(l => `${l.employee} (${l.employeeId})`).join('\n') : ''}
+                                        >
+                                          {day}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {workLocations.length === 0 && (
+                  <div className="text-center py-12">
+                    <p className="text-secondary-600">No work locations configured</p>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
