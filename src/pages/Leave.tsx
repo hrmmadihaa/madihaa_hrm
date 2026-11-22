@@ -2507,7 +2507,11 @@ export const Leave = () => {
                                                  new Date(req.endDate) >= currentDate
                                         );
                                         if (employeeLeaves.length > 0) {
-                                          return [{ employee: data.employee.fullName, employeeId: data.employee.employeeId }];
+                                          return [{ 
+                                            employee: data.employee.fullName, 
+                                            employeeId: data.employee.employeeId,
+                                            isPast: currentDate < new Date()
+                                          }];
                                         }
                                         return [];
                                       });
@@ -2519,8 +2523,12 @@ export const Leave = () => {
                                             isWeekend 
                                               ? 'bg-secondary-100 text-secondary-400' 
                                               : 'hover:bg-secondary-50'
-                                          } ${leavesOnDay.length > 0 ? 'bg-blue-100 text-blue-900 font-medium' : ''}`}
-                                          title={leavesOnDay.length > 0 ? leavesOnDay.map(l => `${l.employee} (${l.employeeId})`).join('\n') : ''}
+                                          } ${leavesOnDay.length > 0 ? (
+                                            leavesOnDay.some(l => l.isPast)
+                                              ? 'bg-green-100 text-green-900 font-medium' // Completed leaves
+                                              : 'bg-blue-100 text-blue-900 font-medium' // Future leaves
+                                          ) : ''}`}
+                                          title={leavesOnDay.length > 0 ? leavesOnDay.map(l => `${l.employee} (${l.employeeId})${l.isPast ? ' (completed)' : ' (upcoming)'}`).join('\n') : ''}
                                         >
                                           {day}
                                         </div>
