@@ -273,10 +273,10 @@ export const Leave = () => {
         totalEntitlementDays
       );
       
-      // Calculate days taken since last return
+      // Calculate days taken since last return (excluding the leave that established the last return date)
       const daysTaken = annualLeaveRequests.reduce((sum, req) => {
-        const reqReturnDate = new Date(req.endDate);
-        if (reqReturnDate >= lastReturnDate) {
+        // Only count leaves that started AFTER the last return date
+        if (new Date(req.startDate) > lastReturnDate) {
           return sum + (req.days || 0);
         }
         return sum;
@@ -2499,18 +2499,28 @@ export const Leave = () => {
                                       
                                       // Find leaves on this day for this location's employees
                                       const leavesOnDay = locationEmployees.flatMap(data => {
+                                        // Check if current date is within employee's eligibility period
+                                        const eligibilityStartDate = data.lastReturnDate;
+                                        const isPast = currentDate < new Date();
+                                        
+                                        // For future dates, only show if employee has remaining days
+                                        if (!isPast && data.remainingDays <= 0) {
+                                          return [];
+                                        }
+                                        
                                         const employeeLeaves = leaveRequests.filter(
                                           req => req.employeeId === data.employee.id &&
                                                  req.type === 'annual' &&
                                                  req.status === 'approved' &&
                                                  new Date(req.startDate) <= currentDate &&
-                                                 new Date(req.endDate) >= currentDate
+                                                 new Date(req.endDate) >= currentDate &&
+                                                 currentDate >= eligibilityStartDate // Only show leaves within eligibility period
                                         );
                                         if (employeeLeaves.length > 0) {
                                           return [{ 
                                             employee: data.employee.fullName, 
                                             employeeId: data.employee.employeeId,
-                                            isPast: currentDate < new Date()
+                                            isPast: isPast
                                           }];
                                         }
                                         return [];
