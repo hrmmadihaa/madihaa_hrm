@@ -1087,8 +1087,12 @@ export const Leave = () => {
       days: calculateDaysFromRange(newStartDate, newEndDate),
       reason: newReason,
       ticketRequired: ticketRequired,
-      ticketUrl: uploadedTicketUrl || undefined,
     } as Partial<LeaveRequest>;
+
+    // Only add ticketUrl if a file was uploaded
+    if (uploadedTicketUrl) {
+      request.ticketUrl = uploadedTicketUrl;
+    }
 
     const validationErrors = await validateLeaveRequest(request);
     if (validationErrors.length > 0) {
