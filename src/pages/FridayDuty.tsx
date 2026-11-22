@@ -482,6 +482,14 @@ export const FridayDuty = () => {
               leaveId: existingLeave.id
             });
             await deleteLeaveRequest(existingLeave.id);
+
+            await logActivity(
+              'deleted',
+              'leave_request',
+              existingLeave.id,
+              `Deleted leave request for employee ${employee.fullName} (${employee.id}) for ${formatDate(new Date(dateString))} via Friday Duty schedule`
+            );
+
             console.log('Friday Duty - Leave request deleted successfully');
           }
         }

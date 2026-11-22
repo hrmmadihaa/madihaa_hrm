@@ -44,6 +44,7 @@ const firestoreToTicketRequest = (doc: any): TicketRequest => {
     returnDate: timestampToDate(data.returnDate) || new Date(),
     departureTime: data.departureTime,
     arrivalTime: data.arrivalTime,
+    flightNumber: data.flightNumber,
     ticketType: data.ticketType || 'round_trip',
     passengers: data.passengers || 1,
     specialRequests: data.specialRequests,
@@ -70,6 +71,7 @@ const firestoreToTicketRequest = (doc: any): TicketRequest => {
     returnFlightReminderSent: data.returnFlightReminderSent,
     staffPickedUp: data.staffPickedUp,
     staffPickupTime: timestampToDate(data.staffPickupTime),
+    ticketPdfUrl: data.ticketPdfUrl,
   };
 };
 

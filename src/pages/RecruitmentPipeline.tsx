@@ -312,6 +312,15 @@ export const RecruitmentPipeline: React.FC = () => {
     // If changing to work_permit_applied, show modal to collect work permit details
     if (newStage === 'work_permit_applied') {
       setPendingStageChange({ candidate, newStage });
+      // Auto-fill existing work permit data
+      setFormData({
+        ...formData,
+        expat_reference_number: candidate.expat_reference_number || '',
+        new_work_permit: candidate.new_work_permit || '',
+        submitted_date: candidate.submitted_date || '',
+        egov_link: candidate.egov_link || '',
+        slot_number: candidate.slot_number || ''
+      });
       setShowWorkPermitModal(true);
       return;
     }
@@ -441,6 +450,15 @@ export const RecruitmentPipeline: React.FC = () => {
     // If LOA is completed, show modal to collect work permit details before moving to Work Permit Applied stage
     if (loaStatus === 'completed') {
       setPendingStageChange({ candidate, newStage: 'work_permit_applied' });
+      // Auto-fill existing work permit data
+      setFormData({
+        ...formData,
+        expat_reference_number: candidate.expat_reference_number || '',
+        new_work_permit: candidate.new_work_permit || '',
+        submitted_date: candidate.submitted_date || '',
+        egov_link: candidate.egov_link || '',
+        slot_number: candidate.slot_number || ''
+      });
       setShowWorkPermitModal(true);
       return;
     }

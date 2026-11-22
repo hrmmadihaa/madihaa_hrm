@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, User, Clock, Search, ArrowRight, CheckCircle, ArrowLeft, AlertCircle, Edit2, ChevronDown, ChevronUp, Plane, DollarSign, Car, FileText } from 'lucide-react';
+import { Calendar, User, Clock, Search, ArrowRight, CheckCircle, ArrowLeft, AlertCircle, Edit2, ChevronDown, ChevronUp, Plane, DollarSign, Car, FileText, X, Save, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/Card';
 import { getLeaveRequests } from '../lib/leave';
 import { getEmployees } from '../lib/employees';
-import { getAllTicketRequests, updateTicketStatus, updateTicketRequest } from '../lib/ticket';
+import { getAllTicketRequests, updateTicketStatus, updateTicketRequest, deleteTicketRequest } from '../lib/ticket';
+import { getAttendance } from '../lib/attendance';
+import { getOvertimeRequests } from '../lib/overtime';
 import { TICKET_WORKFLOW_STEPS, TICKET_WORKFLOW_LABELS } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import type { LeaveRequest, TicketRequest } from '../types';
+import type { LeaveRequest, TicketRequest, OvertimeRequest } from '../types';
 import { logActivity } from '../lib/activityLog';
 import { formatDate } from '../lib/dateUtils';
+import { uploadFile } from '../lib/cloudinary';
 
 export const Ticketing = () => {
   const { user } = useAuth();
@@ -25,6 +28,55 @@ export const Ticketing = () => {
   const [showTicketChangeModal, setShowTicketChangeModal] = useState(false);
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [selectedStatusChange, setSelectedStatusChange] = useState<{ ticketId: string; status: string } | null>(null);
+  const [uploadingTicketFile, setUploadingTicketFile] = useState<string | null>(null);
+  const [ticketFile, setTicketFile] = useState<File | null>(null);
+  const [viewingTicket, setViewingTicket] = useState<TicketRequest | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showSettlementModal, setShowSettlementModal] = useState(false);
+  const [settlementTicket, setSettlementTicket] = useState<TicketRequest | null>(null);
+  const [showFlightDetailsModal, setShowFlightDetailsModal] = useState(false);
+  const [pendingTicketStatusChange, setPendingTicketStatusChange] = useState<{ ticketId: string; newStatus: string } | null>(null);
+  const [flightFormData, setFlightFormData] = useState({
+    departureTime: '',
+    arrivalTime: '',
+    flightNumber: ''
+  });
+
+  // Settlement form state
+  const [attendanceStartDate, setAttendanceStartDate] = useState('');
+  const [attendanceEndDate, setAttendanceEndDate] = useState('');
+  const [overtimeStartDate, setOvertimeStartDate] = useState('');
+  const [overtimeEndDate, setOvertimeEndDate] = useState('');
+  const [settlementAttendance, setSettlementAttendance] = useState<any[]>([]);
+  const [settlementOvertime, setSettlementOvertime] = useState<OvertimeRequest[]>([]);
+
+  const [settlementForm, setSettlementForm] = useState({
+    monthlySalary: 0,
+    salaryDays: 23,
+    salaryDivisor: 30,
+    overtimeAmount: 0,
+    overtimeHours: 0,
+    overtimeRate: 10,
+    foodAllowanceDays: 0,
+    foodAllowancePerDay: 0,
+    presentDays: 0,
+    fridayCount: 0,
+    offDays: 0,
+    mc: 0,
+    el: 0,
+    al: 0,
+    sus: 0,
+    fl: 0,
+    sick: 0,
+    halfDay: 0,
+    absent: 0,
+    noPayLeave: 0,
+    specialLeave: 0,
+    otherEarnings: 0,
+    deductions: 0,
+    advanceDeduction: 0,
+    remarks: '',
+  });
 
   const loadData = async () => {
     try {
@@ -54,6 +106,21 @@ export const Ticketing = () => {
   };
 
   const handleTicketStatusChange = async (ticketId: string, newStatus: TicketRequest['status']) => {
+    const ticket = ticketRequests.find(t => t.id === ticketId);
+    
+    // If changing to ticket_received, show modal to collect flight details
+    if (newStatus === 'ticket_received') {
+      setPendingTicketStatusChange({ ticketId, newStatus });
+      // Auto-fill existing flight details
+      setFlightFormData({
+        departureTime: ticket?.departureTime || '',
+        arrivalTime: ticket?.arrivalTime || '',
+        flightNumber: ticket?.flightNumber || ''
+      });
+      setShowFlightDetailsModal(true);
+      return;
+    }
+
     try {
       await updateTicketStatus(ticketId, newStatus);
       await logActivity(
@@ -62,10 +129,55 @@ export const Ticketing = () => {
         ticketId,
         `Changed ticket status to ${newStatus}`
       );
+
       await loadData(); // Reload data to reflect changes
+      setTicketFile(null);
+      setUploadingTicketFile(null);
     } catch (error) {
       console.error('Error updating ticket status:', error);
       alert('Failed to update ticket status');
+    }
+  };
+
+  const handleFlightDetailsSubmit = async () => {
+    if (!pendingTicketStatusChange) return;
+
+    const { ticketId, newStatus } = pendingTicketStatusChange;
+    const ticket = ticketRequests.find(t => t.id === ticketId);
+
+    try {
+      // Upload ticket file if provided
+      if (ticketFile) {
+        setUploadingTicketFile(ticketId);
+        const fileName = `${ticket?.employeeId}_${ticketId}`;
+        const fileUrl = await uploadFile(ticketFile, 'tickets', fileName);
+        await updateTicketRequest(ticketId, { ticketPdfUrl: fileUrl });
+        setUploadingTicketFile(null);
+      }
+
+      // Update flight details and status
+      await updateTicketRequest(ticketId, {
+        departureTime: flightFormData.departureTime,
+        arrivalTime: flightFormData.arrivalTime,
+        flightNumber: flightFormData.flightNumber
+      });
+      await updateTicketStatus(ticketId, newStatus as TicketRequest['status']);
+      await logActivity(
+        'updated',
+        'ticket_request',
+        ticketId,
+        `Ticket received for ${getEmployeeName(ticket?.employeeId || '')} - Flight ${flightFormData.flightNumber} ${ticket?.departureCity} → ${ticket?.destinationCity} on ${formatDate(new Date(ticket?.departureDate || new Date()))} at ${flightFormData.departureTime || 'TBD'}`
+      );
+
+      setShowFlightDetailsModal(false);
+      setPendingTicketStatusChange(null);
+      setFlightFormData({ departureTime: '', arrivalTime: '', flightNumber: '' });
+      setTicketFile(null);
+      loadData();
+    } catch (error) {
+      console.error('Error updating ticket with flight details:', error);
+      alert('Failed to update ticket');
+      setUploadingTicketFile(null);
     }
   };
 
@@ -74,29 +186,38 @@ export const Ticketing = () => {
     setShowEditModal(true);
   };
 
+  const handleViewTicket = (ticket: TicketRequest) => {
+    setViewingTicket(ticket);
+    setShowViewModal(true);
+  };
+
   const handleSaveTicketDetails = async () => {
     if (!editingTicket) return;
     try {
-      await updateTicketRequest(editingTicket.id, {
+      const updateData: any = {
         ticketType: editingTicket.ticketType,
         departureDate: editingTicket.departureDate,
         returnDate: editingTicket.returnDate,
-        ticketPrice: editingTicket.ticketPrice,
-        vanArrangedTime: editingTicket.vanArrangedTime,
-        arrangedByName: editingTicket.arrangedByName,
         arrangedBy: user?.id,
-        departureTime: editingTicket.departureTime,
-        arrivalTime: editingTicket.arrivalTime,
-        settlementAmount: editingTicket.settlementAmount,
-        settlementDate: editingTicket.settlementDate,
-        settlementHandedTo: editingTicket.settlementHandedTo,
-        passportCollectedBy: editingTicket.passportCollectedBy,
-        passportCollectedDate: editingTicket.passportCollectedDate,
-        passportHandedTo: editingTicket.passportHandedTo,
-        passportHandedDate: editingTicket.passportHandedDate,
-        vehicleDriver: editingTicket.vehicleDriver,
-        vehicleNumber: editingTicket.vehicleNumber,
-      });
+      };
+
+      // Only include fields that have values
+      if (editingTicket.ticketPrice !== undefined) updateData.ticketPrice = editingTicket.ticketPrice;
+      if (editingTicket.vanArrangedTime) updateData.vanArrangedTime = editingTicket.vanArrangedTime;
+      if (editingTicket.arrangedByName) updateData.arrangedByName = editingTicket.arrangedByName;
+      if (editingTicket.departureTime) updateData.departureTime = editingTicket.departureTime;
+      if (editingTicket.arrivalTime) updateData.arrivalTime = editingTicket.arrivalTime;
+      if (editingTicket.settlementAmount !== undefined) updateData.settlementAmount = editingTicket.settlementAmount;
+      if (editingTicket.settlementDate) updateData.settlementDate = editingTicket.settlementDate;
+      if (editingTicket.settlementHandedTo) updateData.settlementHandedTo = editingTicket.settlementHandedTo;
+      if (editingTicket.passportCollectedBy) updateData.passportCollectedBy = editingTicket.passportCollectedBy;
+      if (editingTicket.passportCollectedDate) updateData.passportCollectedDate = editingTicket.passportCollectedDate;
+      if (editingTicket.passportHandedTo) updateData.passportHandedTo = editingTicket.passportHandedTo;
+      if (editingTicket.passportHandedDate) updateData.passportHandedDate = editingTicket.passportHandedDate;
+      if (editingTicket.vehicleDriver) updateData.vehicleDriver = editingTicket.vehicleDriver;
+      if (editingTicket.vehicleNumber) updateData.vehicleNumber = editingTicket.vehicleNumber;
+
+      await updateTicketRequest(editingTicket.id, updateData);
       await logActivity(
         'updated',
         'ticket_request',
@@ -149,6 +270,26 @@ export const Ticketing = () => {
     } catch (error) {
       console.error('Error changing ticket:', error);
       alert('Failed to update ticket change');
+    }
+  };
+
+  const handleDeleteTicket = async (ticket: TicketRequest) => {
+    if (!confirm(`Are you sure you want to delete this ticket for ${getEmployeeName(ticket.employeeId)}? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await deleteTicketRequest(ticket.id);
+      await logActivity(
+        'deleted',
+        'ticket_request',
+        ticket.id,
+        `Deleted ticket request for ${getEmployeeName(ticket.employeeId)}`
+      );
+      await loadData();
+      alert('Ticket deleted successfully');
+    } catch (error) {
+      console.error('Error deleting ticket:', error);
+      alert('Failed to delete ticket');
     }
   };
 
@@ -384,6 +525,23 @@ export const Ticketing = () => {
                           {ticket.status === 'passport_collected' || ticket.status === 'passport_handed_over' ? 'Collected' : 'Pending'}
                         </span>
                       </div>
+                      {ticket.ticketPdfUrl && (
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-green-500" />
+                          <span className="text-secondary-600">
+                            <a href={ticket.ticketPdfUrl} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline">
+                              View Ticket PDF
+                            </a>
+                          </span>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleViewTicket(ticket)}
+                        className="flex items-center gap-2 text-primary-600 hover:text-primary-900 text-sm font-medium"
+                      >
+                        <FileText className="w-4 h-4" />
+                        View Details
+                      </button>
                     </div>
 
                     {/* Status Change - Always Visible */}
@@ -404,18 +562,89 @@ export const Ticketing = () => {
                         </select>
                       </div>
                       {selectedStatusChange?.ticketId === ticket.id && selectedStatusChange.status !== ticket.status && (
-                        <motion.button
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          onClick={() => {
-                            handleTicketStatusChange(ticket.id, selectedStatusChange.status as TicketRequest['status']);
-                            setSelectedStatusChange(null);
-                          }}
-                          className="w-full px-4 py-2 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all text-sm flex items-center justify-center gap-2 shadow-md"
-                        >
-                          <span>Confirm Change to {TICKET_WORKFLOW_LABELS[selectedStatusChange.status as TicketRequest['status']]}</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </motion.button>
+                        <>
+                          {selectedStatusChange.status === 'ticket_received' && (
+                            <div className="mt-2 space-y-2">
+                              <div className="bg-gray-50 p-2 rounded-lg">
+                                <p className="text-xs font-medium text-gray-700 mb-1">Ticket Details</p>
+                                <div className="text-xs text-gray-600 space-y-1">
+                                  <p><strong>Departure:</strong> {formatDate(new Date(ticket.departureDate))} {ticket.departureTime ? `at ${ticket.departureTime}` : ''}</p>
+                                  {ticket.ticketType === 'round_trip' && (
+                                    <p><strong>Return:</strong> {formatDate(new Date(ticket.returnDate))} {ticket.arrivalTime ? `at ${ticket.arrivalTime}` : ''}</p>
+                                  )}
+                                  <p><strong>Type:</strong> {ticket.ticketType === 'round_trip' ? 'Round Trip' : 'One Way'}</p>
+                                  <p><strong>Route:</strong> {ticket.departureCity} → {ticket.destinationCity}</p>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Upload Ticket PDF (Optional)
+                                </label>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="file"
+                                    accept=".pdf"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file && file.type === 'application/pdf') {
+                                        setTicketFile(file);
+                                      } else if (file) {
+                                        alert('Please select a PDF file');
+                                        e.target.value = '';
+                                      }
+                                    }}
+                                    className="flex-1 text-xs text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+                                  />
+                                  {ticketFile && (
+                                    <span className="text-xs text-green-600 flex items-center gap-1">
+                                      <FileText className="w-3 h-3" />
+                                      {ticketFile.name}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setSettlementTicket(ticket);
+                                  setShowSettlementModal(true);
+                                  // Pre-fill settlement form with employee data
+                                  const employee = employees.find(e => e.id === ticket.employeeId);
+                                  if (employee) {
+                                    setSettlementForm(prev => ({
+                                      ...prev,
+                                      monthlySalary: employee.salary ? Number(employee.salary) : 0,
+                                    }));
+                                  }
+                                }}
+                                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all text-sm flex items-center justify-center gap-2 shadow-md"
+                              >
+                                <FileText className="w-4 h-4" />
+                                Create Settlement
+                              </button>
+                            </div>
+                          )}
+                          <motion.button
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            onClick={() => {
+                              handleTicketStatusChange(ticket.id, selectedStatusChange.status as TicketRequest['status']);
+                              setSelectedStatusChange(null);
+                            }}
+                            disabled={uploadingTicketFile === ticket.id}
+                            className="w-full px-4 py-2 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all text-sm flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {uploadingTicketFile === ticket.id ? (
+                              <>
+                                <span>Uploading...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>Confirm Change to {TICKET_WORKFLOW_LABELS[selectedStatusChange.status as TicketRequest['status']]}</span>
+                                <ArrowRight className="w-4 h-4" />
+                              </>
+                            )}
+                          </motion.button>
+                        </>
                       )}
                     </div>
 
@@ -528,6 +757,13 @@ export const Ticketing = () => {
                             Edit
                           </button>
                           <button
+                            onClick={() => handleDeleteTicket(ticket)}
+                            className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm flex items-center justify-center gap-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </button>
+                          <button
                             onClick={() => setShowLeaveExtensionModal(true)}
                             className="flex-1 px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm"
                           >
@@ -535,7 +771,7 @@ export const Ticketing = () => {
                           </button>
                           <button
                             onClick={() => setShowTicketChangeModal(true)}
-                            className="flex-1 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                            className="flex-1 px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
                           >
                             Change Ticket
                           </button>
@@ -790,6 +1026,189 @@ export const Ticketing = () => {
         </div>
       )}
 
+      {/* Flight Details Modal for Ticket Received */}
+      {showFlightDetailsModal && pendingTicketStatusChange && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md my-8">
+            <h2 className="text-xl font-bold mb-4">Flight Details</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Please enter flight details before marking ticket as received
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Flight Number</label>
+                <input
+                  type="text"
+                  value={flightFormData.flightNumber}
+                  onChange={(e) => setFlightFormData({ ...flightFormData, flightNumber: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Enter flight number"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Departure Time</label>
+                <input
+                  type="time"
+                  value={flightFormData.departureTime}
+                  onChange={(e) => setFlightFormData({ ...flightFormData, departureTime: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Arrival Time</label>
+                <input
+                  type="time"
+                  value={flightFormData.arrivalTime}
+                  onChange={(e) => setFlightFormData({ ...flightFormData, arrivalTime: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Upload Ticket PDF (Optional)</label>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file && file.type === 'application/pdf') {
+                      setTicketFile(file);
+                    } else if (file) {
+                      alert('Please select a PDF file');
+                      e.target.value = '';
+                    }
+                  }}
+                  className="w-full text-sm text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+                />
+                {ticketFile && (
+                  <p className="mt-1 text-xs text-green-600">Selected: {ticketFile.name}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowFlightDetailsModal(false);
+                  setPendingTicketStatusChange(null);
+                  setFlightFormData({ departureTime: '', arrivalTime: '', flightNumber: '' });
+                  setTicketFile(null);
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleFlightDetailsSubmit}
+                disabled={uploadingTicketFile !== null}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploadingTicketFile ? 'Uploading...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Ticket Modal */}
+      {showViewModal && viewingTicket && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">Ticket Details</h2>
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-2">Employee Information</h3>
+                <p className="text-sm text-gray-600"><strong>Name:</strong> {getEmployeeName(viewingTicket.employeeId)}</p>
+                <p className="text-sm text-gray-600"><strong>Employee ID:</strong> {viewingTicket.employeeId}</p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-2">Flight Information</h3>
+                <p className="text-sm text-gray-600"><strong>Route:</strong> {viewingTicket.departureCity} → {viewingTicket.destinationCity}</p>
+                <p className="text-sm text-gray-600"><strong>Type:</strong> {viewingTicket.ticketType === 'round_trip' ? 'Round Trip' : 'One Way'}</p>
+                <p className="text-sm text-gray-600"><strong>Departure Date:</strong> {formatDate(new Date(viewingTicket.departureDate))}</p>
+                {viewingTicket.departureTime && <p className="text-sm text-gray-600"><strong>Departure Time:</strong> {viewingTicket.departureTime}</p>}
+                {viewingTicket.ticketType === 'round_trip' && (
+                  <>
+                    <p className="text-sm text-gray-600"><strong>Return Date:</strong> {formatDate(new Date(viewingTicket.returnDate))}</p>
+                    {viewingTicket.arrivalTime && <p className="text-sm text-gray-600"><strong>Arrival Time:</strong> {viewingTicket.arrivalTime}</p>}
+                  </>
+                )}
+                <p className="text-sm text-gray-600"><strong>Passengers:</strong> {viewingTicket.passengers}</p>
+                {viewingTicket.specialRequests && <p className="text-sm text-gray-600"><strong>Special Requests:</strong> {viewingTicket.specialRequests}</p>}
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-2">Ticket Details</h3>
+                <p className="text-sm text-gray-600"><strong>Status:</strong> {TICKET_WORKFLOW_LABELS[viewingTicket.status]}</p>
+                <p className="text-sm text-gray-600"><strong>Price:</strong> {viewingTicket.ticketPrice ? `$${viewingTicket.ticketPrice.toLocaleString()}` : 'Pending'}</p>
+                {viewingTicket.ticketPdfUrl && (
+                  <p className="text-sm text-gray-600">
+                    <strong>Ticket PDF:</strong>{' '}
+                    <a href={viewingTicket.ticketPdfUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">
+                      View PDF
+                    </a>
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-2">Vehicle & Transportation</h3>
+                <p className="text-sm text-gray-600"><strong>Vehicle Number:</strong> {viewingTicket.vehicleNumber || 'Not assigned'}</p>
+                <p className="text-sm text-gray-600"><strong>Driver:</strong> {viewingTicket.vehicleDriver || 'Not assigned'}</p>
+                {viewingTicket.vanArrangedTime && <p className="text-sm text-gray-600"><strong>Van Arranged Time:</strong> {formatDate(new Date(viewingTicket.vanArrangedTime))}</p>}
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-2">Settlement Information</h3>
+                <p className="text-sm text-gray-600"><strong>Settlement Amount:</strong> {viewingTicket.settlementAmount ? `$${viewingTicket.settlementAmount.toLocaleString()}` : 'Not set'}</p>
+                {viewingTicket.settlementDate && <p className="text-sm text-gray-600"><strong>Settlement Date:</strong> {formatDate(new Date(viewingTicket.settlementDate))}</p>}
+                <p className="text-sm text-gray-600"><strong>Handed To:</strong> {viewingTicket.settlementHandedTo || 'Not set'}</p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-2">Passport Information</h3>
+                <p className="text-sm text-gray-600"><strong>Collected By:</strong> {viewingTicket.passportCollectedBy || 'Not collected'}</p>
+                {viewingTicket.passportCollectedDate && <p className="text-sm text-gray-600"><strong>Collected Date:</strong> {formatDate(new Date(viewingTicket.passportCollectedDate))}</p>}
+                <p className="text-sm text-gray-600"><strong>Handed To:</strong> {viewingTicket.passportHandedTo || 'Not handed'}</p>
+                {viewingTicket.passportHandedDate && <p className="text-sm text-gray-600"><strong>Handed Date:</strong> {formatDate(new Date(viewingTicket.passportHandedDate))}</p>}
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-2">Arrangement Information</h3>
+                <p className="text-sm text-gray-600"><strong>Arranged By:</strong> {viewingTicket.arrangedByName || viewingTicket.arrangedBy || 'Not set'}</p>
+              </div>
+
+              {viewingTicket.isLeaveExtended && (
+                <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                  <h3 className="font-semibold text-orange-900 mb-2">Leave Extension</h3>
+                  <p className="text-sm text-orange-600"><strong>Original Return Date:</strong> {viewingTicket.originalReturnDate ? formatDate(new Date(viewingTicket.originalReturnDate)) : 'Not set'}</p>
+                </div>
+              )}
+
+              {viewingTicket.isTicketChanged && (
+                <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                  <h3 className="font-semibold text-red-900 mb-2">Ticket Change</h3>
+                  <p className="text-sm text-red-600"><strong>Reason:</strong> {viewingTicket.changeReason || 'Not specified'}</p>
+                </div>
+              )}
+
+              <div className="text-xs text-gray-500 mt-4">
+                <p><strong>Booked Date:</strong> {formatDate(new Date(viewingTicket.bookedDate))}</p>
+                {viewingTicket.updatedAt && <p><strong>Last Updated:</strong> {formatDate(new Date(viewingTicket.updatedAt))}</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Ticket Change Modal */}
       {showTicketChangeModal && editingTicket && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -820,6 +1239,263 @@ export const Ticketing = () => {
               >
                 Change Ticket
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settlement Modal */}
+      {showSettlementModal && settlementTicket && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">Staff Settlement</h2>
+              <button onClick={() => setShowSettlementModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Employee Details */}
+            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Employee Information</h3>
+              <p className="text-sm text-gray-600"><strong>Name:</strong> {getEmployeeName(settlementTicket.employeeId)}</p>
+              <p className="text-sm text-gray-600"><strong>Employee ID:</strong> {settlementTicket.employeeId}</p>
+            </div>
+
+            {/* Attendance Selection */}
+            <div className="border border-gray-200 rounded-lg p-4 mb-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Attendance Data</h3>
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                  <input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={attendanceStartDate} onChange={(e) => setAttendanceStartDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                  <input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={attendanceEndDate} onChange={(e) => setAttendanceEndDate(e.target.value)} />
+                </div>
+                <div className="flex items-end">
+                  <button onClick={async () => {
+                    console.log('Load Attendance clicked');
+                    console.log('attendanceStartDate:', attendanceStartDate);
+                    console.log('attendanceEndDate:', attendanceEndDate);
+                    console.log('settlementTicket:', settlementTicket);
+                    if (attendanceStartDate && attendanceEndDate && settlementTicket?.employeeId) {
+                      try {
+                        console.log('Calling getAttendance with:', settlementTicket.employeeId, new Date(attendanceStartDate), new Date(attendanceEndDate));
+                        const data = await getAttendance(settlementTicket.employeeId, new Date(attendanceStartDate), new Date(attendanceEndDate));
+                        console.log('Attendance data received:', data);
+                        setSettlementAttendance(data);
+                        const presentDays = data.filter((a: any) => a.status === 'present').length;
+                        const absentDays = data.filter((a: any) => a.status === 'absent').length;
+                        const halfDays = data.filter((a: any) => a.status === 'half_day').length;
+                        const fridays = data.filter((a: any) => new Date(a.date).getDay() === 5).length;
+                        setSettlementForm(prev => ({ ...prev, presentDays, absent: absentDays, halfDay: halfDays, fridayCount: fridays }));
+                      } catch (error) {
+                        console.error('Error loading attendance:', error);
+                        alert('Error loading attendance. Please check the console for details.');
+                      }
+                    } else {
+                      alert('Please fill in all attendance date fields');
+                    }
+                  }} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Load Attendance
+                  </button>
+                </div>
+              </div>
+              {settlementAttendance.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="border p-2">Date</th>
+                        <th className="border p-2">Day</th>
+                        <th className="border p-2">IN</th>
+                        <th className="border p-2">OUT</th>
+                        <th className="border p-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {settlementAttendance.map((att: any, i: number) => (
+                        <tr key={i}>
+                          <td className="border p-2">{formatDate(att.date)}</td>
+                          <td className="border p-2">{new Date(att.date).toLocaleDateString('en-US', { weekday: 'short' })}</td>
+                          <td className="border p-2">{att.checkInTime ? new Date(att.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''}</td>
+                          <td className="border p-2">{att.checkOutTime ? new Date(att.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''}</td>
+                          <td className="border p-2">{att.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Overtime Selection */}
+            <div className="border border-gray-200 rounded-lg p-4 mb-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Overtime Data</h3>
+              <div className="grid grid-cols-4 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                  <input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={overtimeStartDate} onChange={(e) => setOvertimeStartDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                  <input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={overtimeEndDate} onChange={(e) => setOvertimeEndDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Rate per Hour (MVR)</label>
+                  <input type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={settlementForm.overtimeRate} onChange={(e) => setSettlementForm(prev => ({ ...prev, overtimeRate: Number(e.target.value) }))} />
+                </div>
+                <div className="flex items-end">
+                  <button onClick={async () => {
+                    console.log('Load Overtime clicked');
+                    console.log('overtimeStartDate:', overtimeStartDate);
+                    console.log('overtimeEndDate:', overtimeEndDate);
+                    console.log('settlementTicket:', settlementTicket);
+                    if (overtimeStartDate && overtimeEndDate && settlementTicket?.employeeId) {
+                      try {
+                        console.log('Calling getOvertimeRequests with:', settlementTicket.employeeId);
+                        const data = await getOvertimeRequests(settlementTicket.employeeId);
+                        console.log('Overtime data received:', data);
+                        const filteredData = data.filter((ot: OvertimeRequest) => {
+                          const otDate = new Date(ot.date);
+                          const startDate = new Date(overtimeStartDate);
+                          const endDate = new Date(overtimeEndDate);
+                          return otDate >= startDate && otDate <= endDate;
+                        });
+                        console.log('Filtered overtime data:', filteredData);
+                        setSettlementOvertime(filteredData);
+                        const totalHours = filteredData.reduce((sum: number, ot: OvertimeRequest) => sum + (ot.hours || 0), 0);
+                        setSettlementForm(prev => ({ ...prev, overtimeHours: totalHours, overtimeAmount: totalHours * prev.overtimeRate }));
+                      } catch (error) {
+                        console.error('Error loading overtime:', error);
+                        alert('Error loading overtime. Please check the console for details.');
+                      }
+                    } else {
+                      alert('Please fill in all overtime date fields');
+                    }
+                  }} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Load Overtime
+                  </button>
+                </div>
+              </div>
+              {settlementOvertime.length > 0 && (
+                <div className="overflow-x-auto mb-3">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="border p-2">Date</th>
+                        <th className="border p-2">Hours</th>
+                        <th className="border p-2">Rate</th>
+                        <th className="border p-2">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {settlementOvertime.map((ot: OvertimeRequest, i: number) => (
+                        <tr key={i}>
+                          <td className="border p-2">{formatDate(ot.date)}</td>
+                          <td className="border p-2">{ot.hours?.toFixed(2) || 0}</td>
+                          <td className="border p-2">{settlementForm.overtimeRate}</td>
+                          <td className="border p-2">{new Intl.NumberFormat('en-MV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((ot.hours || 0) * settlementForm.overtimeRate)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-3 rounded">
+                  <p className="text-xs text-gray-500">Total Hours</p>
+                  <p className="text-lg font-bold">{settlementForm.overtimeHours.toFixed(2)}</p>
+                </div>
+                <div className="bg-blue-50 p-3 rounded">
+                  <p className="text-xs text-gray-500">Total Overtime Amount</p>
+                  <p className="text-lg font-bold text-blue-700">MVR {new Intl.NumberFormat('en-MV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(settlementForm.overtimeAmount)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Salary Calculation */}
+            <div className="border border-gray-200 rounded-lg p-4 mb-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Salary Calculation</h3>
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Monthly Salary (MVR)</label>
+                  <input type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={settlementForm.monthlySalary} onChange={(e) => setSettlementForm(prev => ({ ...prev, monthlySalary: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Salary Days</label>
+                  <input type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={settlementForm.salaryDays} onChange={(e) => setSettlementForm(prev => ({ ...prev, salaryDays: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Salary Divisor</label>
+                  <input type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={settlementForm.salaryDivisor} onChange={(e) => setSettlementForm(prev => ({ ...prev, salaryDivisor: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Daily Salary</label>
+                  <div className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm font-semibold">MVR {new Intl.NumberFormat('en-MV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(settlementForm.salaryDivisor > 0 ? settlementForm.monthlySalary / settlementForm.salaryDivisor : 0)}</div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Basic Pay</label>
+                  <div className="w-full px-3 py-2 bg-blue-50 rounded-lg text-sm font-semibold text-blue-800">MVR {new Intl.NumberFormat('en-MV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((settlementForm.monthlySalary / settlementForm.salaryDivisor) * settlementForm.salaryDays)}</div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Food Allowance Days</label>
+                  <input type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={settlementForm.foodAllowanceDays} onChange={(e) => setSettlementForm(prev => ({ ...prev, foodAllowanceDays: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Food Allowance Per Day (MVR)</label>
+                  <input type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={settlementForm.foodAllowancePerDay} onChange={(e) => setSettlementForm(prev => ({ ...prev, foodAllowancePerDay: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Total Food Allowance</label>
+                  <div className="w-full px-3 py-2 bg-orange-50 rounded-lg text-sm font-semibold text-orange-800">MVR {new Intl.NumberFormat('en-MV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(settlementForm.foodAllowanceDays * settlementForm.foodAllowancePerDay)}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Deductions */}
+            <div className="border border-gray-200 rounded-lg p-4 mb-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Deductions</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Other Deductions (MVR)</label>
+                  <input type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={settlementForm.deductions} onChange={(e) => setSettlementForm(prev => ({ ...prev, deductions: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Advance / Loan (MVR)</label>
+                  <input type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg" value={settlementForm.advanceDeduction} onChange={(e) => setSettlementForm(prev => ({ ...prev, advanceDeduction: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Total Deductions</label>
+                  <div className="w-full px-3 py-2 bg-red-50 rounded-lg text-sm font-semibold text-red-700">MVR {new Intl.NumberFormat('en-MV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(settlementForm.deductions + settlementForm.advanceDeduction)}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Settlement Summary */}
+            <div className="border border-gray-200 rounded-lg p-4 mb-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Final Settlement Summary</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between px-4 py-2"><span>Basic Salary</span><span>MVR {new Intl.NumberFormat('en-MV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((settlementForm.monthlySalary / settlementForm.salaryDivisor) * settlementForm.salaryDays)}</span></div>
+                <div className="flex justify-between px-4 py-2"><span>Overtime</span><span>MVR {new Intl.NumberFormat('en-MV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(settlementForm.overtimeAmount)}</span></div>
+                <div className="flex justify-between px-4 py-2"><span>Food Allowance</span><span>MVR {new Intl.NumberFormat('en-MV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(settlementForm.foodAllowanceDays * settlementForm.foodAllowancePerDay)}</span></div>
+                <div className="flex justify-between px-4 py-2 font-semibold"><span>Total Earnings</span><span>MVR {new Intl.NumberFormat('en-MV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(((settlementForm.monthlySalary / settlementForm.salaryDivisor) * settlementForm.salaryDays) + settlementForm.overtimeAmount + (settlementForm.foodAllowanceDays * settlementForm.foodAllowancePerDay))}</span></div>
+                <div className="flex justify-between px-4 py-2"><span>Total Deductions</span><span>MVR {new Intl.NumberFormat('en-MV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(settlementForm.deductions + settlementForm.advanceDeduction)}</span></div>
+                <div className="flex justify-between px-4 py-3 bg-gray-900 text-white font-bold"><span>NET SETTLEMENT</span><span>MVR {new Intl.NumberFormat('en-MV', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(((settlementForm.monthlySalary / settlementForm.salaryDivisor) * settlementForm.salaryDays) + settlementForm.overtimeAmount + (settlementForm.foodAllowanceDays * settlementForm.foodAllowancePerDay) - (settlementForm.deductions + settlementForm.advanceDeduction))}</span></div>
+              </div>
+            </div>
+
+            {/* Remarks */}
+            <div className="border border-gray-200 rounded-lg p-4 mb-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Remarks</h3>
+              <textarea className="w-full px-3 py-2 border border-gray-300 rounded-lg min-h-[80px]" value={settlementForm.remarks} onChange={(e) => setSettlementForm(prev => ({ ...prev, remarks: e.target.value }))} placeholder="Enter settlement notes..." />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowSettlementModal(false)} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancel</button>
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"><Save className="w-4 h-4" /> Save Settlement</button>
             </div>
           </div>
         </div>

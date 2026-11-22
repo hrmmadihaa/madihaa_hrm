@@ -50,7 +50,12 @@ export const ActivityNotifications = () => {
   return (
     <div className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen) {
+            setUnreadCount(0);
+          }
+        }}
         className="relative p-2 text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100 rounded-lg transition-colors"
       >
         <Bell className="w-6 h-6" />

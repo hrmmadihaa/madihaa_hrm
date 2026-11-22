@@ -19,6 +19,7 @@ import { auth } from '../lib/firebase';
 import LeaveApplication from '../components/LeaveApplication';
 import { logActivity } from '../lib/activityLog';
 import { formatDate } from '../lib/dateUtils';
+import { uploadFile } from '../lib/cloudinary';
 
 export const Leave = () => {
   const { user } = useAuth();
@@ -78,6 +79,8 @@ export const Leave = () => {
   });
   const [submittingTicket, setSubmittingTicket] = useState(false);
   const [showLeaveApplicationForm, setShowLeaveApplicationForm] = useState(false);
+  const [ticketFile, setTicketFile] = useState<File | null>(null);
+  const [ticketUploading, setTicketUploading] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -920,7 +923,14 @@ export const Leave = () => {
       });
       
       await deleteLeaveRequest(request.id);
-      
+
+      await logActivity(
+        'deleted',
+        'leave_request',
+        request.id,
+        `Deleted ${request.type} leave request for employee ${request.employeeId} from ${formatDate(new Date(request.startDate))} to ${formatDate(new Date(request.endDate))}`
+      );
+
       console.log('Leave - Leave request deleted successfully:', {
         leaveId: request.id
       });
@@ -949,7 +959,19 @@ export const Leave = () => {
       });
       
       await bulkDeleteLeaveRequests(Array.from(selectedRequests));
-      
+
+      for (const leaveId of selectedRequests) {
+        const request = leaveRequests.find(r => r.id === leaveId);
+        if (request) {
+          await logActivity(
+            'deleted',
+            'leave_request',
+            leaveId,
+            `Deleted ${request.type} leave request for employee ${request.employeeId} from ${formatDate(new Date(request.startDate))} to ${formatDate(new Date(request.endDate))}`
+          );
+        }
+      }
+
       console.log('Leave - Bulk delete completed successfully:', {
         count: selectedRequests.size
       });
@@ -1039,6 +1061,24 @@ export const Leave = () => {
       return;
     }
 
+    const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
+
+    // Upload ticket file if provided
+    let uploadedTicketUrl = '';
+    if (ticketFile) {
+      setTicketUploading(true);
+      try {
+        const fileName = `${selectedEmployeeId}_${Date.now()}`;
+        uploadedTicketUrl = await uploadFile(ticketFile, 'leave_tickets', fileName);
+      } catch (error) {
+        console.error('Error uploading ticket:', error);
+        setLeaveErrors(['Failed to upload ticket. Please try again.']);
+        setTicketUploading(false);
+        return;
+      }
+      setTicketUploading(false);
+    }
+
     const request = {
       employeeId: selectedEmployeeId,
       type: newLeaveType,
@@ -1047,6 +1087,7 @@ export const Leave = () => {
       days: calculateDaysFromRange(newStartDate, newEndDate),
       reason: newReason,
       ticketRequired: ticketRequired,
+      ticketUrl: uploadedTicketUrl || undefined,
     } as Partial<LeaveRequest>;
 
     const validationErrors = await validateLeaveRequest(request);
@@ -1062,7 +1103,7 @@ export const Leave = () => {
         'created',
         'leave_request',
         result,
-        `Leave request for ${request.type} from ${request.startDate} to ${request.endDate}`
+        `Leave request for ${request.type} from ${request.startDate ? formatDate(new Date(request.startDate)) : 'N/A'} to ${request.endDate ? formatDate(new Date(request.endDate)) : 'N/A'} for ${selectedEmployee?.name || selectedEmployee?.fullName || selectedEmployeeId}${uploadedTicketUrl ? ' with ticket' : ''}`
       );
       setNewLeaveType('annual');
       setNewStartDate('');
@@ -1072,6 +1113,7 @@ export const Leave = () => {
       setSelectedEmployeeId('');
       setLeaveErrors([]);
       setShowLeaveForm(false);
+      setTicketFile(null);
       loadData();
     } catch (error) {
       console.error('Error applying for leave:', error);
@@ -1118,7 +1160,7 @@ export const Leave = () => {
           'approved',
           'leave_request',
           approvalModal.request.id,
-          `Approved ${approvalModal.request.type} leave for ${approvalModal.request.startDate} to ${approvalModal.request.endDate}`
+          `Approved ${approvalModal.request.type} leave from ${formatDate(new Date(approvalModal.request.startDate))} to ${formatDate(new Date(approvalModal.request.endDate))} for employee ${approvalModal.request.employeeId}`
         );
       } else {
         await rejectLeaveRequest(
@@ -1132,7 +1174,7 @@ export const Leave = () => {
           'rejected',
           'leave_request',
           approvalModal.request.id,
-          `Rejected ${approvalModal.request.type} leave for ${approvalModal.request.startDate} to ${approvalModal.request.endDate}`
+          `Rejected ${approvalModal.request.type} leave from ${formatDate(new Date(approvalModal.request.startDate))} to ${formatDate(new Date(approvalModal.request.endDate))} for employee ${approvalModal.request.employeeId}`
         );
       }
 
@@ -1254,6 +1296,16 @@ export const Leave = () => {
     const duplicateIds = duplicates.map(d => d.duplicate.id);
     try {
       await bulkDeleteLeaveRequests(duplicateIds);
+
+      for (const duplicate of duplicates) {
+        await logActivity(
+          'deleted',
+          'leave_request',
+          duplicate.duplicate.id,
+          `Deleted duplicate ${duplicate.duplicate.type} leave request for employee ${duplicate.duplicate.employeeId} from ${formatDate(new Date(duplicate.duplicate.startDate))} to ${formatDate(new Date(duplicate.duplicate.endDate))}`
+        );
+      }
+
       alert(`Successfully deleted ${duplicateIds.length} duplicate leave requests.`);
       setShowDuplicateModal(false);
       setDuplicates([]);
@@ -1340,11 +1392,20 @@ export const Leave = () => {
       );
 
       const existingTickets = await getAllTicketRequests();
-      const existingTicketLeaveIds = existingTickets.map(t => t.leaveId);
+      
+      // Create a map of employeeId + date range to existing tickets
+      const employeeTicketMap = new Map<string, TicketRequest>();
+      existingTickets.forEach(ticket => {
+        const key = `${ticket.employeeId}_${ticket.departureDate.toISOString().split('T')[0]}_${ticket.returnDate.toISOString().split('T')[0]}`;
+        employeeTicketMap.set(key, ticket);
+      });
 
-      const leavesWithoutTickets = approvedLeavesWithTicketRequired.filter(
-        lr => !existingTicketLeaveIds.includes(lr.id)
-      );
+      const leavesWithoutTickets = approvedLeavesWithTicketRequired.filter(leave => {
+        const startDate = leave.startDate instanceof Date ? leave.startDate : new Date(leave.startDate);
+        const endDate = leave.endDate instanceof Date ? leave.endDate : new Date(leave.endDate);
+        const key = `${leave.employeeId}_${startDate.toISOString().split('T')[0]}_${endDate.toISOString().split('T')[0]}`;
+        return !employeeTicketMap.has(key);
+      });
 
       if (leavesWithoutTickets.length === 0) {
         alert('No missing tickets to create. All approved leaves with "Ticket Required" already have tickets.');
@@ -1706,6 +1767,27 @@ export const Leave = () => {
                 />
                 <span className="text-sm text-secondary-700">Ticket Required</span>
               </label>
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-secondary-700 mb-1">Upload Ticket (Optional)</label>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setTicketFile(file);
+                  }
+                }}
+                className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              {ticketFile && (
+                <p className="mt-1 text-xs text-secondary-600">Selected: {ticketFile.name}</p>
+              )}
+              {ticketUploading && (
+                <p className="mt-1 text-xs text-blue-600">Uploading ticket...</p>
+              )}
             </div>
 
             {leaveErrors.length > 0 && (

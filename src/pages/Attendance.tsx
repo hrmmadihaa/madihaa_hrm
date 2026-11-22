@@ -1876,6 +1876,10 @@ const processFridayAttendanceData = (rawData: any[], selectedDate: string) => {
             <FileSpreadsheet className="w-5 h-5 mr-2" />
             Monthly Report
           </Button>
+          <Button variant="secondary" onClick={() => navigate('/staff-attendance-report')} className="flex-1 sm:flex-none">
+            <FileSpreadsheet className="w-5 h-5 mr-2" />
+            Staff Report
+          </Button>
           <Button variant="secondary" className="flex-1 sm:flex-none">
             <Download className="w-5 h-5 mr-2" />
             Export

@@ -282,6 +282,7 @@ export interface LeaveRequest {
   amendedDate?: Date;
   balanceAdjusted?: boolean;
   ticketRequired?: boolean;
+  ticketUrl?: string;
 }
 
 export type LeaveType = 'annual' | 'medical' | 'emergency' | 'duty' | 'unpaid' | 'maternity' | 'paternity' | 'compassionate' | 'off_day';
@@ -307,21 +308,22 @@ export interface LeaveBalance {
 }
 
 // Ticket Types
-export type TicketStatus = 
-  | 'price_requested' 
-  | 'price_received' 
-  | 'approval_submitted' 
-  | 'approved' 
-  | 'waiting_payment' 
-  | 'payment_done' 
-  | 'ticket_received' 
-  | 'settlement_submitted' 
-  | 'settlement_handed_over' 
-  | 'vehicle_arranged' 
-  | 'passport_collected' 
-  | 'passport_handed_over' 
-  | 'vehicle_left' 
-  | 'departed' 
+export type TicketStatus =
+  | 'price_requested'
+  | 'price_received'
+  | 'approval_submitted'
+  | 'approved'
+  | 'waiting_payment'
+  | 'payment_done'
+  | 'ticket_received'
+  | 'settlement_created'
+  | 'settlement_submitted'
+  | 'settlement_handed_over'
+  | 'vehicle_arranged'
+  | 'passport_collected'
+  | 'passport_handed_over'
+  | 'vehicle_left'
+  | 'departed'
   | 'cancelled';
 
 export interface TicketRequest {
@@ -334,6 +336,7 @@ export interface TicketRequest {
   returnDate: Date;
   departureTime?: string;
   arrivalTime?: string;
+  flightNumber?: string;
   ticketType: 'one_way' | 'round_trip';
   passengers: number;
   specialRequests?: string;
@@ -360,6 +363,7 @@ export interface TicketRequest {
   returnFlightReminderSent?: boolean;
   staffPickedUp?: boolean;
   staffPickupTime?: Date;
+  ticketPdfUrl?: string;
 }
 
 export const TICKET_WORKFLOW_STEPS: TicketStatus[] = [
@@ -370,6 +374,7 @@ export const TICKET_WORKFLOW_STEPS: TicketStatus[] = [
   'waiting_payment',
   'payment_done',
   'ticket_received',
+  'settlement_created',
   'settlement_submitted',
   'settlement_handed_over',
   'vehicle_arranged',
@@ -387,6 +392,7 @@ export const TICKET_WORKFLOW_LABELS: Record<TicketStatus, string> = {
   waiting_payment: 'Waiting Payment',
   payment_done: 'Payment Done',
   ticket_received: 'Ticket Received',
+  settlement_created: 'Settlement Created',
   settlement_submitted: 'Settlement Submitted',
   settlement_handed_over: 'Settlement Handed Over',
   vehicle_arranged: 'Vehicle Arranged',

@@ -35,6 +35,8 @@ import OfferLetter from './pages/OfferLetter';
 import LOAGenerator from './components/LOAGenerator';
 import MonthlyAttendanceExcel from './pages/MonthlyAttendanceExcel';
 import { XpatsStaffDetails } from './pages/XpatsStaffDetails';
+import { Settlement } from './pages/Settlement';
+import StaffAttendanceReport from './pages/StaffAttendanceReport';
 
 function App() {
   return (
@@ -84,6 +86,8 @@ function App() {
             <Route path="offer-letter" element={<OfferLetter />} />
             <Route path="letter-of-appointment" element={<LOAGenerator />} />
             <Route path="monthly-attendance" element={<MonthlyAttendanceExcel />} />
+            <Route path="staff-attendance-report" element={<StaffAttendanceReport />} />
+            <Route path="settlement" element={<Settlement />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="settings" element={<div className="p-4">Settings Module - Coming Soon</div>} />
           </Route>
