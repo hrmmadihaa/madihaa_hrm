@@ -259,13 +259,13 @@ service cloud.firestore {
     // Medical requisitions collection
     match /medical_requisitions/{requisitionId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isSuperAdmin() || isHRManager();
+      allow create, update, delete: if isSuperAdmin() || isHRManager() || isSupervisor();
     }
 
     // Activity logs collection
     match /activity_logs/{logId} {
       allow read: if isAuthenticated();
-      allow create: if isSuperAdmin() || isHRManager();
+      allow create: if isSuperAdmin() || isHRManager() || isSupervisor();
     }
   }
 }

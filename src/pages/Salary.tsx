@@ -42,10 +42,11 @@ interface SalaryIncrement {
 }
 
 export const Salary: React.FC = () => {
-  const { isSuperAdmin, isHRManager, isSupervisorOrAbove } = usePermissions();
+  const { isSuperAdmin, isHRManager } = usePermissions();
   const { user } = useAuth();
   const [showIncrementForm, setShowIncrementForm] = useState(false);
   const [showEditSalaryForm, setShowEditSalaryForm] = useState(false);
+  const [showAddSalaryForm, setShowAddSalaryForm] = useState(false);
   const [showIncrementLetter, setShowIncrementLetter] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [salaryRecords, setSalaryRecords] = useState<SalaryRecord[]>([]);
@@ -69,6 +70,19 @@ export const Salary: React.FC = () => {
 
   const [editSalaryForm, setEditSalaryForm] = useState({
     id: '',
+    employeeId: '',
+    employeeName: '',
+    basicSalary: 0,
+    otAllowances: 0,
+    otherAllowances: 0,
+    attendanceAllowance: 0,
+    livingAllowance: 0,
+    foodAllowance: 0,
+    fridayAllowance: 0,
+    effectiveDate: new Date().toISOString().split('T')[0],
+  });
+
+  const [addSalaryForm, setAddSalaryForm] = useState({
     employeeId: '',
     employeeName: '',
     basicSalary: 0,
@@ -167,6 +181,51 @@ export const Salary: React.FC = () => {
     } catch (error) {
       console.error('Error updating salary:', error);
       alert('Failed to update salary');
+    }
+  };
+
+  const handleSubmitAddSalary = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!addSalaryForm.employeeId) {
+      alert('Please select an employee');
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, 'salary_records'), {
+        employeeId: addSalaryForm.employeeId,
+        employeeName: addSalaryForm.employeeName,
+        basicSalary: parseFloat(addSalaryForm.basicSalary.toString()),
+        otAllowances: parseFloat(addSalaryForm.otAllowances.toString()),
+        otherAllowances: parseFloat(addSalaryForm.otherAllowances.toString()),
+        attendanceAllowance: parseFloat(addSalaryForm.attendanceAllowance.toString()),
+        livingAllowance: parseFloat(addSalaryForm.livingAllowance.toString()),
+        foodAllowance: parseFloat(addSalaryForm.foodAllowance.toString()),
+        fridayAllowance: parseFloat(addSalaryForm.fridayAllowance.toString()),
+        currency: 'MVR',
+        effectiveDate: new Date(addSalaryForm.effectiveDate),
+        createdAt: new Date(),
+      });
+
+      alert('Salary added successfully');
+      setShowAddSalaryForm(false);
+      setAddSalaryForm({
+        employeeId: '',
+        employeeName: '',
+        basicSalary: 0,
+        otAllowances: 0,
+        otherAllowances: 0,
+        attendanceAllowance: 0,
+        livingAllowance: 0,
+        foodAllowance: 0,
+        fridayAllowance: 0,
+        effectiveDate: new Date().toISOString().split('T')[0],
+      });
+      loadData();
+    } catch (error) {
+      console.error('Error adding salary:', error);
+      alert('Failed to add salary');
     }
   };
 
@@ -280,7 +339,7 @@ export const Salary: React.FC = () => {
     a.employeeName.localeCompare(b.employeeName)
   );
 
-  if (!isSupervisorOrAbove()) {
+  if (!isSuperAdmin() && !isHRManager()) {
     return (
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -307,6 +366,12 @@ export const Salary: React.FC = () => {
         {/* Search and Actions */}
         <div className="flex flex-col sm:flex-row gap-3 mt-4 items-start sm:items-center justify-between">
           <div className="flex gap-3">
+            {isSuperAdmin() && (
+              <Button onClick={() => setShowAddSalaryForm(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Salary
+              </Button>
+            )}
             {(isHRManager() || isSuperAdmin()) && (
               <Button onClick={() => setShowIncrementForm(true)}>
                 <Plus className="w-4 h-4 mr-2" />
@@ -830,6 +895,140 @@ export const Salary: React.FC = () => {
                 </Button>
                 <Button type="submit" className="flex-1">
                   Save Changes
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Salary Form Modal */}
+      {showAddSalaryForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">Add Salary</h2>
+              <Button variant="ghost" onClick={() => setShowAddSalaryForm(false)}>✕</Button>
+            </div>
+
+            <form onSubmit={handleSubmitAddSalary}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Employee</label>
+                  <select
+                    required
+                    value={addSalaryForm.employeeId}
+                    onChange={(e) => {
+                      const employee = employees.find(emp => emp.id === e.target.value);
+                      if (employee) {
+                        setAddSalaryForm({
+                          ...addSalaryForm,
+                          employeeId: employee.id,
+                          employeeName: employee.fullName,
+                        });
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select an employee...</option>
+                    {employees.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.fullName} - {employee.employeeId}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Basic Salary</label>
+                    <input
+                      type="number"
+                      required
+                      value={addSalaryForm.basicSalary}
+                      onChange={(e) => setAddSalaryForm({ ...addSalaryForm, basicSalary: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">OT Allowances</label>
+                    <input
+                      type="number"
+                      required
+                      value={addSalaryForm.otAllowances}
+                      onChange={(e) => setAddSalaryForm({ ...addSalaryForm, otAllowances: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Other Allowances</label>
+                    <input
+                      type="number"
+                      required
+                      value={addSalaryForm.otherAllowances}
+                      onChange={(e) => setAddSalaryForm({ ...addSalaryForm, otherAllowances: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Attendance Allowance</label>
+                    <input
+                      type="number"
+                      required
+                      value={addSalaryForm.attendanceAllowance}
+                      onChange={(e) => setAddSalaryForm({ ...addSalaryForm, attendanceAllowance: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Living Allowance</label>
+                    <input
+                      type="number"
+                      required
+                      value={addSalaryForm.livingAllowance}
+                      onChange={(e) => setAddSalaryForm({ ...addSalaryForm, livingAllowance: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Food Allowance</label>
+                    <input
+                      type="number"
+                      required
+                      value={addSalaryForm.foodAllowance}
+                      onChange={(e) => setAddSalaryForm({ ...addSalaryForm, foodAllowance: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Friday Allowance</label>
+                    <input
+                      type="number"
+                      required
+                      value={addSalaryForm.fridayAllowance}
+                      onChange={(e) => setAddSalaryForm({ ...addSalaryForm, fridayAllowance: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Effective Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={addSalaryForm.effectiveDate}
+                      onChange={(e) => setAddSalaryForm({ ...addSalaryForm, effectiveDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <Button type="button" variant="ghost" onClick={() => setShowAddSalaryForm(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1">
+                  Add Salary
                 </Button>
               </div>
             </form>
