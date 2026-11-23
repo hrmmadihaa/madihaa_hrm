@@ -57,6 +57,7 @@ export const Salary: React.FC = () => {
   const [selectedApprover, setSelectedApprover] = useState('chairman');
   const [historyEmployeeId, setHistoryEmployeeId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [areaFilter, setAreaFilter] = useState<'all' | 'male-junior' | 'hulhumale-junior' | 'male-senior' | 'hulhumale-senior' | 'local'>('all');
   const [activeTab, setActiveTab] = useState('salaries'); // 'salaries' or 'increments'
 
   const [incrementForm, setIncrementForm] = useState({
@@ -311,11 +312,37 @@ export const Salary: React.FC = () => {
     return salaryIncrements.filter(i => i.employeeId === employeeId);
   };
 
-  // Filter employees based on search term
-  const filteredEmployees = employees.filter(employee =>
-    employee.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    employee.employeeId?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter employees based on search term and area
+  const filteredEmployees = employees.filter(employee => {
+    const matchesSearch = employee.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      employee.employeeId?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (!matchesSearch) return false;
+
+    if (areaFilter === 'all') {
+      return (employee.status || 'active').toLowerCase() === 'active';
+    }
+
+    const isActive = (employee.status || 'active').toLowerCase() === 'active';
+    const jobLevel = employee.jobLevel?.toLowerCase() || '';
+    const workSite = employee.workSite?.toLowerCase() || '';
+    const country = employee.country?.toLowerCase() || '';
+
+    switch (areaFilter) {
+      case 'male-junior':
+        return isActive && workSite.includes('male') && jobLevel.includes('junior');
+      case 'hulhumale-junior':
+        return isActive && workSite.includes('hulhumale') && jobLevel.includes('junior');
+      case 'male-senior':
+        return isActive && workSite.includes('male') && jobLevel.includes('senior');
+      case 'hulhumale-senior':
+        return isActive && workSite.includes('hulhumale') && jobLevel.includes('senior');
+      case 'local':
+        return isActive && (country.includes('maldives') || country.includes('mv'));
+      default:
+        return isActive;
+    }
+  });
 
   // Filter increments based on search term
   const filteredIncrements = salaryIncrements.filter(increment =>
@@ -379,15 +406,29 @@ export const Salary: React.FC = () => {
               </Button>
             )}
           </div>
-          <div className="relative w-full sm:w-64">
-            <input
-              type="text"
-              placeholder="Search by name or ID..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
+          <div className="flex gap-3 w-full sm:w-auto">
+            <select
+              value={areaFilter}
+              onChange={(e) => setAreaFilter(e.target.value as any)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">All Areas</option>
+              <option value="male-junior">Male - Junior</option>
+              <option value="hulhumale-junior">Hulhumale - Junior</option>
+              <option value="male-senior">Male - Senior</option>
+              <option value="hulhumale-senior">Hulhumale - Senior</option>
+              <option value="local">Local</option>
+            </select>
+            <div className="relative w-full sm:w-64">
+              <input
+                type="text"
+                placeholder="Search by name or ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
+            </div>
           </div>
         </div>
 
