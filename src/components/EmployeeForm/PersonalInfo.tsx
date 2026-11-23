@@ -35,6 +35,11 @@ export const PersonalInfo = ({ employee, onNext, onCancel, onSave }: PersonalInf
     slot: '',
     qtaPaid: '',
     sn: '',
+    visaExpiryDate: undefined,
+    wpFeePaidDate: undefined,
+    medProvider: '',
+    medPolicyNo: '',
+    insuranceProvider: '',
   });
 
   // Update formData when employee prop changes
@@ -56,11 +61,16 @@ export const PersonalInfo = ({ employee, onNext, onCancel, onSave }: PersonalInf
         dob: employee.dob,
         wpNo: employee.wpNo || '',
         wpExpDate: employee.wpExpDate,
+        wpFeePaidDate: employee.wpFeePaidDate,
         ppIdNumber: employee.ppIdNumber || '',
         ppIdExpDate: employee.ppIdExpDate,
         medExpDate: employee.medExpDate,
+        medProvider: employee.medProvider || '',
+        medPolicyNo: employee.medPolicyNo || '',
         insuranceNumber: employee.insuranceNumber || '',
         insuranceExpDate: employee.insuranceExpDate,
+        insuranceProvider: employee.insuranceProvider || '',
+        visaExpiryDate: employee.visaExpiryDate,
         workSite: employee.workSite || '',
         workLocation: employee.workLocation || '',
         jobLevel: employee.jobLevel || '',
@@ -76,13 +86,21 @@ export const PersonalInfo = ({ employee, onNext, onCancel, onSave }: PersonalInf
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if (name === 'joinDate' || name === 'dob' || name === 'wpExpDate' || name === 'ppIdExpDate' || name === 'medExpDate' || name === 'insuranceExpDate') {
+    if (name === 'joinDate' || name === 'dob' || name === 'wpExpDate' || name === 'ppIdExpDate' || name === 'medExpDate' || name === 'insuranceExpDate' || name === 'visaExpiryDate' || name === 'wpFeePaidDate') {
       setFormData(prev => ({ ...prev, [name]: value ? new Date(value) : null }));
     } else if (name === 'status') {
       setFormData(prev => ({ ...prev, [name]: value.toLowerCase() as any }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
+  };
+
+  const calculateDaysRemaining = (expiryDate?: Date): number | null => {
+    if (!expiryDate) return null;
+    const today = new Date();
+    const diffTime = expiryDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -306,6 +324,13 @@ export const PersonalInfo = ({ employee, onNext, onCancel, onSave }: PersonalInf
             onChange={handleChange}
           />
           <Input
+            label="Work Permit Fee Paid Date"
+            name="wpFeePaidDate"
+            type="date"
+            value={formData.wpFeePaidDate?.toISOString().split('T')[0] || ''}
+            onChange={handleChange}
+          />
+          <Input
             label="Passport/ID Number"
             name="ppIdNumber"
             value={formData.ppIdNumber}
@@ -319,12 +344,35 @@ export const PersonalInfo = ({ employee, onNext, onCancel, onSave }: PersonalInf
             value={formData.ppIdExpDate?.toISOString().split('T')[0] || ''}
             onChange={handleChange}
           />
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">Days Remaining</label>
+            <input
+              type="text"
+              value={calculateDaysRemaining(formData.ppIdExpDate) ?? 'N/A'}
+              disabled
+              className="w-full px-4 py-2 border border-secondary-300 rounded-lg bg-gray-100 text-gray-600"
+            />
+          </div>
           <Input
             label="Medical Expiry Date"
             name="medExpDate"
             type="date"
             value={formData.medExpDate?.toISOString().split('T')[0] || ''}
             onChange={handleChange}
+          />
+          <Input
+            label="Medical Provider"
+            name="medProvider"
+            value={formData.medProvider}
+            onChange={handleChange}
+            placeholder="Enter medical provider name"
+          />
+          <Input
+            label="Medical Policy No"
+            name="medPolicyNo"
+            value={formData.medPolicyNo}
+            onChange={handleChange}
+            placeholder="Enter medical policy number"
           />
           <Input
             label="Insurance Number"
@@ -338,6 +386,20 @@ export const PersonalInfo = ({ employee, onNext, onCancel, onSave }: PersonalInf
             name="insuranceExpDate"
             type="date"
             value={formData.insuranceExpDate?.toISOString().split('T')[0] || ''}
+            onChange={handleChange}
+          />
+          <Input
+            label="Insurance Provider"
+            name="insuranceProvider"
+            value={formData.insuranceProvider}
+            onChange={handleChange}
+            placeholder="Enter insurance provider name"
+          />
+          <Input
+            label="Visa Expiry Date"
+            name="visaExpiryDate"
+            type="date"
+            value={formData.visaExpiryDate?.toISOString().split('T')[0] || ''}
             onChange={handleChange}
           />
           <div>

@@ -52,11 +52,15 @@ export interface Employee {
   dob?: Date;
   wpNo?: string;
   wpExpDate?: Date;
+  wpFeePaidDate?: Date;
   ppIdNumber?: string;
   ppIdExpDate?: Date;
   medExpDate?: Date;
+  medProvider?: string;
+  medPolicyNo?: string;
   insuranceNumber?: string;
   insuranceExpDate?: Date;
+  insuranceProvider?: string;
   workSite?: string;
   workLocation?: string;
   jobLevel?: string;
