@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { usePermissions } from '../hooks/usePermissions';
 import { useAuth } from '../contexts/AuthContext';
@@ -57,7 +57,9 @@ export const Salary: React.FC = () => {
   const [selectedApprover, setSelectedApprover] = useState('chairman');
   const [historyEmployeeId, setHistoryEmployeeId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [areaFilter, setAreaFilter] = useState<'all' | 'male-junior' | 'hulhumale-junior' | 'male-senior' | 'hulhumale-senior' | 'local'>('all');
+  const [areaFilter, setAreaFilter] = useState<'all' | 'male-junior' | 'hulhumale-junior' | 'male-senior' | 'hulhumale-senior' | 'batuta-maldives' | 'madi-grand' | 'bokaifushi' | 'local'>('all');
+  const [showSortOrderModal, setShowSortOrderModal] = useState(false);
+  const [sortOrderSearchTerm, setSortOrderSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('salaries'); // 'salaries' or 'increments'
 
   const [incrementForm, setIncrementForm] = useState({
@@ -327,21 +329,36 @@ export const Salary: React.FC = () => {
     const jobLevel = employee.jobLevel?.toLowerCase() || '';
     const workSite = employee.workSite?.toLowerCase() || '';
     const country = employee.country?.toLowerCase() || '';
+    const isMaldivian = country.includes('maldives') || country.includes('mv');
 
     switch (areaFilter) {
       case 'male-junior':
-        return isActive && workSite.includes('male') && jobLevel.includes('junior');
+        return isActive && !isMaldivian && workSite.includes('male') && jobLevel.includes('junior');
       case 'hulhumale-junior':
-        return isActive && workSite.includes('hulhumale') && jobLevel.includes('junior');
+        return isActive && !isMaldivian && workSite.includes('hulhumale') && jobLevel.includes('junior');
       case 'male-senior':
-        return isActive && workSite.includes('male') && jobLevel.includes('senior');
+        return isActive && !isMaldivian && workSite.includes('male') && jobLevel.includes('senior');
       case 'hulhumale-senior':
-        return isActive && workSite.includes('hulhumale') && jobLevel.includes('senior');
+        return isActive && !isMaldivian && workSite.includes('hulhumale') && jobLevel.includes('senior');
+      case 'batuta-maldives':
+        return isActive && workSite.includes('batuta');
+      case 'madi-grand':
+        return isActive && workSite.includes('madi grand');
+      case 'bokaifushi':
+        return isActive && !isMaldivian && workSite.includes('bokaifushi');
       case 'local':
-        return isActive && (country.includes('maldives') || country.includes('mv'));
+        return isActive && isMaldivian;
       default:
         return isActive;
     }
+  }).sort((a, b) => {
+    // Sort by sortOrder for the current filter group if available, otherwise by name
+    const orderA = a.sortOrder?.[areaFilter] ?? 9999;
+    const orderB = b.sortOrder?.[areaFilter] ?? 9999;
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    return (a.fullName || '').localeCompare(b.fullName || '');
   });
 
   // Filter increments based on search term
@@ -417,8 +434,19 @@ export const Salary: React.FC = () => {
               <option value="hulhumale-junior">Hulhumale - Junior</option>
               <option value="male-senior">Male - Senior</option>
               <option value="hulhumale-senior">Hulhumale - Senior</option>
+              <option value="batuta-maldives">Batuta Maldives</option>
+              <option value="madi-grand">Madi Grand</option>
+              <option value="bokaifushi">Bokaifushi</option>
               <option value="local">Local</option>
             </select>
+            {isSuperAdmin() && (
+              <Button
+                variant="secondary"
+                onClick={() => setShowSortOrderModal(true)}
+              >
+                Arrange Order
+              </Button>
+            )}
             <div className="relative w-full sm:w-64">
               <input
                 type="text"
@@ -468,7 +496,8 @@ export const Salary: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">Employee</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">Order</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Basic Salary</th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OT Allowances</th>
@@ -489,11 +518,19 @@ export const Salary: React.FC = () => {
                   salary.basicSalary + salary.otAllowances + salary.otherAllowances +
                   salary.attendanceAllowance + salary.livingAllowance +
                   salary.foodAllowance : 0;
-                const totalDeductions = salary ?
-                  (salary.pension || 0) : 0;
+                // Auto-calculate pension (7% of basic salary)
+                // Only for Maldivians under 65 years old
+                const isMaldivian = employee.country?.toLowerCase().includes('maldives') || employee.country?.toLowerCase().includes('mv');
+                const age = employee.dob ? new Date().getFullYear() - new Date(employee.dob).getFullYear() : 0;
+                const isUnder65 = age < 65;
+                const pension = salary && isMaldivian && isUnder65 ? Math.round(salary.basicSalary * 0.07) : 0;
+                const totalDeductions = pension;
                 const netSalary = grossSalary - totalDeductions;
                 return (
                   <tr key={employee.id}>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {employee.sortOrder?.[areaFilter] || '-'}
+                    </td>
                     <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {employee.fullName}
                     </td>
@@ -522,7 +559,7 @@ export const Salary: React.FC = () => {
                       {salary ? `MVR ${grossSalary.toLocaleString()}` : '-'}
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap text-sm text-red-600">
-                      {salary ? `MVR ${(salary.pension || 0).toLocaleString()}` : '-'}
+                      {salary ? `MVR ${pension.toLocaleString()}` : '-'}
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap text-sm font-bold text-green-700">
                       {salary ? `MVR ${netSalary.toLocaleString()}` : '-'}
@@ -860,7 +897,19 @@ export const Salary: React.FC = () => {
                       type="number"
                       required
                       value={editSalaryForm.basicSalary}
-                      onChange={(e) => setEditSalaryForm({ ...editSalaryForm, basicSalary: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => {
+                        const basicSalary = parseFloat(e.target.value) || 0;
+                        const employee = employees.find(emp => emp.id === editSalaryForm.employeeId);
+                        const isMaldivian = employee?.country?.toLowerCase().includes('maldives') || employee?.country?.toLowerCase().includes('mv');
+                        const age = employee?.dob ? new Date().getFullYear() - new Date(employee.dob).getFullYear() : 0;
+                        const isUnder65 = age < 65;
+                        const autoPension = isMaldivian && isUnder65 ? Math.round(basicSalary * 0.07) : 0;
+                        setEditSalaryForm({ 
+                          ...editSalaryForm, 
+                          basicSalary,
+                          pension: autoPension
+                        });
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -993,7 +1042,19 @@ export const Salary: React.FC = () => {
                       type="number"
                       required
                       value={addSalaryForm.basicSalary}
-                      onChange={(e) => setAddSalaryForm({ ...addSalaryForm, basicSalary: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => {
+                        const basicSalary = parseFloat(e.target.value) || 0;
+                        const employee = employees.find(emp => emp.id === addSalaryForm.employeeId);
+                        const isMaldivian = employee?.country?.toLowerCase().includes('maldives') || employee?.country?.toLowerCase().includes('mv');
+                        const age = employee?.dob ? new Date().getFullYear() - new Date(employee.dob).getFullYear() : 0;
+                        const isUnder65 = age < 65;
+                        const autoPension = isMaldivian && isUnder65 ? Math.round(basicSalary * 0.07) : 0;
+                        setAddSalaryForm({ 
+                          ...addSalaryForm, 
+                          basicSalary,
+                          pension: autoPension
+                        });
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -1216,6 +1277,104 @@ export const Salary: React.FC = () => {
                 onClick={() => setShowIncrementLetter(false)}
               >
                 Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sort Order Modal */}
+      {showSortOrderModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">Arrange Employee Order - {areaFilter === 'all' ? 'All Areas' : areaFilter}</h2>
+              <Button variant="ghost" onClick={() => setShowSortOrderModal(false)}>✕</Button>
+            </div>
+
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Search employee by name or ID..."
+                value={sortOrderSearchTerm}
+                onChange={(e) => setSortOrderSearchTerm(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div className="space-y-3">
+              {filteredEmployees
+                .filter(employee => 
+                  employee.fullName?.toLowerCase().includes(sortOrderSearchTerm.toLowerCase()) ||
+                  employee.employeeId?.toLowerCase().includes(sortOrderSearchTerm.toLowerCase())
+                )
+                .sort((a, b) => {
+                  const orderA = a.sortOrder?.[areaFilter] ?? 9999;
+                  const orderB = b.sortOrder?.[areaFilter] ?? 9999;
+                  if (orderA !== orderB) {
+                    return orderA - orderB;
+                  }
+                  return (a.fullName || '').localeCompare(b.fullName || '');
+                })
+                .map((employee, index) => (
+                <div key={employee.id} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
+                  <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">
+                    {index + 1}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium">{employee.fullName}</p>
+                    <p className="text-sm text-gray-500">{employee.employeeId} - {employee.jobLevel || ''}</p>
+                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    value={employee.sortOrder?.[areaFilter] || ''}
+                    onChange={(e) => {
+                      const updatedEmployees = employees.map(emp =>
+                        emp.id === employee.id 
+                          ? { ...emp, sortOrder: { ...(emp.sortOrder || {}), [areaFilter]: parseInt(e.target.value) || 0 } }
+                          : emp
+                      );
+                      setEmployees(updatedEmployees);
+                    }}
+                    className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Order"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <Button type="button" variant="ghost" onClick={() => setShowSortOrderModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="flex-1"
+                onClick={async () => {
+                  try {
+                    const batch = writeBatch(db);
+                    filteredEmployees.forEach(employee => {
+                      const sortOrderForGroup = employee.sortOrder?.[areaFilter];
+                      if (sortOrderForGroup !== undefined && sortOrderForGroup !== null) {
+                        const empRef = doc(db, 'employees', employee.id);
+                        batch.update(empRef, { 
+                          [`sortOrder.${areaFilter}`]: sortOrderForGroup 
+                        });
+                      }
+                    });
+                    await batch.commit();
+                    alert('Order saved successfully');
+                    setShowSortOrderModal(false);
+                    setSortOrderSearchTerm('');
+                    loadData();
+                  } catch (error) {
+                    console.error('Error saving order:', error);
+                    alert('Failed to save order');
+                  }
+                }}
+              >
+                Save Order
               </Button>
             </div>
           </div>

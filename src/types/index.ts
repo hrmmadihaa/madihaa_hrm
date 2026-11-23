@@ -71,6 +71,7 @@ export interface Employee {
   visaExpiryDate?: Date;
   biometricFingerprintUpdated?: Date;
   bankAccountNumber?: string;
+  sortOrder?: Record<string, number>; // For custom ordering within each filter group
   visaCancellation?: {
     submittedDate?: Date;
     requestNumber?: string;

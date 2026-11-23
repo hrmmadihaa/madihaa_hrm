@@ -158,6 +158,7 @@ const firestoreToEmployee = (doc: any): Employee => {
     slot: data.slot,
     qtaPaid: data.qtaPaid,
     sn: data.sn,
+    sortOrder: data.sortOrder,
     biometricFingerprintUpdated: timestampToDate(data.biometricFingerprintUpdated),
     visaCancellation: data.visaCancellation ? {
       submittedDate: timestampToDate(data.visaCancellation.submittedDate),
