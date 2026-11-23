@@ -18,7 +18,7 @@ interface SalaryRecord {
   attendanceAllowance: number;
   livingAllowance: number;
   foodAllowance: number;
-  fridayAllowance: number;
+  pension: number;
   currency: string;
   effectiveDate: Date;
   createdAt: Date;
@@ -78,7 +78,7 @@ export const Salary: React.FC = () => {
     attendanceAllowance: 0,
     livingAllowance: 0,
     foodAllowance: 0,
-    fridayAllowance: 0,
+    pension: 0,
     effectiveDate: new Date().toISOString().split('T')[0],
   });
 
@@ -91,7 +91,7 @@ export const Salary: React.FC = () => {
     attendanceAllowance: 0,
     livingAllowance: 0,
     foodAllowance: 0,
-    fridayAllowance: 0,
+    pension: 0,
     effectiveDate: new Date().toISOString().split('T')[0],
   });
 
@@ -146,7 +146,7 @@ export const Salary: React.FC = () => {
       attendanceAllowance: salaryRecord.attendanceAllowance,
       livingAllowance: salaryRecord.livingAllowance,
       foodAllowance: salaryRecord.foodAllowance,
-      fridayAllowance: salaryRecord.fridayAllowance,
+      pension: salaryRecord.pension || 0,
       effectiveDate: salaryRecord.effectiveDate instanceof Date ? 
         salaryRecord.effectiveDate.toISOString().split('T')[0] : 
         new Date(salaryRecord.effectiveDate).toISOString().split('T')[0],
@@ -170,7 +170,7 @@ export const Salary: React.FC = () => {
         attendanceAllowance: parseFloat(editSalaryForm.attendanceAllowance.toString()),
         livingAllowance: parseFloat(editSalaryForm.livingAllowance.toString()),
         foodAllowance: parseFloat(editSalaryForm.foodAllowance.toString()),
-        fridayAllowance: parseFloat(editSalaryForm.fridayAllowance.toString()),
+        pension: parseFloat(editSalaryForm.pension.toString()),
         effectiveDate: new Date(editSalaryForm.effectiveDate),
         updatedAt: new Date(),
       });
@@ -202,7 +202,7 @@ export const Salary: React.FC = () => {
         attendanceAllowance: parseFloat(addSalaryForm.attendanceAllowance.toString()),
         livingAllowance: parseFloat(addSalaryForm.livingAllowance.toString()),
         foodAllowance: parseFloat(addSalaryForm.foodAllowance.toString()),
-        fridayAllowance: parseFloat(addSalaryForm.fridayAllowance.toString()),
+        pension: parseFloat(addSalaryForm.pension.toString()),
         currency: 'MVR',
         effectiveDate: new Date(addSalaryForm.effectiveDate),
         createdAt: new Date(),
@@ -219,7 +219,7 @@ export const Salary: React.FC = () => {
         attendanceAllowance: 0,
         livingAllowance: 0,
         foodAllowance: 0,
-        fridayAllowance: 0,
+        pension: 0,
         effectiveDate: new Date().toISOString().split('T')[0],
       });
       loadData();
@@ -435,18 +435,22 @@ export const Salary: React.FC = () => {
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance</th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Living</th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Food</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Friday</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Salary</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pension</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Salary</th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredEmployees.map((employee) => {
                 const salary = getEmployeeSalary(employee.id);
-                const totalSalary = salary ?
+                const grossSalary = salary ?
                   salary.basicSalary + salary.otAllowances + salary.otherAllowances +
                   salary.attendanceAllowance + salary.livingAllowance +
-                  salary.foodAllowance + salary.fridayAllowance : 0;
+                  salary.foodAllowance : 0;
+                const totalDeductions = salary ?
+                  (salary.pension || 0) : 0;
+                const netSalary = grossSalary - totalDeductions;
                 return (
                   <tr key={employee.id}>
                     <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -473,11 +477,14 @@ export const Salary: React.FC = () => {
                     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
                       {salary ? `MVR ${salary.foodAllowance.toLocaleString()}` : '-'}
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {salary ? `MVR ${salary.fridayAllowance.toLocaleString()}` : '-'}
-                    </td>
                     <td className="px-3 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      {salary ? `MVR ${totalSalary.toLocaleString()}` : '-'}
+                      {salary ? `MVR ${grossSalary.toLocaleString()}` : '-'}
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-red-600">
+                      {salary ? `MVR ${(salary.pension || 0).toLocaleString()}` : '-'}
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm font-bold text-green-700">
+                      {salary ? `MVR ${netSalary.toLocaleString()}` : '-'}
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
                       {isSuperAdmin() && salary && (
@@ -700,7 +707,7 @@ export const Salary: React.FC = () => {
                         const totalSalary = salaryRecord ?
                           salaryRecord.basicSalary + salaryRecord.otAllowances + salaryRecord.otherAllowances +
                           salaryRecord.attendanceAllowance + salaryRecord.livingAllowance +
-                          salaryRecord.foodAllowance + salaryRecord.fridayAllowance : 0;
+                          salaryRecord.foodAllowance : 0;
                         setIncrementForm({
                           ...incrementForm,
                           employeeId: employee.id,
@@ -867,12 +874,11 @@ export const Salary: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Friday Allowance</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Pension</label>
                     <input
                       type="number"
-                      required
-                      value={editSalaryForm.fridayAllowance}
-                      onChange={(e) => setEditSalaryForm({ ...editSalaryForm, fridayAllowance: parseFloat(e.target.value) || 0 })}
+                      value={editSalaryForm.pension}
+                      onChange={(e) => setEditSalaryForm({ ...editSalaryForm, pension: parseFloat(e.target.value) || 0 })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -1001,12 +1007,11 @@ export const Salary: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Friday Allowance</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Pension</label>
                     <input
                       type="number"
-                      required
-                      value={addSalaryForm.fridayAllowance}
-                      onChange={(e) => setAddSalaryForm({ ...addSalaryForm, fridayAllowance: parseFloat(e.target.value) || 0 })}
+                      value={addSalaryForm.pension}
+                      onChange={(e) => setAddSalaryForm({ ...addSalaryForm, pension: parseFloat(e.target.value) || 0 })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
