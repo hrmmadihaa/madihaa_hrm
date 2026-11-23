@@ -4,7 +4,7 @@ import {
   Menu, X, User, LogOut, Settings,
   LayoutDashboard, Users, Calendar, CalendarCheck,
   DollarSign, Clock, BarChart, FileText, GraduationCap,
-  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle, Fuel, Wallet, Mail, Globe, Minus
+  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle, Fuel, Wallet, Mail, Globe, Minus, Stethoscope
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
@@ -24,6 +24,7 @@ export const Layout: React.FC = () => {
     { name: 'My Overtime', href: '/overtime', icon: Clock },
     { name: 'My Payslips', href: '/staff-payslips', icon: DollarSign },
     { name: 'My Disciplinary', href: '/staff-disciplinary', icon: AlertTriangle },
+    { name: 'Medical History', href: '/medical-history', icon: Stethoscope },
   ] as const;
 
   // Full navigation for admin/manager roles
@@ -38,6 +39,7 @@ export const Layout: React.FC = () => {
     { name: 'Payroll', href: '/payroll', icon: DollarSign },
     { name: 'Bonus', href: '/bonus', icon: Gift },
     { name: 'Deductions', href: '/deductions', icon: Minus },
+    { name: 'Medical Requisitions', href: '/medical-requisitions', icon: Stethoscope },
     { name: 'Overtime', href: '/overtime', icon: Clock },
     { name: 'Petrol Requests', href: '/petrol-requests', icon: Fuel },
     { name: 'Salary', href: '/salary', icon: Wallet },

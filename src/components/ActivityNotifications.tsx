@@ -7,21 +7,23 @@ export const ActivityNotifications = () => {
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [hasOpened, setHasOpened] = useState(false);
 
   useEffect(() => {
     console.log('ActivityNotifications - Subscribing to activities');
     const unsubscribe = subscribeToRecentActivities((newActivities) => {
       console.log('ActivityNotifications - Received activities:', newActivities);
-      const previousCount = activities.length;
       setActivities(newActivities);
-      setUnreadCount(newActivities.length - previousCount);
+      if (!hasOpened) {
+        setUnreadCount(newActivities.length);
+      }
     }, 10);
 
     return () => {
       console.log('ActivityNotifications - Unsubscribing');
       unsubscribe();
     };
-  }, []);
+  }, [hasOpened]);
 
   const formatTime = (timestamp: any) => {
     const date = timestamp.toDate();
@@ -54,6 +56,7 @@ export const ActivityNotifications = () => {
           setIsOpen(!isOpen);
           if (!isOpen) {
             setUnreadCount(0);
+            setHasOpened(true);
           }
         }}
         className="relative p-2 text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100 rounded-lg transition-colors"

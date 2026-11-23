@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   Users, Building2, AlertTriangle, FileText,
   Shield, Heart, DollarSign, LogOut, Search,
-  Plus, Upload, Clock
+  Plus, Upload, Clock, Edit
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
@@ -29,10 +29,12 @@ import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { logActivity } from '../lib/activityLog';
 import { formatDate } from '../lib/dateUtils';
+import { useAuth } from '../contexts/AuthContext';
 
 type TabType = 'overview' | 'all-staff' | 'ongoing' | 'work-visa' | 'medical' | 'insurance' | 'deposits' | 'left-staffs' | 'expiry-center' | 'reports';
 
 export const XpatsStaffDetails = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [selectedCompany, setSelectedCompany] = useState<ExpatCompany | 'all'>('all');
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -44,6 +46,8 @@ export const XpatsStaffDetails = () => {
   const [tabSearchTerm, setTabSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingStaff, setEditingStaff] = useState<ExpatStaff | null>(null);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [showEmployeeEditModal, setShowEmployeeEditModal] = useState(false);
   const [showVisaCancelModal, setShowVisaCancelModal] = useState(false);
   const [cancellingStaff, setCancellingStaff] = useState<ExpatStaff | null>(null);
   const [cancellingEmployee, setCancellingEmployee] = useState<Employee | null>(null);
@@ -60,14 +64,26 @@ export const XpatsStaffDetails = () => {
   });
   const [showExpiringOnly, setShowExpiringOnly] = useState(false);
 
+  // Check if user has edit permissions (supervisor or superadmin)
+  const canEdit = () => {
+    if (!user) return false;
+    const email = user.email || '';
+    return email === 'madihaapvtltd@gmail.com' || email === 'leela@madihaahrms.com';
+  };
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       
       // Load employees from Employees collection
       const employeeData = await getEmployees();
-      setEmployees(employeeData);
-      console.log('Loaded employees:', employeeData.length);
+      // Filter to show only expats (non-Maldivians)
+      const expatEmployees = employeeData.filter(emp => {
+        const nationality = (emp.country || '').toLowerCase();
+        return nationality !== 'maldives' && nationality !== 'maldivian' && nationality !== 'mv';
+      });
+      setEmployees(expatEmployees);
+      console.log('Loaded expat employees:', expatEmployees.length);
       
       // Load medical applications
       const medicalApps = await getAllMedicalApplications();
@@ -98,18 +114,18 @@ export const XpatsStaffDetails = () => {
       console.log('Filtered recruitment candidates:', recruitmentData.length);
       setRecruitmentCandidates(recruitmentData);
       
-      // Calculate dashboard stats from employees
-      const activeEmployees = employeeData.filter(e => e.status === 'active');
+      // Calculate dashboard stats from expat employees only
+      const activeEmployees = expatEmployees.filter(e => e.status === 'active');
       const today = new Date();
       const ninetyDaysFromNow = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
       
       const dashboardStats: ExpatDashboardStats = {
-        totalExpatStaff: employeeData.length,
+        totalExpatStaff: expatEmployees.length,
         madihaaStaff: activeEmployees.filter(e => e.department === 'General').length,
         batutaStaff: 0,
         madigrandStaff: 0,
         activeStaff: activeEmployees.length,
-        departedStaff: employeeData.filter(e => e.status === 'resigned' || e.status === 'terminated').length,
+        departedStaff: expatEmployees.filter(e => e.status === 'resigned' || e.status === 'terminated').length,
         workPermitsExpiring: activeEmployees.filter(e => {
           const expiry = e.wpExpDate;
           return expiry && new Date(expiry) <= ninetyDaysFromNow;
@@ -648,21 +664,36 @@ export const XpatsStaffDetails = () => {
                             </span>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
-                            {!emp.visaCancellation?.cancelledAt && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => handleEmployeeVisaCancel(emp)}
-                                className="text-xs"
-                              >
-                                Cancel Visa
-                              </Button>
-                            )}
-                            {emp.visaCancellation?.cancelledAt && (
-                              <span className="px-2 py-1 text-xs rounded bg-red-100 text-red-700">
-                                Cancelled
-                              </span>
-                            )}
+                            <div className="flex gap-2">
+                              {canEdit() && !emp.visaCancellation?.cancelledAt && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEmployeeVisaCancel(emp)}
+                                  className="text-xs text-red-600"
+                                >
+                                  Cancel Visa
+                                </Button>
+                              )}
+                              {canEdit() && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setEditingEmployee(emp);
+                                    setShowEmployeeEditModal(true);
+                                  }}
+                                  className="text-xs text-blue-600"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                              )}
+                              {emp.visaCancellation?.cancelledAt && (
+                                <span className="px-2 py-1 text-xs rounded bg-red-100 text-red-700">
+                                  Cancelled
+                                </span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1609,6 +1640,166 @@ export const XpatsStaffDetails = () => {
                 </Button>
                 <Button type="submit">
                   Submit Application
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Employee Edit Modal */}
+      {showEmployeeEditModal && editingEmployee && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">Edit Employee Details</h2>
+              <button onClick={() => { setShowEmployeeEditModal(false); setEditingEmployee(null); }}>
+                ✕
+              </button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                await updateEmployee(editingEmployee.id, editingEmployee);
+                await logActivity('updated', 'employee', editingEmployee.id, `Updated employee ${editingEmployee.fullName}`);
+                alert('Employee updated successfully');
+                setShowEmployeeEditModal(false);
+                setEditingEmployee(null);
+                loadData();
+              } catch (error) {
+                console.error('Error updating employee:', error);
+                alert('Failed to update employee');
+              }
+            }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
+                  <input
+                    type="text"
+                    value={editingEmployee.employeeId}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    value={editingEmployee.fullName}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, fullName: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                  <input
+                    type="text"
+                    value={editingEmployee.department || ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, department: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                  <input
+                    type="text"
+                    value={editingEmployee.designation || ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, designation: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                  <input
+                    type="text"
+                    value={editingEmployee.country || ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, country: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Work Permit Number</label>
+                  <input
+                    type="text"
+                    value={editingEmployee.wpNo || ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, wpNo: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Work Permit Expiry</label>
+                  <input
+                    type="date"
+                    value={editingEmployee.wpExpDate ? new Date(editingEmployee.wpExpDate).toISOString().split('T')[0] : ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, wpExpDate: e.target.value ? new Date(e.target.value) : undefined })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Passport/ID Number</label>
+                  <input
+                    type="text"
+                    value={editingEmployee.ppIdNumber || ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, ppIdNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Passport/ID Expiry</label>
+                  <input
+                    type="date"
+                    value={editingEmployee.ppIdExpDate ? new Date(editingEmployee.ppIdExpDate).toISOString().split('T')[0] : ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, ppIdExpDate: e.target.value ? new Date(e.target.value) : undefined })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Visa Expiry Date</label>
+                  <input
+                    type="date"
+                    value={editingEmployee.visaExpiryDate ? new Date(editingEmployee.visaExpiryDate).toISOString().split('T')[0] : ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, visaExpiryDate: e.target.value ? new Date(e.target.value) : undefined })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Medical Expiry Date</label>
+                  <input
+                    type="date"
+                    value={editingEmployee.medExpDate ? new Date(editingEmployee.medExpDate).toISOString().split('T')[0] : ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, medExpDate: e.target.value ? new Date(e.target.value) : undefined })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Expiry Date</label>
+                  <input
+                    type="date"
+                    value={editingEmployee.insuranceExpDate ? new Date(editingEmployee.insuranceExpDate).toISOString().split('T')[0] : ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, insuranceExpDate: e.target.value ? new Date(e.target.value) : undefined })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={editingEmployee.status || ''}
+                    onChange={(e) => setEditingEmployee({ ...editingEmployee, status: e.target.value as any })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="active">Active</option>
+                    <option value="resigned">Resigned</option>
+                    <option value="terminated">Terminated</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <Button type="button" variant="secondary" onClick={() => { setShowEmployeeEditModal(false); setEditingEmployee(null); }}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  Save Changes
                 </Button>
               </div>
             </form>

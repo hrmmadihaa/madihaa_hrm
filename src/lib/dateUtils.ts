@@ -1,10 +1,21 @@
 /**
  * Format a date to DD/MM/YYYY format
  */
-export const formatDate = (date: Date | string | undefined | null): string => {
+export const formatDate = (date: Date | string | any | undefined | null): string => {
   if (!date) return '';
   
-  const d = typeof date === 'string' ? new Date(date) : date;
+  let d: Date;
+  
+  // Handle Firestore Timestamp
+  if (date.toDate && typeof date.toDate === 'function') {
+    d = date.toDate();
+  } else if (typeof date === 'string') {
+    d = new Date(date);
+  } else if (date instanceof Date) {
+    d = date;
+  } else {
+    return '';
+  }
   
   if (isNaN(d.getTime())) return '';
   
@@ -18,10 +29,21 @@ export const formatDate = (date: Date | string | undefined | null): string => {
 /**
  * Format a date with time to DD/MM/YYYY HH:mm format
  */
-export const formatDateTime = (date: Date | string | undefined | null): string => {
+export const formatDateTime = (date: Date | string | any | undefined | null): string => {
   if (!date) return '';
   
-  const d = typeof date === 'string' ? new Date(date) : date;
+  let d: Date;
+  
+  // Handle Firestore Timestamp
+  if (date.toDate && typeof date.toDate === 'function') {
+    d = date.toDate();
+  } else if (typeof date === 'string') {
+    d = new Date(date);
+  } else if (date instanceof Date) {
+    d = date;
+  } else {
+    return '';
+  }
   
   if (isNaN(d.getTime())) return '';
   
