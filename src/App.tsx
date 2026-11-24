@@ -40,6 +40,7 @@ import MonthlyAttendanceExcel from './pages/MonthlyAttendanceExcel';
 import { XpatsStaffDetails } from './pages/XpatsStaffDetails';
 import { Settlement } from './pages/Settlement';
 import StaffAttendanceReport from './pages/StaffAttendanceReport';
+import { UserManual } from './pages/UserManual';
 
 function App() {
   return (
@@ -95,6 +96,7 @@ function App() {
             <Route path="staff-attendance-report" element={<StaffAttendanceReport />} />
             <Route path="settlement" element={<Settlement />} />
             <Route path="users" element={<UserManagement />} />
+            <Route path="user-manual" element={<UserManual />} />
             <Route path="settings" element={<div className="p-4">Settings Module - Coming Soon</div>} />
           </Route>
         </Routes>

@@ -12,8 +12,8 @@ Madihaa HRMS is a comprehensive, cloud-based HR management solution designed to 
 
 - **Employee Management**: Complete employee profiles, employment records, education, medical info, and document management
 - **Attendance Management**: Biometric integration, web/mobile check-in/out, shift management, and attendance tracking
-- **Leave Management**: Multiple leave types, approval workflows, leave balances, and carry-forward
-- **Payroll**: Salary processing, allowances, deductions, payslip generation, and multi-currency support
+- **Leave Management**: Multiple leave types, approval workflows, leave balances, carry-forward, and dashboard with real-time insights
+- **Payroll**: Salary processing, allowances, deductions, pension calculation, area-based filtering, and custom employee ordering
 - **Overtime**: OT requests, pre-approval workflows, calculations, and reporting
 - **Reports & Analytics**: Custom report builder, historical reporting, trend analysis, and export capabilities
 
@@ -46,6 +46,14 @@ Madihaa HRMS is a comprehensive, cloud-based HR management solution designed to 
 - **Development**: Local environment
 - **Production**: Vercel
 - **Future**: Android Play Store and Apple App Store
+
+## Documentation
+
+- **[User Manual](USER_MANUAL.md)**: Comprehensive guide for using all HRMS features
+- **[Changelog](CHANGELOG.md)**: Version history and recent updates
+- **[Roles and Access](ROLES_AND_ACCESS.md)**: Detailed explanation of user roles and permissions
+- **[Excel Import Guide](EXCEL_IMPORT_GUIDE.md)**: Guide for importing data from Excel files
+- **[Attendance Upload Rules](ATTENDANCE_UPLOAD_RULES.md)**: Rules for attendance data uploads
 
 ## Getting Started
 
