@@ -71,9 +71,9 @@ export const MedicalHistory = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-secondary-900 mb-2">Medical History</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900 mb-2">Medical History</h1>
         <p className="text-secondary-600">Your medical consultation history</p>
       </div>
 
@@ -89,8 +89,8 @@ export const MedicalHistory = () => {
         <div className="space-y-4">
           {requisitions.map((req) => (
             <Card key={req.id}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-primary-100 rounded-lg">
                       <Stethoscope className="w-5 h-5 text-primary-600" />

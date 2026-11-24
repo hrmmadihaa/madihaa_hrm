@@ -337,9 +337,9 @@ export const MedicalRequisitions = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-secondary-900 mb-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900 mb-2">
           {viewMode === 'list' ? 'Medical Requisitions' : (viewMode === 'create' ? 'New Medical Requisition' : 'Edit Medical Requisition')}
         </h1>
         <p className="text-secondary-600">
@@ -347,10 +347,11 @@ export const MedicalRequisitions = () => {
         </p>
       </div>
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-col sm:flex-row gap-2">
         <Button
           onClick={() => { resetForm(); setViewMode('create'); }}
           variant={viewMode === 'create' ? 'primary' : 'secondary'}
+          className="sm:w-auto w-full"
         >
           <Plus className="w-4 h-4 mr-2" />
           New Requisition
@@ -358,6 +359,7 @@ export const MedicalRequisitions = () => {
         <Button
           onClick={() => setViewMode('list')}
           variant={viewMode === 'list' ? 'primary' : 'secondary'}
+          className="sm:w-auto w-full"
         >
           <FileText className="w-4 h-4 mr-2" />
           View All
@@ -399,7 +401,7 @@ export const MedicalRequisitions = () => {
                         </td>
                         <td className="px-4 py-4 text-sm text-secondary-600">{req.assignedTo || '-'}</td>
                         <td className="px-4 py-4 text-sm">
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-2">
                             <Button onClick={() => handleEdit(req)} variant="ghost" size="sm">
                               <Edit className="w-4 h-4" />
                             </Button>
