@@ -8,9 +8,10 @@ export const uploadImage = async (file: File, folder: string = 'employee_images'
     formData.append('upload_preset', UPLOAD_PRESET);
     formData.append('folder', folder);
 
-    // If employeeId is provided, use it as the public_id
+    // If employeeId is provided, use it as the public_id with timestamp to avoid caching
     if (employeeId) {
-      formData.append('public_id', `${folder}/${employeeId}`);
+      const timestamp = Date.now();
+      formData.append('public_id', `${folder}/${employeeId}_${timestamp}`);
     }
 
     const response = await fetch(

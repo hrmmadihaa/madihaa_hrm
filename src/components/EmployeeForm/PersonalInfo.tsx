@@ -84,6 +84,13 @@ export const PersonalInfo = ({ employee, onNext, onCancel, onSave }: PersonalInf
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(employee?.photo || null);
 
+  // Update photoPreview when formData.photo changes (after Cloudinary upload)
+  useEffect(() => {
+    if (formData.photo) {
+      setPhotoPreview(formData.photo);
+    }
+  }, [formData.photo]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if (name === 'joinDate' || name === 'dob' || name === 'wpExpDate' || name === 'ppIdExpDate' || name === 'medExpDate' || name === 'insuranceExpDate' || name === 'visaExpiryDate' || name === 'wpFeePaidDate') {
@@ -106,9 +113,17 @@ export const PersonalInfo = ({ employee, onNext, onCancel, onSave }: PersonalInf
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      console.log('=== PHOTO UPLOAD DEBUG ===');
+      console.log('File name:', file.name);
+      console.log('File size:', file.size);
+      console.log('File type:', file.type);
+      console.log('Current formData.photo before upload:', formData.photo);
+      console.log('Current employee.photo:', employee?.photo);
+      
       // Show preview immediately
       const reader = new FileReader();
       reader.onloadend = () => {
+        console.log('Local preview generated:', reader.result);
         setPhotoPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
@@ -117,8 +132,11 @@ export const PersonalInfo = ({ employee, onNext, onCancel, onSave }: PersonalInf
       try {
         const { uploadImage } = await import('../../lib/cloudinary');
         const employeeId = formData.employeeId || employee?.employeeId;
+        console.log('Uploading to Cloudinary with employeeId:', employeeId);
         const cloudinaryUrl = await uploadImage(file, 'employee_images', employeeId);
+        console.log('Cloudinary URL returned:', cloudinaryUrl);
         setFormData(prev => ({ ...prev, photo: cloudinaryUrl }));
+        console.log('formData.photo set to:', cloudinaryUrl);
       } catch (error) {
         console.error('Failed to upload photo:', error);
         alert('Failed to upload photo. Please try again.');
