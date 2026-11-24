@@ -115,13 +115,13 @@ export const FormsAndLetters: React.FC = () => {
   );
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Forms & Letters</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Forms & Letters</h1>
         <p className="text-gray-600 mt-2">Create and manage custom forms and letters with company letterhead</p>
         
         {/* Tabs */}
-        <div className="flex gap-2 mt-4 border-b border-gray-200">
+        <div className="flex gap-2 mt-4 border-b border-gray-200 overflow-x-auto">
           <button
             onClick={() => setActiveTab('forms')}
             className={`px-4 py-2 font-medium border-b-2 transition-colors ${

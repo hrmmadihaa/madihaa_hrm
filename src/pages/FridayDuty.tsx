@@ -656,7 +656,7 @@ export const FridayDuty = () => {
       `}</style>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-secondary-900">Friday Duty Schedule</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">Friday Duty Schedule</h1>
           <p className="text-secondary-600 mt-1">Manage Friday off-duty schedule for all employees</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">

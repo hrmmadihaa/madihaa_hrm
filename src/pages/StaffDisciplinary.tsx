@@ -232,7 +232,7 @@ export const StaffDisciplinary = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-secondary-900">My Disciplinary Actions</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">My Disciplinary Actions</h1>
         <p className="text-secondary-600 mt-1">View your disciplinary records</p>
       </div>
 

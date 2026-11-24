@@ -118,7 +118,7 @@ export const Lifecycle = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-secondary-900">Employee Lifecycle</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">Employee Lifecycle</h1>
           <p className="text-secondary-600 mt-1">Manage offboarding, exit interviews, and lifecycle transitions.</p>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">

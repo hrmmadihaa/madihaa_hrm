@@ -305,7 +305,7 @@ export const Settlement = () => {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Staff Settlement</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Staff Settlement</h1>
             <p className="mt-1 text-sm text-gray-500">Foreign staff final salary & settlement management</p>
           </div>
         </div>

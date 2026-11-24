@@ -190,7 +190,7 @@ export const FleetAirportPass = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link to="/fleet">
             <Button variant="ghost" size="sm" className="gap-2">
@@ -203,12 +203,12 @@ export const FleetAirportPass = () => {
               <Shield className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-secondary-900">Airport Pass</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">Airport Pass</h1>
               <p className="text-sm text-secondary-600">Manage airport pass information</p>
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 sm:w-auto w-full">
           <ExportButton
             data={exportData}
             filename={`fleet-airport-passes-${new Date().toISOString().split('T')[0]}`}
@@ -222,7 +222,7 @@ export const FleetAirportPass = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-4 border border-secondary-200 shadow-sm">
           <div className="text-sm text-secondary-600 mb-1">Total</div>
           <div className="text-2xl font-bold text-secondary-900">{stats.total}</div>

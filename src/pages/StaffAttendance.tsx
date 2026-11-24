@@ -91,7 +91,7 @@ export const StaffAttendance = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-secondary-900">My Attendance</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">My Attendance</h1>
         <p className="text-secondary-600 mt-1">View your attendance history</p>
       </div>
 

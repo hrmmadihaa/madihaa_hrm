@@ -931,15 +931,15 @@ export const RecruitmentPipeline: React.FC = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Recruitment Pipeline</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Recruitment Pipeline</h1>
         <p className="text-gray-600 mt-2">Manage candidate recruitment from CV to onboarding</p>
       </div>
 
       {/* Controls */}
       <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-center">
           <Button onClick={() => { resetForm(); setEditingCandidate(null); setShowModal(true); }}>
             <Plus className="w-4 h-4 mr-2" />
             Add Candidate

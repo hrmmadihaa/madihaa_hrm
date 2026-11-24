@@ -1064,15 +1064,16 @@ export const Bonus = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-secondary-900">Bonus Distribution</h1>
           <p className="text-secondary-600 mt-1">Distribute bonus equally among selected employees with optional adjustments</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button
             variant={viewMode === 'create' ? 'primary' : 'secondary'}
             onClick={() => setViewMode('create')}
+            className="sm:w-auto w-full"
           >
             <Save className="w-4 h-4 mr-2" />
             Create Bonus
@@ -1080,6 +1081,7 @@ export const Bonus = () => {
           <Button
             variant={viewMode === 'history' ? 'primary' : 'secondary'}
             onClick={() => setViewMode('history')}
+            className="sm:w-auto w-full"
           >
             <History className="w-4 h-4 mr-2" />
             History
@@ -1090,12 +1092,13 @@ export const Bonus = () => {
       {viewMode === 'history' && (
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <h2 className="text-xl font-semibold text-secondary-900">Bonus History</h2>
               <Button
                 variant="danger"
                 onClick={deleteAllBonuses}
                 disabled={loading}
+                className="sm:w-auto w-full"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete All
@@ -1112,7 +1115,7 @@ export const Bonus = () => {
                 return (
                   <div key={batchKey} className="mb-3 border border-secondary-200 rounded-lg overflow-hidden">
                     <div
-                      className="flex items-center justify-between p-3 bg-secondary-50 cursor-pointer hover:bg-secondary-100"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-secondary-50 cursor-pointer hover:bg-secondary-100"
                       onClick={() => toggleBatchExpansion(batchKey)}
                     >
                       <div className="flex items-center gap-4">
@@ -1124,7 +1127,7 @@ export const Bonus = () => {
                           <p className="text-xs text-secondary-600">{bonus.description}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 sm:gap-2">
                         <div className="text-right">
                           <p className="text-sm font-medium text-secondary-900">MVR {bonus.totalBonusAmount.toFixed(2)}</p>
                           <p className="text-xs text-secondary-600">{bonus.distributedAmong} employees</p>

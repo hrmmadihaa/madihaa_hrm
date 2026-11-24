@@ -1,23 +1,41 @@
-const CACHE_NAME = 'mwsc-hrms-v2';
+const CACHE_NAME = 'madihaa-hrms-v1';
+const urlsToCache = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/Madihaa HRMS Team Logo.png'
+];
 
 self.addEventListener('install', (event) => {
-  // Skip installation - don't pre-cache anything
-  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        return cache.addAll(urlsToCache);
+      })
+  );
 });
 
 self.addEventListener('fetch', (event) => {
-  // Skip caching entirely - always fetch from network
-  // This prevents quota exceeded errors
-  event.respondWith(fetch(event.request));
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => {
+        // Cache hit - return response
+        if (response) {
+          return response;
+        }
+        return fetch(event.request);
+      })
+  );
 });
 
 self.addEventListener('activate', (event) => {
-  // Clean up old caches
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          return caches.delete(cacheName);
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
         })
       );
     })

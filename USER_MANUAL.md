@@ -9,26 +9,46 @@
 5. [Attendance Management](#attendance-management)
 6. [Leave Management](#leave-management)
 7. [Salary Management](#salary-management)
-8. [Overtime Management](#overtime-management)
-9. [Accommodation Management](#accommodation-management)
-10. [Recruitment](#recruitment)
-11. [Training](#training)
-12. [Performance Management](#performance-management)
-13. [Disciplinary Management](#disciplinary-management)
-14. [Ticketing](#ticketing)
-15. [Fleet Management](#fleet-management)
-16. [Work Location Management](#work-location-management)
-17. [Medical Management](#medical-management)
-18. [Reports](#reports)
-19. [User Management](#user-management)
-20. [Forms and Letters](#forms-and-letters)
-21. [Role-Based Access](#role-based-access)
+8. [Payroll](#payroll)
+9. [Overtime Management](#overtime-management)
+10. [Accommodation Management](#accommodation-management)
+11. [Recruitment](#recruitment)
+12. [Recruitment Pipeline](#recruitment-pipeline)
+13. [Training](#training)
+14. [Performance Management](#performance-management)
+15. [Disciplinary Management](#disciplinary-management)
+16. [Staff Disciplinary](#staff-disciplinary)
+17. [Ticketing](#ticketing)
+18. [Fleet Management](#fleet-management)
+19. [Petrol Requests](#petrol-requests)
+20. [Work Location Management](#work-location-management)
+21. [Organization Chart](#organization-chart)
+22. [Medical Management](#medical-management)
+23. [Medical Requisitions](#medical-requisitions)
+24. [Medical History](#medical-history)
+25. [Digital Personnel Files](#digital-personnel-files)
+26. [Bonus Management](#bonus-management)
+27. [Deductions](#deductions)
+28. [Friday Duty](#friday-duty)
+29. [Settlement](#settlement)
+30. [Employee Lifecycle](#employee-lifecycle)
+31. [Xpats Staff Details](#xpats-staff-details)
+32. [Reports](#reports)
+33. [Monthly Attendance Excel](#monthly-attendance-excel)
+34. [Staff Attendance Report](#staff-attendance-report)
+35. [Staff Dashboard](#staff-dashboard)
+36. [Staff Attendance](#staff-attendance)
+37. [Staff Payslip](#staff-payslip)
+38. [Offer Letter](#offer-letter)
+39. [User Management](#user-management)
+40. [Forms and Letters](#forms-and-letters)
+41. [Role-Based Access](#role-based-access)
 
 ---
 
 ## Introduction
 
-Madihaa HRMS is a comprehensive Human Resource Management System designed for Male' Water and Sewerage Company (MWSC). This manual provides detailed instructions on using the system's key features.
+Madihaa HRMS is a comprehensive Human Resource Management System designed for Madihaa Company (PTE) Ltd. This manual provides detailed instructions on using the system's key features.
 
 ---
 
@@ -526,6 +546,75 @@ The system automatically calculates pension for eligible employees.
 
 ---
 
+## Payroll
+
+### Overview
+
+The Payroll module handles salary processing, payslip generation, and payroll management for all employees.
+
+### Viewing Payroll
+
+1. Navigate to the Payroll page
+2. Select the month and year
+3. View payroll records showing:
+   - Employee name and ID
+   - Basic salary
+   - Allowances (OT, Food, Friday, SP, Other)
+   - Deductions (Pension, PF, etc.)
+   - Gross salary
+   - Net salary
+   - Payment status
+
+### Processing Payroll
+
+1. Navigate to the Payroll page
+2. Select the pay period (month/year)
+3. Click "Generate Payroll" to process salaries
+4. Review the generated payroll records
+5. Click "Process Payroll" to finalize
+6. Status changes from "draft" to "processed" to "approved" to "paid"
+
+### Editing Payroll Records
+
+1. Navigate to the Payroll page
+2. Find the payroll record to edit
+3. Click "Edit" button
+4. Modify salary, allowances, or deductions
+5. Click "Update" to save changes
+6. Note: Can only edit records in "draft" or "processed" status
+
+### Generating Payslips
+
+1. Navigate to the Payroll page
+2. Find the employee's payroll record
+3. Click "Download Payslip" or "Print Payslip"
+4. The payslip is generated as PDF with:
+   - Employee details
+   - Payment period
+   - Earnings breakdown
+   - Deductions breakdown
+   - Net salary
+
+### Payroll Summary
+
+The payroll summary shows:
+- Total employees
+- Total gross salary
+- Total net salary
+- Total allowances
+- Total deductions
+- Total bonuses
+- Status breakdown (draft, processed, approved, paid)
+
+### Exporting Payroll
+
+1. Navigate to the Payroll page
+2. Click "Export" button
+3. Select export format (Excel, PDF, CSV)
+4. The file downloads with all payroll data
+
+---
+
 ## Overtime Management
 
 ### Overview
@@ -602,6 +691,116 @@ The Accommodation module manages employee housing assignments, room allocations,
 - See available rooms
 - View current occupants
 - Check room capacity
+
+---
+
+## Recruitment Pipeline
+
+### Overview
+
+The Recruitment Pipeline module manages the complete hiring process from CV receipt to onboarding for expatriate staff.
+
+### Pipeline Stages
+
+Candidates move through the following stages:
+
+1. **CV Received** - Initial application received
+2. **Shortlisted** - Candidate selected for interview
+3. **Interview Scheduled** - Interview date set
+4. **Interview Completed** - Interview conducted
+5. **Offer Letter Sent** - Offer letter generated and sent
+6. **Offer Signed** - Candidate accepted offer
+7. **Work Permit Applied** - Work permit application submitted
+8. **Payment Pending** - Work permit payment pending
+9. **Payment Completed** - Work permit payment done
+10. **Entry Pass Pending** - Entry pass application in progress
+11. **Entry Pass Received** - Entry pass approved
+12. **Ticket Purchased** - Flight ticket booked
+13. **Ticket Approved** - Ticket approved
+14. **Departed** - Candidate departed from home country
+15. **Van Arranged** - Airport pickup van arranged
+16. **Airport Pickup** - Airport pickup scheduled
+17. **Arrived** - Candidate arrived in Maldives
+18. **Added to Directory** - Candidate onboarded as employee
+
+### Adding Candidates
+
+1. Navigate to Recruitment Pipeline
+2. Click "Add Candidate" button
+3. Fill in candidate details:
+   - Name
+   - Employee ID
+   - Position
+   - Salary
+   - Nationality
+   - Date of birth
+   - Gender
+   - Passport number
+   - Passport issue/expiry dates
+   - Email
+   - Phone
+   - Address
+   - Emergency contact
+   - Date of joining
+4. Click "Save"
+
+### Editing Candidates
+
+1. Navigate to Recruitment Pipeline
+2. Find the candidate
+3. Click "Edit" button
+4. Modify required fields
+5. Click "Update"
+
+### Moving Candidates Through Stages
+
+1. Navigate to Recruitment Pipeline
+2. Select the candidate
+3. Click the stage dropdown
+4. Select the new stage
+5. Add notes if required
+6. Click "Update"
+
+### Work Permit Application
+
+1. Navigate to Recruitment Pipeline
+2. Select candidate at "Offer Signed" stage
+3. Click "Work Permit Applied" button
+4. Enter work permit details:
+   - Expat reference number
+   - New work permit number
+   - Submitted date
+   - eGov link
+   - Slot number
+5. Click "Save"
+
+### Flight Details
+
+1. Navigate to Recruitment Pipeline
+2. Select candidate after work permit approval
+3. Click "Flight Details" button
+4. Enter flight information:
+   - Flight number
+   - Flight date
+   - Flight time
+   - Arrival date
+   - Arrival time
+   - Departure airport
+   - Arrival airport
+5. Click "Save"
+
+### Deleting Candidates
+
+1. Navigate to Recruitment Pipeline
+2. Find the candidate
+3. Click "Delete" button
+4. Confirm deletion
+
+### Filtering and Search
+
+- Filter by stage using the stage dropdown
+- Search by name, position, or employee ID
+- Filter by position using the position dropdown
 
 ---
 
@@ -741,6 +940,28 @@ Employees can view their own disciplinary records:
 1. Navigate to Staff Disciplinary
 2. View personal disciplinary history
 3. Check warning status
+4. View disciplinary action details
+5. Sign disciplinary records if required
+6. Print disciplinary reports
+
+### Viewing Disciplinary Details
+
+1. Navigate to Staff Disciplinary
+2. Click "View" on any disciplinary record
+3. View full details including:
+   - Date of incident
+   - Description
+   - Action taken
+   - Warning level
+   - Prepared by
+   - Approved by
+
+### Signing Disciplinary Records
+
+1. Navigate to Staff Disciplinary
+2. Click "Sign" on pending records
+3. Add your signature (if required)
+4. Click "Save"
 
 ---
 
@@ -770,6 +991,71 @@ The Ticketing module manages travel ticket requests for employees going on leave
 - Approve or reject requests
 - Track ticket status
 - Upload ticket documents
+
+---
+
+## Petrol Requests
+
+### Overview
+
+The Petrol Requests module manages fuel requests for company vehicles, including tracking fuel consumption and approvals.
+
+### Creating Petrol Requests
+
+1. Navigate to Petrol Requests page
+2. Click "Add Request" button
+3. Fill in the form:
+   - Request date
+   - Vehicle number
+   - Vehicle type
+   - Driver name
+   - Driver employee ID
+   - KM start
+   - KM end
+   - Petrol amount
+   - Receipt number
+   - Requested by
+4. Click "Submit"
+
+### Validating KM Values
+
+- KM End must be greater than KM Start
+- Driven KM is automatically calculated (KM End - KM Start)
+- System will alert if validation fails
+
+### Approving Petrol Requests
+
+1. Navigate to Petrol Requests page
+2. Find pending requests
+3. Click "Approve" button
+4. Add approved by name
+5. Click "Confirm"
+
+### Rejecting Petrol Requests
+
+1. Navigate to Petrol Requests page
+2. Find pending requests
+3. Click "Reject" button
+4. Add rejection reason
+5. Click "Confirm"
+
+### Viewing Petrol Requests
+
+- View all requests with status (Pending, Approved, Rejected)
+- Filter by time period (all-time, this-month, last-month)
+- View request details including vehicle, driver, and fuel amount
+
+### Printing Petrol Slips
+
+1. Navigate to Petrol Requests page
+2. Find the approved request
+3. Click "Print Slip" button
+4. The slip is generated with:
+   - Slip number (auto-generated)
+   - Vehicle details
+   - Driver details
+   - KM readings
+   - Fuel amount
 
 ---
 
@@ -813,6 +1099,44 @@ The Fleet module manages company vehicles, licenses, and airport passes.
 
 ---
 
+## Organization Chart
+
+### Overview
+
+The Organization Chart module displays the hierarchical structure of employees within each work location.
+
+### Viewing Organization Chart
+
+1. Navigate to Organization Chart page
+2. Select a work location from the dropdown
+3. View the organizational tree structure
+
+### Navigation Controls
+
+- **Zoom In**: Click the zoom in button or use mouse wheel
+- **Zoom Out**: Click the zoom out button or use mouse wheel
+- **Pan**: Click and drag to move the chart
+- **Expand/Collapse**: Click on employee nodes to expand or collapse their subordinates
+
+### Organization Tree Structure
+
+- Root node shows the head of the location
+- Child nodes show direct reports
+- Each node displays:
+  - Employee photo (if available)
+  - Employee name
+  - Employee ID
+  - Designation
+- Expand/collapse icons show if node has children
+
+### Printing Organization Chart
+
+1. Navigate to Organization Chart page
+2. Click "Print" button
+3. The chart is printed in current zoom level
+
+---
+
 ## Work Location Management
 
 ### Overview
@@ -839,6 +1163,67 @@ The Work Location module manages various work sites and locations.
 
 ---
 
+## Offer Letter
+
+### Overview
+
+The Offer Letter module generates and manages offer letters for recruitment candidates.
+
+### Generating Offer Letter
+
+1. Navigate to Offer Letter page
+2. Select candidate from dropdown
+3. Fill in offer details:
+   - Letter date
+   - Position
+   - Department
+   - Employment type
+   - Start date
+   - Salary
+   - Working hours
+   - Work location
+   - Reporting to
+   - Signatory
+   - Signatory designation
+4. Preview the letter
+5. Click "Print" to print
+6. Click "Save to Firestore" to save
+
+### Auto-Population
+
+When a candidate is selected, the following are auto-populated:
+- Position (from candidate data)
+- Department (from candidate data)
+- Employment type (from candidate data)
+- Start date (from candidate data)
+- Salary (from candidate data)
+- Working hours (from candidate data)
+- Work location (from candidate data)
+- Reporting to (from candidate data)
+
+### Maldivian vs Expat Letters
+
+The system automatically detects:
+- Maldivian candidates get local offer letter format
+- Expat candidates get expat offer letter format with additional clauses
+
+### Saving to Firestore
+
+1. Navigate to Offer Letter page
+2. Fill in all details
+3. Click "Save to Firestore" button
+4. The offer letter HTML is saved to the candidate record
+5. Status is updated to "offer_sent"
+
+### Printing Offer Letter
+
+1. Navigate to Offer Letter page
+2. Select candidate
+3. Click "Print" button
+4. The offer letter is printed directly
+
+---
+
 ## Medical Management
 
 ### Overview
@@ -850,12 +1235,106 @@ The Medical module manages employee medical records and requisitions.
 #### Viewing Medical Records
 
 1. Navigate to Medical History
-2. Select an employee
-3. View medical information:
-   - Blood type
-   - Allergies
-   - Medical conditions
-   - Vaccination records
+2. View your personal medical consultation history
+3. Each record shows:
+   - Department
+   - Date
+   - Staff members involved
+   - Sickness details
+   - Consultation details (if completed)
+   - Hospital and doctor information
+   - Medicines prescribed
+   - Status (Pending, Approved, In Progress, Completed, Rejected)
+
+#### Viewing Consultation Details
+
+1. Navigate to Medical History
+2. Click on a medical requisition
+3. View consultation details including:
+   - Hospital name
+   - Doctor name
+   - Doctor comments
+   - Visit time
+   - Medicines taken
+   - Medicine details (name, tablets, value)
+
+---
+
+## Digital Personnel Files
+
+### Overview
+
+The Digital Personnel Files module manages employee documents, tracks expiry dates, and provides alerts for expiring documents.
+
+### Overview Tab
+
+Shows summary statistics:
+- Total expiring documents
+- Expired documents
+- Active alerts
+- Personnel file summary
+
+### Expiring Documents Tab
+
+1. Navigate to Digital Personnel Files
+2. Click "Expiring" tab
+3. View documents expiring soon:
+   - Employee name
+   - Document type
+   - Expiry date
+   - Days until expiry
+   - Status
+
+### Expired Documents Tab
+
+1. Navigate to Digital Personnel Files
+2. Click "Expired" tab
+3. View expired documents:
+   - Employee name
+   - Document type
+   - Expiry date
+   - Days since expiry
+   - Status
+
+### Alerts Tab
+
+1. Navigate to Digital Personnel Files
+2. Click "Alerts" tab
+3. View active alerts:
+   - Alert type (urgent, warning, expired)
+   - Employee name
+   - Document type
+   - Expiry date
+   - Message
+
+### Acknowledging Alerts
+
+1. Navigate to Digital Personnel Files
+2. Click "Alerts" tab
+3. Find the alert to acknowledge
+4. Click "Acknowledge" button
+5. The alert is marked as acknowledged
+
+### Archiving Documents
+
+1. Navigate to Digital Personnel Files
+2. Find the document to archive
+3. Click "Archive" button
+4. Confirm archiving
+5. The document is moved to archive
+
+### Personnel File Summary
+
+1. Navigate to Digital Personnel Files
+2. Select an employee from dropdown
+3. View personnel file summary:
+   - Total documents
+   - Active documents
+   - Expiring documents
+   - Expired documents
+   - Document list with details
+
+---
 
 ### Medical Requisitions
 
@@ -863,12 +1342,711 @@ The Medical module manages employee medical records and requisitions.
 
 1. Navigate to Medical Requisitions
 2. Click "Add Requisition" button
-3. Enter requisition details:
-   - Employee
-   - Type of medical service
+3. Fill in the form:
+   - Department
    - Date
+   - Staff name (auto-populates designation and department)
+   - Staff sickness
+   - Remarks
+   - Requested by
+   - Requested by position
+   - Approved by (optional)
+   - Approved by position (optional)
+4. Click "Save"
+
+#### Adding Multiple Staff
+
+1. In the requisition form, click "Add Staff"
+2. Enter additional staff member details
+3. Repeat for more staff members
+4. All staff are included in one requisition
+
+#### Approving Medical Requisitions
+
+1. Navigate to Medical Requisitions
+2. Find pending requisitions
+3. Click "Approve" button
+4. Add approved by name and position
+5. Click "Confirm"
+
+#### Assigning Medical Requisitions
+
+1. Navigate to Medical Requisitions
+2. Find approved requisitions
+3. Click "Assign" button
+4. Select the person to assign to
+5. Click "Confirm"
+
+#### Adding Consultation Details
+
+1. Navigate to Medical Requisitions
+2. Find assigned requisitions
+3. Click "Add Consultation" button
+4. Fill in consultation details:
+   - Hospital
+   - Doctor name
+   - Doctor comments
+   - Visit time
+   - Medicine taken (yes/no)
+   - Medicines (name, tablets, value)
+5. Click "Save"
+
+#### Completing Medical Requisitions
+
+1. Navigate to Medical Requisitions
+2. Find requisitions with consultation details
+3. Click "Complete" button
+4. Click "Confirm"
+
+#### Editing Medical Requisitions
+
+1. Navigate to Medical Requisitions
+2. Find the requisition
+3. Click "Edit" button
+4. Modify required fields
+5. Click "Update"
+
+#### Deleting Medical Requisitions
+
+1. Navigate to Medical Requisitions
+2. Find the requisition
+3. Click "Delete" button
+4. Confirm deletion
+
+#### Printing Medical Requisitions
+
+1. Navigate to Medical Requisitions
+2. Find the requisition
+3. Click "Print" button
+4. The requisition is printed with all details
+
+---
+
+## Bonus Management
+
+### Overview
+
+The Bonus module manages bonus payments for employees, including bulk bonus creation and history tracking.
+
+### Creating Bonus
+
+1. Navigate to Bonus page
+2. Click "Create Bonus" tab
+3. Select employees:
+   - Use search to find specific employees
+   - Select by work location (expand location to see employees)
+   - Use "Select All" to select all employees
+4. Enter bonus details:
+   - Individual bonus amount (per employee)
+   - Or bulk bonus amount for all selected
+   - Bonus date
+   - Description
+5. Click "Preview" to see breakdown
+6. Click "Save" to create bonus records
+
+### Bulk Bonus Creation
+
+1. Navigate to Bonus page
+2. Click "Create Bonus" tab
+3. Select multiple employees
+4. Enter bulk bonus amount
+5. Enable "Custom Amount Mode" to set different amounts per employee
+6. Click "Save"
+
+### Adjustment Mode
+
+1. Navigate to Bonus page
+2. Click "Create Bonus" tab
+3. Select employees
+4. Click "Adjustment Mode" toggle
+5. Adjust individual amounts as needed
+6. Reduced employees are marked and excluded from redistribution
+7. Click "Save"
+
+### Bonus History
+
+1. Navigate to Bonus page
+2. Click "History" tab
+3. View all bonus records:
+   - Date
+   - Employee name
+   - Amount
+   - Description
+   - Batch ID
+
+### Editing Bonus Records
+
+1. Navigate to Bonus page
+2. Click "History" tab
+3. Find the bonus record
+4. Click "Edit" button
+5. Modify amount or description
+6. Click "Update"
+
+### Deleting Bonus Records
+
+1. Navigate to Bonus page
+2. Click "History" tab
+3. Find the bonus record
+4. Click "Delete" button
+5. Confirm deletion
+
+### Deleting All Bonuses
+
+1. Navigate to Bonus page
+2. Click "History" tab
+3. Click "Delete All" button
+4. Confirm deletion (this cannot be undone)
+
+### Exporting Bonus Records
+
+1. Navigate to Bonus page
+2. Click "History" tab
+3. Click "Export" button
+4. Select format (Excel, PDF)
+5. File downloads with all bonus data
+
+---
+
+## Deductions
+
+### Overview
+
+The Deductions module manages custom deductions for employees, including recurring deductions.
+
+### Creating Deduction
+
+1. Navigate to Deductions page
+2. Click "Create" tab
+3. Fill in the form:
+   - Employee
+   - Deduction name
+   - Deduction amount
+   - Deduction type (fixed or percentage)
+   - Month
+   - Year
+   - Is recurring (yes/no)
+   - Number of months (if recurring)
    - Reason
-4. Submit for approval
+4. Click "Save"
+
+### Recurring Deductions
+
+1. Navigate to Deductions page
+2. Click "Create" tab
+3. Select "Is recurring"
+4. Enter number of months
+5. The deduction will be applied for the specified number of months
+6. Each month's deduction is tracked separately
+
+### Editing Deductions
+
+1. Navigate to Deductions page
+2. Click "History" tab
+3. Find the deduction
+4. Click "Edit" button
+5. Modify required fields
+6. Click "Update"
+
+### Deleting Deductions
+
+1. Navigate to Deductions page
+2. Click "History" tab
+3. Find the deduction
+4. Click "Delete" button
+5. Confirm deletion
+
+### Deduction History
+
+1. Navigate to Deductions page
+2. Click "History" tab
+3. View all deductions:
+   - Employee name
+   - Deduction name
+   - Amount
+   - Type
+   - Month/Year
+   - Recurring status
+   - Reason
+
+### Printing Deduction Letter
+
+1. Navigate to Deductions page
+2. Click "History" tab
+3. Find the deduction
+4. Click "Print Letter" button
+5. The deduction letter is generated with:
+   - Employee details
+   - Deduction details
+   - Prepared by
+   - Approved by
+
+---
+
+## Friday Duty
+
+### Overview
+
+The Friday Duty module manages Friday duty schedules for employees across different work locations.
+
+### Viewing Friday Schedule
+
+1. Navigate to Friday Duty page
+2. Select work location (or "All" for all locations)
+3. View schedule showing:
+   - Past 4 Fridays
+   - Next Friday
+   - Employee names
+   - Duty status (On, Off, Holiday)
+   - Remarks
+
+### Setting Duty Status
+
+1. Navigate to Friday Duty page
+2. Find the employee and date
+3. Click the status dropdown
+4. Select status:
+   - On (employee working)
+   - Off (employee off duty)
+   - Holiday (public holiday)
+5. Add remarks if needed
+6. Status is saved automatically
+
+### Filtering by Work Location
+
+1. Navigate to Friday Duty page
+2. Use the work location dropdown
+3. Select specific location or "All"
+4. Schedule updates to show employees from selected location
+
+### Saving Schedule
+
+1. Navigate to Friday Duty page
+2. Make duty status changes
+3. Click "Save Schedule" button
+4. All changes are saved to database
+
+### Printing Schedule
+
+1. Navigate to Friday Duty page
+2. Click "Print" button
+3. The schedule is printed with all Friday dates and employee status
+
+---
+
+## Settlement
+
+### Overview
+
+The Settlement module calculates and generates final settlement for employees leaving the company.
+
+### Creating Settlement
+
+1. Navigate to Settlement page (via employee record)
+2. Employee details are auto-populated:
+   - Employee name
+   - Designation
+   - Nationality
+   - Work permit
+   - Monthly salary
+3. Enter settlement details:
+   - Settlement month
+   - Last working date
+   - Salary days
+   - Salary divisor
+4. Load attendance data:
+   - Set attendance date range
+   - Click "Load Attendance"
+   - Attendance data is populated
+5. Load overtime data:
+   - Set overtime date range
+   - Click "Load Overtime"
+   - Overtime data is populated
+6. Enter leave balances:
+   - MC (Medical Casual)
+   - EL (Earned Leave)
+   - AL (Annual Leave)
+   - SUS (Suspension)
+   - FL (Family Leave)
+   - Sick leave
+   - Half days
+   - Absent days
+   - No pay leave
+   - Special leave
+7. Enter other details:
+   - Overtime amount
+   - Overtime hours
+   - Overtime rate
+   - Food allowance days
+   - Food allowance per day
+   - Other earnings
+   - Deductions
+   - Advance deduction
+   - Remarks
+8. Click "Calculate" to compute settlement
+9. Click "Print" to generate settlement letter
+
+### Settlement Calculation
+
+The system calculates:
+- Salary based on salary days and divisor
+- Overtime pay based on hours and rate
+- Food allowance based on days
+- Total earnings
+- Total deductions
+- Net settlement amount
+
+### Printing Settlement Letter
+
+1. Navigate to Settlement page
+2. Complete settlement calculation
+3. Click "Print" button
+4. The settlement letter is generated with:
+   - Employee details
+   - Settlement period
+   - Earnings breakdown
+   - Deductions breakdown
+   - Net settlement amount
+   - Signatures
+
+---
+
+## Employee Lifecycle
+
+### Overview
+
+The Employee Lifecycle module manages offboarding tasks, exit interviews, and lifecycle transitions.
+
+### Offboarding Tasks
+
+#### Creating Offboarding Task
+
+1. Navigate to Employee Lifecycle page
+2. In the Tasks section, enter task description
+3. Select assignee
+4. Set due date
+5. Click "Create Task"
+
+#### Completing Offboarding Task
+
+1. Navigate to Employee Lifecycle page
+2. Find pending tasks
+3. Click "Complete" button
+4. The task is marked as completed
+
+### Exit Interviews
+
+#### Viewing Exit Interviews
+
+1. Navigate to Employee Lifecycle page
+2. View exit interview summary
+3. See total number of exit interviews conducted
+
+### Lifecycle Summary
+
+The dashboard shows:
+- Exit interviews count
+- Offboarding tasks count
+- Completed tasks count
+- Lifecycle events count
+
+---
+
+## Xpats Staff Details
+
+### Overview
+
+The Xpats Staff Details module manages expatriate staff information, including work permits, visas, medical insurance, and deposits.
+
+### Tabs
+
+- **Overview**: Dashboard with expat statistics
+- **All Staff**: All expatriate staff list
+- **Ongoing**: Staff with ongoing processes
+- **Work Visa**: Work permit and visa tracking
+- **Medical**: Medical insurance tracking
+- **Insurance**: Additional insurance details
+- **Deposits**: Security deposits tracking
+- **Left Staffs**: Staff who have left
+- **Expiry Center**: Documents expiring soon
+- **Reports**: Expat-related reports
+
+### Overview Dashboard
+
+Shows expat statistics:
+- Total expat staff
+- Madihaa staff count
+- Batuta staff count
+- Madigrand staff count
+- Active staff
+- Departed staff
+- Work permits expiring (90 days)
+- Passports expiring (90 days)
+- Visas expiring (90 days)
+- Medical expiring (90 days)
+- Insurance expiring (90 days)
+- Pending deposits
+
+### Adding Expat Staff
+
+1. Navigate to Xpats Staff Details page
+2. Click "Add Staff" button
+3. Fill in staff details:
+   - Personal information
+   - Work permit details
+   - Visa details
+   - Passport details
+   - Medical insurance details
+   - Deposit details
+4. Click "Save"
+
+### Editing Expat Staff
+
+1. Navigate to Xpats Staff Details page
+2. Find the staff member
+3. Click "Edit" button
+4. Modify required fields
+5. Click "Update"
+
+### Cancelling Visa
+
+1. Navigate to Xpats Staff Details page
+2. Find the staff member
+3. Click "Cancel Visa" button
+4. Enter visa cancellation details:
+   - Submitted date
+   - Request number
+   - eGov link
+5. Click "Confirm"
+
+### Adding Medical Application
+
+1. Navigate to Xpats Staff Details page
+2. Find the staff member
+3. Click "Add Medical" button
+4. Enter medical details:
+   - Reference number
+   - eGov link
+5. Click "Save"
+
+### Filtering Staff
+
+- Filter by company (Madihaa, Batuta, Madigrand, All)
+- Use search to find specific staff
+- Filter by tab (ongoing, left staff, etc.)
+
+### Expiry Center
+
+1. Navigate to Xpats Staff Details page
+2. Click "Expiry Center" tab
+3. Toggle "Show expiring only" to see documents expiring soon
+4. View expiring documents by type:
+   - Work permits
+   - Passports
+   - Visas
+   - Medical insurance
+   - Regular insurance
+
+---
+
+## Monthly Attendance Excel
+
+### Overview
+
+The Monthly Attendance Excel module generates detailed monthly attendance reports in Excel format.
+
+### Generating Report
+
+1. Navigate to Monthly Attendance Excel page
+2. Select month and year
+3. Select date range:
+   - Full month
+   - First half (1-15)
+   - Second half (16-end)
+4. Select area filter:
+   - All
+   - Male-Junior
+   - Hulhumale-Junior
+   - Male-Senior
+   - Hulhumale-Senior
+   - Local
+5. Click "Export to Excel"
+6. The Excel file downloads with:
+   - Employee details
+   - Daily attendance status
+   - Total present days
+   - Total absent days
+   - Leave types
+   - Overtime hours
+   - Food allowance
+
+### Attendance Status Codes
+
+- **OFF**: Off day
+- **MC**: Medical Casual
+- **EL**: Earned Leave
+- **AL**: Annual Leave
+- **SUS**: Suspension
+- **FL**: Family Leave
+- **SICK**: Sick leave
+- **HD**: Half day
+- **AB**: Absent
+- **NL**: No pay leave
+- **SP**: Special leave
+
+### Area Filter Logic
+
+- **Male-Junior**: Male work site, Junior job level, non-Maldivian
+- **Hulhumale-Junior**: Hulhumale work site, Junior job level, non-Maldivian
+- **Male-Senior**: Male work site, Senior job level, non-Maldivian
+- **Hulhumale-Senior**: Hulhumale work site, Senior job level, non-Maldivian
+- **Local**: Maldivian employees only
+
+---
+
+## Staff Attendance Report
+
+### Overview
+
+The Staff Attendance Report module generates detailed attendance reports for individual employees.
+
+### Generating Report
+
+1. Navigate to Staff Attendance Report page
+2. Select employee from dropdown
+3. Set date range for attendance
+4. Set date range for overtime
+5. Set date range for food allowance
+6. Click "Generate Report"
+7. View report showing:
+   - Employee details
+   - Daily attendance
+   - Overtime summary
+   - Food allowance summary
+
+### Exporting Report
+
+1. Navigate to Staff Attendance Report page
+2. Generate report
+3. Click "Export to Excel"
+4. The Excel file downloads with all attendance data
+
+---
+
+## Staff Dashboard
+
+### Overview
+
+The Staff Dashboard provides employees with a view of their personal information and disciplinary records.
+
+### Viewing Personal Profile
+
+1. Navigate to Staff Dashboard page
+2. View personal information:
+   - Name
+   - Employee ID
+   - Department
+   - Designation
+   - Contact details
+   - Work location
+   - Join date
+
+### Viewing Disciplinary Actions
+
+1. Navigate to Staff Dashboard page
+2. Scroll to Disciplinary Actions section
+3. View personal disciplinary history:
+   - Date of incident
+   - Description
+   - Action taken
+   - Warning level (minor, moderate, serious, severe)
+   - Status
+
+### Viewing Disciplinary Details
+
+1. Navigate to Staff Dashboard page
+2. Click "View" on any disciplinary action
+3. View full details in modal
+
+### Printing Disciplinary Report
+
+1. Navigate to Staff Dashboard page
+2. Find the disciplinary action
+3. Click "Print" button
+4. The report is generated as PDF
+
+---
+
+## Staff Attendance
+
+### Overview
+
+The Staff Attendance module allows employees to view their personal attendance history.
+
+### Viewing Attendance History
+
+1. Navigate to Staff Attendance page
+2. View attendance statistics:
+   - Total records
+   - Present days
+   - Late arrivals
+3. View attendance records showing:
+   - Date
+   - Check-in time
+   - Check-out time
+   - Status (Present, Absent, Late)
+
+### Attendance Status
+
+- **Present**: Employee checked in and out
+- **Absent**: Employee did not check in
+- **Late**: Employee checked in after start time
+
+---
+
+## Staff Payslip
+
+### Overview
+
+The Staff Payslip module allows employees to view and download their payslips.
+
+### Viewing Payslips
+
+1. Navigate to Staff Payslip page
+2. Select month from dropdown
+3. Select year from dropdown
+4. View payslip details:
+   - Basic salary
+   - Allowances breakdown
+   - Deductions breakdown
+   - Gross salary
+   - Net salary
+
+### Downloading Payslip
+
+1. Navigate to Staff Payslip page
+2. Select month and year
+3. Click "Download Payslip" button
+4. The payslip is downloaded as PDF
+
+### Payslip Details
+
+The payslip includes:
+- Employee information
+- Payment period
+- Earnings:
+  - Basic salary
+  - Other allowance
+  - Food allowance
+  - Overtime allowance
+  - SP allowance
+  - Friday allowance
+- Deductions:
+  - Pension (if applicable)
+  - Other deductions
+- Total earnings
+- Total deductions
+- Net salary
 
 ---
 
@@ -1060,7 +2238,7 @@ The Forms and Letters module generates various HR documents.
 For technical support or questions:
 - Contact the HR department
 - Submit a support ticket
-- Email: support@madihaa.mwsc.mv
+- Email: support@madihaa.com
 
 ---
 

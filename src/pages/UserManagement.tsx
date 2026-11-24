@@ -151,15 +151,15 @@ export const UserManagement: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">User Management</h1>
             <p className="text-gray-600 mt-1">Manage system users and permissions</p>
           </div>
           {can(PERMISSIONS.USERS_CREATE) && (
-            <Button onClick={openCreateModal} icon={<Plus className="w-5 h-5" />}>
+            <Button onClick={openCreateModal} icon={<Plus className="w-5 h-5" />} className="sm:w-auto w-full">
               Add User
             </Button>
           )}

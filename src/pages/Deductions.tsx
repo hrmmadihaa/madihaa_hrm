@@ -187,13 +187,13 @@ export const Deductions = () => {
   ];
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-secondary-900 mb-2">Deductions Management</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900 mb-2">Deductions Management</h1>
         <p className="text-secondary-600">Manage custom payroll deductions for employees</p>
       </div>
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-col sm:flex-row gap-2">
         <Button
           onClick={() => setViewMode('create')}
           variant={viewMode === 'create' ? 'primary' : 'secondary'}

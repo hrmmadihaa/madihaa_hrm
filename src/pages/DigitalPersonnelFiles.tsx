@@ -128,12 +128,12 @@ export const DigitalPersonnelFiles = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-secondary-900">Digital Personnel Files</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">Digital Personnel Files</h1>
         <p className="text-secondary-600 mt-1">Manage employee documents and track expiry dates</p>
       </div>
 
       {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-secondary-600">Total Expiring</p>

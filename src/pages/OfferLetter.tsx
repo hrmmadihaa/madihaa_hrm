@@ -372,10 +372,10 @@ export default function OfferLetter() {
       <div className="editor no-print">
         <div className="editor-heading">
           <div>
-            <h2>Employment Offer Letter</h2>
+            <h2 className="text-lg sm:text-xl">Employment Offer Letter</h2>
             <p>Prepare and generate an official offer letter.</p>
           </div>
-          <div className="button-group">
+          <div className="button-group flex flex-col sm:flex-row gap-2">
             <button onClick={handleSaveToFirestore} className="save-button">
               Save to Firestore
             </button>

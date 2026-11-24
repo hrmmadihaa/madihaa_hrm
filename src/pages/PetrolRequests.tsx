@@ -381,12 +381,12 @@ export const PetrolRequests: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Petrol Requests</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Petrol Requests</h1>
           <p className="text-gray-600">Manage vehicle petrol requests and reports</p>
         </div>
-        <Button onClick={() => setShowForm(true)} className="flex items-center gap-2">
+        <Button onClick={() => setShowForm(true)} className="flex items-center gap-2 sm:w-auto w-full">
           <Plus className="w-4 h-4" />
           New Request
         </Button>

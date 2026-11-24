@@ -40,8 +40,8 @@ export const Reports = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-secondary-900">Reports & Analytics</h1>
+      <div className="p-4 sm:p-0">
+        <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">Reports & Analytics</h1>
         <p className="text-secondary-600 mt-1">Generate and export HR reports</p>
       </div>
 

@@ -614,7 +614,7 @@ formatDate(new Date(date)),
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-secondary-900">Overtime Management</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">Overtime Management</h1>
           <p className="text-secondary-600 mt-1">Track and approve overtime requests</p>
         </div>
         <div className="flex gap-2 flex-wrap">

@@ -402,14 +402,14 @@ export const Salary: React.FC = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Salary Management</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Salary Management</h1>
         <p className="text-gray-600 mt-2">View and manage employee salaries and increments</p>
         
         {/* Search and Actions */}
         <div className="flex flex-col sm:flex-row gap-3 mt-4 items-start sm:items-center justify-between">
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             {isSuperAdmin() && (
               <Button onClick={() => setShowAddSalaryForm(true)}>
                 <Plus className="w-4 h-4 mr-2" />

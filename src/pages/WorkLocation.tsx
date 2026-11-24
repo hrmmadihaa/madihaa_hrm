@@ -307,10 +307,10 @@ export const WorkLocationPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-secondary-900">Work Locations</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">Work Locations</h1>
           <p className="text-secondary-600 mt-1">Manage work locations and staff assignments</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="text"
             placeholder="Search by name, address, or employee..."

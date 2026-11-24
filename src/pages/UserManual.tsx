@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader } from '../components/ui/Card';
 const manualContent = {
   introduction: {
     title: 'Introduction',
-    content: 'Madihaa HRMS is a comprehensive Human Resource Management System designed for Male\' Water and Sewerage Company (MWSC). This manual provides detailed instructions on using the system\'s key features.',
+    content: 'Madihaa HRMS is a comprehensive Human Resource Management System designed for Madihaa Company (PTE) Ltd. This manual provides detailed instructions on using the system\'s key features.',
     details: [
       'The system is designed to streamline HR processes and improve efficiency',
       'Provides real-time access to employee information and HR data',
@@ -477,6 +477,465 @@ const manualContent = {
         ]
       }
     ]
+  },
+  payroll: {
+    title: 'Payroll',
+    sections: [
+      {
+        subtitle: 'Processing Payroll',
+        content: 'Navigate to Payroll, select the pay period (month/year), click "Generate Payroll" to process salaries, review records, click "Process Payroll" to finalize. Status changes from draft to processed to approved to paid.',
+        steps: [
+          'Select month and year',
+          'Click "Generate Payroll"',
+          'Review generated records',
+          'Click "Process Payroll"',
+          'Status updates to processed',
+          'Approve when ready',
+          'Mark as paid after payment'
+        ]
+      },
+      {
+        subtitle: 'Generating Payslips',
+        content: 'Find the employee\'s payroll record, click "Download Payslip" or "Print Payslip". The payslip is generated as PDF with employee details, payment period, earnings breakdown, deductions breakdown, and net salary.',
+        note: 'Payslips can be downloaded individually or in bulk.'
+      }
+    ]
+  },
+  recruitmentPipeline: {
+    title: 'Recruitment Pipeline',
+    sections: [
+      {
+        subtitle: 'Pipeline Stages',
+        content: 'Candidates move through stages: CV Received, Shortlisted, Interview Scheduled, Interview Completed, Offer Letter Sent, Offer Signed, Work Permit Applied, Payment Pending, Payment Completed, Entry Pass Pending, Entry Pass Received, Ticket Purchased, Ticket Approved, Departed, Van Arranged, Airport Pickup, Arrived, Added to Directory.',
+        stages: [
+          'CV Received: Initial application received',
+          'Shortlisted: Candidate selected for interview',
+          'Interview Scheduled: Interview date set',
+          'Interview Completed: Interview conducted',
+          'Offer Letter Sent: Offer letter generated and sent',
+          'Offer Signed: Candidate accepted offer',
+          'Work Permit Applied: Work permit application submitted',
+          'Payment Pending: Work permit payment pending',
+          'Payment Completed: Work permit payment done',
+          'Entry Pass Pending: Entry pass application in progress',
+          'Entry Pass Received: Entry pass approved',
+          'Ticket Purchased: Flight ticket booked',
+          'Ticket Approved: Ticket approved',
+          'Departed: Candidate departed from home country',
+          'Van Arranged: Airport pickup van arranged',
+          'Airport Pickup: Airport pickup scheduled',
+          'Arrived: Candidate arrived in Maldives',
+          'Added to Directory: Candidate onboarded as employee'
+        ]
+      },
+      {
+        subtitle: 'Adding Candidates',
+        content: 'Click "Add Candidate", fill in candidate details including name, employee ID, position, salary, nationality, DOB, gender, passport details, contact information, emergency contact, and date of joining.',
+        fields: [
+          'Name: Full name of candidate',
+          'Employee ID: Unique identifier',
+          'Position: Job title',
+          'Salary: Expected compensation',
+          'Nationality: Country of origin',
+          'Passport details: Number, issue/expiry dates'
+        ]
+      }
+    ]
+  },
+  staffDisciplinary: {
+    title: 'Staff Disciplinary',
+    sections: [
+      {
+        subtitle: 'Viewing Disciplinary Records',
+        content: 'Navigate to Staff Disciplinary to view personal disciplinary history, check warning status, view disciplinary action details, sign disciplinary records if required, and print disciplinary reports.',
+        note: 'Employees can only view their own disciplinary records.'
+      },
+      {
+        subtitle: 'Signing Disciplinary Records',
+        content: 'Click "Sign" on pending records, add your signature if required, and click "Save".',
+        warning: 'Signatures are legally binding and cannot be removed once added.'
+      }
+    ]
+  },
+  petrolRequests: {
+    title: 'Petrol Requests',
+    sections: [
+      {
+        subtitle: 'Creating Petrol Requests',
+        content: 'Click "Add Request", fill in request date, vehicle number, vehicle type, driver name, driver employee ID, KM start, KM end, petrol amount, receipt number, and requested by. KM End must be greater than KM Start.',
+        fields: [
+          'Request date: Date of fuel request',
+          'Vehicle number: Vehicle registration',
+          'Driver name: Driver\'s full name',
+          'KM start: Starting odometer reading',
+          'KM end: Ending odometer reading',
+          'Petrol amount: Fuel cost'
+        ]
+      },
+      {
+        subtitle: 'Printing Petrol Slips',
+        content: 'Find the approved request, click "Print Slip". The slip is generated with slip number (auto-generated), vehicle details, driver details, KM readings, and fuel amount.',
+        note: 'Slip numbers are generated sequentially for tracking.'
+      }
+    ]
+  },
+  organizationChart: {
+    title: 'Organization Chart',
+    sections: [
+      {
+        subtitle: 'Viewing Organization Chart',
+        content: 'Select a work location from the dropdown to view the organizational tree structure. Use zoom in/out, pan by dragging, and expand/collapse nodes to navigate the chart.',
+        tips: [
+          'Click employee nodes to expand or collapse subordinates',
+          'Use mouse wheel to zoom in and out',
+          'Click and drag to pan around the chart',
+          'Root node shows the head of the location'
+        ]
+      }
+    ]
+  },
+  digitalPersonnelFiles: {
+    title: 'Digital Personnel Files',
+    sections: [
+      {
+        subtitle: 'Overview Tab',
+        content: 'Shows summary statistics: total expiring documents, expired documents, active alerts, and personnel file summary.',
+        metrics: [
+          'Total expiring documents',
+          'Expired documents',
+          'Active alerts',
+          'Personnel file summary'
+        ]
+      },
+      {
+        subtitle: 'Expiring Documents Tab',
+        content: 'View documents expiring soon with employee name, document type, expiry date, days until expiry, and status.',
+        note: 'Documents expiring within 90 days are flagged as expiring.'
+      },
+      {
+        subtitle: 'Alerts Tab',
+        content: 'View active alerts with alert type (urgent, warning, expired), employee name, document type, expiry date, and message. Click "Acknowledge" to mark alerts as read.',
+        alert: 'Regularly review alerts to ensure documents are renewed on time.'
+      }
+    ]
+  },
+  bonusManagement: {
+    title: 'Bonus Management',
+    sections: [
+      {
+        subtitle: 'Creating Bonus',
+        content: 'Click "Create Bonus" tab, select employees (by search, work location, or select all), enter individual or bulk bonus amount, bonus date, and description. Click "Preview" then "Save".',
+        steps: [
+          'Select employees using search or location',
+          'Enter bonus amount (individual or bulk)',
+          'Set bonus date and description',
+          'Click "Preview" to see breakdown',
+          'Click "Save" to create records'
+        ]
+      },
+      {
+        subtitle: 'Adjustment Mode',
+        content: 'Enable "Adjustment Mode" to set different amounts per employee. Reduced employees are marked and excluded from redistribution.',
+        note: 'Use adjustment mode when some employees should receive different amounts.'
+      }
+    ]
+  },
+  deductions: {
+    title: 'Deductions',
+    sections: [
+      {
+        subtitle: 'Creating Deduction',
+        content: 'Click "Create" tab, fill in employee, deduction name, amount, type (fixed or percentage), month, year, recurring status, number of months if recurring, and reason.',
+        fields: [
+          'Employee: Select from dropdown',
+          'Deduction name: Name of the deduction',
+          'Amount: Deduction value',
+          'Type: Fixed or percentage of salary',
+          'Is recurring: Apply for multiple months'
+        ]
+      },
+      {
+        subtitle: 'Recurring Deductions',
+        content: 'Select "Is recurring" and enter number of months. The deduction will be applied for the specified number of months, with each month tracked separately.',
+        warning: 'Ensure the total deduction amount does not exceed legal limits.'
+      }
+    ]
+  },
+  fridayDuty: {
+    title: 'Friday Duty',
+    sections: [
+      {
+        subtitle: 'Setting Duty Status',
+        content: 'Find the employee and date, click the status dropdown, select On (working), Off (off duty), or Holiday (public holiday), add remarks if needed. Status is saved automatically.',
+        statuses: [
+          'On: Employee working on Friday',
+          'Off: Employee off duty on Friday',
+          'Holiday: Public holiday'
+        ]
+      },
+      {
+        subtitle: 'Filtering by Work Location',
+        content: 'Use the work location dropdown to select specific location or "All". Schedule updates to show employees from selected location.',
+        note: 'Schedule shows past 4 Fridays and next Friday.'
+      }
+    ]
+  },
+  settlement: {
+    title: 'Settlement',
+    sections: [
+      {
+        subtitle: 'Creating Settlement',
+        content: 'Employee details are auto-populated. Enter settlement month, last working date, salary days, salary divisor. Load attendance and overtime data. Enter leave balances and other details. Click "Calculate" then "Print".',
+        steps: [
+          'Enter settlement details',
+          'Load attendance data for the period',
+          'Load overtime data for the period',
+          'Enter leave balances (MC, EL, AL, etc.)',
+          'Enter overtime amount, hours, rate',
+          'Enter food allowance details',
+          'Click "Calculate" to compute settlement',
+          'Click "Print" to generate letter'
+        ]
+      },
+      {
+        subtitle: 'Settlement Calculation',
+        content: 'The system calculates salary based on salary days and divisor, overtime pay based on hours and rate, food allowance based on days, total earnings, total deductions, and net settlement amount.',
+        importance: 'Ensure all attendance and overtime data is loaded accurately for correct calculation.'
+      }
+    ]
+  },
+  employeeLifecycle: {
+    title: 'Employee Lifecycle',
+    sections: [
+      {
+        subtitle: 'Offboarding Tasks',
+        content: 'In the Tasks section, enter task description, select assignee, set due date, and click "Create Task". Click "Complete" to mark tasks as done.',
+        workflow: [
+          'Create offboarding tasks',
+          'Assign to responsible person',
+          'Set due dates',
+          'Track completion status',
+          'Mark as complete when done'
+        ]
+      },
+      {
+        subtitle: 'Lifecycle Summary',
+        content: 'The dashboard shows exit interviews count, offboarding tasks count, completed tasks count, and lifecycle events count.',
+        metrics: [
+          'Exit interviews count',
+          'Offboarding tasks count',
+          'Completed tasks count',
+          'Lifecycle events count'
+        ]
+      }
+    ]
+  },
+  xpatsStaffDetails: {
+    title: 'Xpats Staff Details',
+    sections: [
+      {
+        subtitle: 'Overview Dashboard',
+        content: 'Shows expat statistics including total expat staff, Madihaa/Batuta/Madigrand staff counts, active/departed staff, work permits/passports/visas/medical/insurance expiring (90 days), and pending deposits.',
+        metrics: [
+          'Total expat staff',
+          'Active staff by company',
+          'Departed staff',
+          'Documents expiring in 90 days',
+          'Pending deposits'
+        ]
+      },
+      {
+        subtitle: 'Tabs',
+        content: 'Overview (dashboard), All Staff (list), Ongoing (processes in progress), Work Visa (permit/visa tracking), Medical (insurance tracking), Insurance (additional insurance), Deposits (security deposits), Left Staffs (departed), Expiry Center (expiring documents), Reports.',
+        tabs: [
+          'Overview: Dashboard with statistics',
+          'All Staff: Complete staff list',
+          'Ongoing: Active processes',
+          'Work Visa: Permit and visa tracking',
+          'Medical: Medical insurance',
+          'Insurance: Additional insurance',
+          'Deposits: Security deposits',
+          'Left Staffs: Departed staff',
+          'Expiry Center: Expiring documents',
+          'Reports: Expat reports'
+        ]
+      },
+      {
+        subtitle: 'Expiry Center',
+        content: 'Toggle "Show expiring only" to see documents expiring soon. View expiring documents by type: work permits, passports, visas, medical insurance, and regular insurance.',
+        alert: 'Regularly check the Expiry Center to ensure all documents are renewed on time.'
+      }
+    ]
+  },
+  monthlyAttendanceExcel: {
+    title: 'Monthly Attendance Excel',
+    sections: [
+      {
+        subtitle: 'Generating Report',
+        content: 'Select month and year, select date range (full month, first half, second half), select area filter (All, Male-Junior, Hulhumale-Junior, Male-Senior, Hulhumale-Senior, Local), click "Export to Excel".',
+        filters: [
+          'All: All employees',
+          'Male-Junior: Male work site, Junior level, non-Maldivian',
+          'Hulhumale-Junior: Hulhumale work site, Junior level, non-Maldivian',
+          'Male-Senior: Male work site, Senior level, non-Maldivian',
+          'Hulhumale-Senior: Hulhumale work site, Senior level, non-Maldivian',
+          'Local: Maldivian employees only'
+        ]
+      },
+      {
+        subtitle: 'Attendance Status Codes',
+        content: 'OFF (Off day), MC (Medical Casual), EL (Earned Leave), AL (Annual Leave), SUS (Suspension), FL (Family Leave), SICK (Sick leave), HD (Half day), AB (Absent), NL (No pay leave), SP (Special leave).',
+        note: 'Status codes are used for payroll calculations.'
+      }
+    ]
+  },
+  staffAttendanceReport: {
+    title: 'Staff Attendance Report',
+    sections: [
+      {
+        subtitle: 'Generating Report',
+        content: 'Select employee from dropdown, set date range for attendance, set date range for overtime, set date range for food allowance, click "Generate Report". View employee details, daily attendance, overtime summary, and food allowance summary.',
+        steps: [
+          'Select employee',
+          'Set attendance date range',
+          'Set overtime date range',
+          'Set food allowance date range',
+          'Click "Generate Report"',
+          'View report details',
+          'Export to Excel if needed'
+        ]
+      }
+    ]
+  },
+  staffDashboard: {
+    title: 'Staff Dashboard',
+    sections: [
+      {
+        subtitle: 'Viewing Personal Profile',
+        content: 'View personal information including name, employee ID, department, designation, contact details, work location, and join date.',
+        details: [
+          'Name: Full name',
+          'Employee ID: Unique identifier',
+          'Department: Work department',
+          'Designation: Job title',
+          'Contact details: Phone and email',
+          'Work location: Assigned location',
+          'Join date: Employment start date'
+        ]
+      },
+      {
+        subtitle: 'Viewing Disciplinary Actions',
+        content: 'Scroll to Disciplinary Actions section to view personal disciplinary history including date of incident, description, action taken, warning level (minor, moderate, serious, severe), and status.',
+        warningLevels: [
+          'Minor: First offense',
+          'Moderate: Repeated offense',
+          'Serious: Significant violation',
+          'Severe: Most serious violations'
+        ]
+      }
+    ]
+  },
+  staffAttendance: {
+    title: 'Staff Attendance',
+    sections: [
+      {
+        subtitle: 'Viewing Attendance History',
+        content: 'View attendance statistics (total records, present days, late arrivals) and attendance records showing date, check-in time, check-out time, and status (Present, Absent, Late).',
+        statuses: [
+          'Present: Employee checked in and out',
+          'Absent: Employee did not check in',
+          'Late: Employee checked in after start time'
+        ]
+      }
+    ]
+  },
+  staffPayslip: {
+    title: 'Staff Payslip',
+    sections: [
+      {
+        subtitle: 'Viewing Payslips',
+        content: 'Select month and year from dropdowns. View payslip details including basic salary, allowances breakdown, deductions breakdown, gross salary, and net salary.',
+        details: [
+          'Basic salary: Base compensation',
+          'Allowances: Other, Food, Overtime, SP, Friday',
+          'Deductions: Pension and other deductions',
+          'Gross salary: Total earnings',
+          'Net salary: Take-home pay'
+        ]
+      },
+      {
+        subtitle: 'Downloading Payslip',
+        content: 'Select month and year, click "Download Payslip" button. The payslip is downloaded as PDF with employee information, payment period, earnings breakdown, deductions breakdown, and net salary.',
+        note: 'Payslips are available for all processed payroll periods.'
+      }
+    ]
+  },
+  offerLetter: {
+    title: 'Offer Letter',
+    sections: [
+      {
+        subtitle: 'Generating Offer Letter',
+        content: 'Select candidate from dropdown, fill in offer details (letter date, position, department, employment type, start date, salary, working hours, work location, reporting to, signatory, signatory designation). Preview, print, or save to Firestore.',
+        steps: [
+          'Select candidate from dropdown',
+          'Details auto-populate from candidate data',
+          'Fill in any missing details',
+          'Preview the letter',
+          'Click "Print" to print',
+          'Click "Save to Firestore" to save'
+        ]
+      },
+      {
+        subtitle: 'Auto-Population',
+        content: 'When a candidate is selected, position, department, employment type, start date, salary, working hours, work location, and reporting to are auto-populated from candidate data.',
+        note: 'Maldivian candidates get local offer letter format, expat candidates get expat format with additional clauses.'
+      }
+    ]
+  },
+  medicalRequisitions: {
+    title: 'Medical Requisitions',
+    sections: [
+      {
+        subtitle: 'Creating Medical Requisitions',
+        content: 'Click "Add Requisition", fill in department, date, staff name (auto-populates designation and department), staff sickness, remarks, requested by, requested by position, approved by (optional), and approved by position (optional).',
+        steps: [
+          'Enter department and date',
+          'Select staff name (auto-populates details)',
+          'Enter staff sickness',
+          'Add remarks if needed',
+          'Enter requested by details',
+          'Add approved by details if available',
+          'Click "Save"'
+        ]
+      },
+      {
+        subtitle: 'Adding Consultation Details',
+        content: 'Find assigned requisitions, click "Add Consultation", fill in hospital, doctor name, doctor comments, visit time, medicine taken (yes/no), and medicines (name, tablets, value).',
+        fields: [
+          'Hospital: Medical facility name',
+          'Doctor name: Attending physician',
+          'Doctor comments: Medical notes',
+          'Visit time: Consultation date/time',
+          'Medicines: Prescribed medications'
+        ]
+      }
+    ]
+  },
+  medicalHistory: {
+    title: 'Medical History',
+    sections: [
+      {
+        subtitle: 'Viewing Medical Records',
+        content: 'View your personal medical consultation history. Each record shows department, date, staff members involved, sickness details, consultation details (if completed), hospital and doctor information, medicines prescribed, and status.',
+        statuses: [
+          'Pending: Awaiting approval',
+          'Approved: Approved for processing',
+          'In Progress: Being processed',
+          'Completed: Consultation done',
+          'Rejected: Request denied'
+        ]
+      }
+    ]
   }
 };
 
@@ -584,7 +1043,7 @@ export const UserManual = () => {
             >
               <Card className="mb-6">
                 <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-lg">
-                  <h2 className="text-3xl font-bold">{currentContent.title}</h2>
+                  <h2 className="text-2xl sm:text-3xl font-bold">{currentContent.title}</h2>
                 </CardHeader>
                 <CardContent className="p-6">
                   {'content' in currentContent && currentContent.content && (

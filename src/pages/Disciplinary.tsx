@@ -262,7 +262,7 @@ export const Disciplinary = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-secondary-900">Disciplinary Actions</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">Disciplinary Actions</h1>
           <p className="text-secondary-600 mt-1">Manage employee disciplinary records</p>
         </div>
         <Button onClick={() => { setShowForm(true); resetForm(); setEditingAction(null); }} className="w-full sm:w-auto">

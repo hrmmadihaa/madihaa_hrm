@@ -714,11 +714,11 @@ export default function MonthlyAttendanceExcel() {
     <div className="excel-report">
       <div className="report-controls no-print">
         <div>
-          <h2>Monthly Attendance Excel Report</h2>
+          <h2 className="text-xl sm:text-2xl">Monthly Attendance Excel Report</h2>
           <p>Foreign senior and junior staff attendance</p>
         </div>
 
-        <div className="report-actions">
+        <div className="report-actions flex flex-col sm:flex-row gap-2">
           <select
             value={month}
             onChange={(e) => setMonth(Number(e.target.value))}

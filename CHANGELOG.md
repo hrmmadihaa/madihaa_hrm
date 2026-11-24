@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Medical Tracking
+- Medical application approval workflow in Xpats Staff Details page
+- "Approve" button for medical applications in "submitted" or "under_review" status
+- Medical expiry date input field during approval process
+- Automatic update of employee medical expiry date upon approval
+- "Apply Medical" button is hidden when an application already exists for an employee
+- Activity logging for medical approval actions
+
+#### Permissions
+- Supervisors now have full access to Accommodation page:
+  - ACCOMMODATION_VIEW - View accommodations
+  - ACCOMMODATION_MANAGE - Create, edit, delete accommodations, floors, rooms, and beds
+  - ACCOMMODATION_ASSIGN - Assign and unassign employees to beds
+
 #### Salary Page Enhancements
 - Added area filter dropdown with multiple filter options:
   - All Areas
@@ -64,6 +78,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Employee photo upload issue where wrong image was displayed after upload:
+  - Added timestamp to Cloudinary public_id to prevent caching issues
+  - Added useEffect to update photo preview when formData.photo changes
+  - Added debug logging for photo upload troubleshooting
+- Medical application approval workflow:
+  - Fixed Firestore collection name from `medical_applications` to `medicalApplications`
+  - Added document existence checks before updates
+  - Improved error handling and data reloading
 - Pension calculation now recalculates dynamically based on current employee data
 - Employee ordering in modal now reflects saved sort order immediately
 - `sortOrder` field now properly loaded from Firestore in employee data

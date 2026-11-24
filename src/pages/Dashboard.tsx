@@ -348,24 +348,24 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
-          <img src={madihaaLogo} alt="Madihaa Logo" className="w-16 h-14 object-contain" />
+          <img src={madihaaLogo} alt="Madihaa Logo" className="w-12 h-10 sm:w-16 sm:h-14 object-contain" />
           <div>
-            <h1 className="text-3xl font-bold text-secondary-900">Dashboard</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">Dashboard</h1>
             <p className="text-secondary-600 mt-1">Welcome back! Here's what's happening today.</p>
           </div>
         </div>
-        <div className="text-right">
+        <div className="text-right sm:text-left">
           <p className="text-sm text-secondary-600">Today's Date</p>
-          <p className="text-xl font-semibold text-secondary-900">
+          <p className="text-lg sm:text-xl font-semibold text-secondary-900">
             {formatDate(new Date())}
           </p>
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
         {stats.map((stat, index) => (
           <motion.div
             key={stat.name}

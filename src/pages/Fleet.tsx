@@ -32,9 +32,9 @@ export const Fleet = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-secondary-900">Fleet Management</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">Fleet Management</h1>
           <p className="text-secondary-600 mt-1">Manage airport passes, licenses, and vehicles</p>
         </div>
       </div>
