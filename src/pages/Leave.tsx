@@ -33,7 +33,7 @@ export const Leave = () => {
   
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'tickets' | 'annual_plan'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'tickets' | 'annual_plan' | 'dashboard'>('dashboard');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<LeaveType | 'all'>('all');
   const [listEmployeeSearch, setListEmployeeSearch] = useState('');
   const [employeeSearch, setEmployeeSearch] = useState('');
@@ -86,6 +86,7 @@ export const Leave = () => {
   const [showLeaveApplicationForm, setShowLeaveApplicationForm] = useState(false);
   const [ticketFile, setTicketFile] = useState<File | null>(null);
   const [ticketUploading, setTicketUploading] = useState(false);
+  const [dashboardFilter, setDashboardFilter] = useState<'all' | '5' | '10' | '15' | 'upcoming'>('all');
 
   const loadData = useCallback(async () => {
     try {
@@ -312,6 +313,84 @@ export const Leave = () => {
       data.nationality.toLowerCase().includes(searchTerm)
     );
   }, [annualLeaveData, annualPlanSearch]);
+
+  // Dashboard calculations
+  const dashboardData = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Staff currently on leave (approved leave with today within date range)
+    const staffOnLeave = leaveRequests.filter(req => {
+      if (req.status !== 'approved') return false;
+      const startDate = new Date(req.startDate);
+      const endDate = new Date(req.endDate);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
+      return today >= startDate && today <= endDate;
+    }).map(req => {
+      const employee = employees.find(emp => emp.id === req.employeeId);
+      return {
+        ...req,
+        employeeName: employee?.fullName || 'Unknown',
+        employeeId: employee?.employeeId || req.employeeId,
+        daysRemaining: Math.ceil((new Date(req.endDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      };
+    }).sort((a, b) => a.daysRemaining - b.daysRemaining);
+
+    // Staff whose annual leave ends in 5, 10, 15 days
+    const annualLeaveEndingSoon = leaveRequests.filter(req => {
+      if (req.status !== 'approved' || req.type !== 'annual') return false;
+      const endDate = new Date(req.endDate);
+      endDate.setHours(0, 0, 0, 0);
+      const daysUntilEnd = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return daysUntilEnd > 0 && daysUntilEnd <= 15;
+    }).map(req => {
+      const employee = employees.find(emp => emp.id === req.employeeId);
+      const endDate = new Date(req.endDate);
+      endDate.setHours(0, 0, 0, 0);
+      const daysUntilEnd = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        ...req,
+        employeeName: employee?.fullName || 'Unknown',
+        employeeId: employee?.employeeId || req.employeeId,
+        daysUntilEnd
+      };
+    }).sort((a, b) => a.daysUntilEnd - b.daysUntilEnd);
+
+    // Group by days remaining
+    const endingIn5Days = annualLeaveEndingSoon.filter(req => req.daysUntilEnd <= 5);
+    const endingIn10Days = annualLeaveEndingSoon.filter(req => req.daysUntilEnd <= 10 && req.daysUntilEnd > 5);
+    const endingIn15Days = annualLeaveEndingSoon.filter(req => req.daysUntilEnd <= 15 && req.daysUntilEnd > 10);
+
+    // Upcoming leaves (approved leave starting in the future within 30 days)
+    const upcomingLeaves = leaveRequests.filter(req => {
+      if (req.status !== 'approved') return false;
+      const startDate = new Date(req.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      const daysUntilStart = Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return daysUntilStart > 0 && daysUntilStart <= 30;
+    }).map(req => {
+      const employee = employees.find(emp => emp.id === req.employeeId);
+      const startDate = new Date(req.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      const daysUntilStart = Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        ...req,
+        employeeName: employee?.fullName || 'Unknown',
+        employeeId: employee?.employeeId || req.employeeId,
+        daysUntilStart
+      };
+    }).sort((a, b) => a.daysUntilStart - b.daysUntilStart);
+
+    return {
+      staffOnLeave,
+      annualLeaveEndingSoon,
+      endingIn5Days,
+      endingIn10Days,
+      endingIn15Days,
+      upcomingLeaves
+    };
+  }, [leaveRequests, employees]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1638,6 +1717,16 @@ export const Leave = () => {
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
             <div className="flex gap-2">
               <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === 'dashboard'
+                    ? 'bg-indigo-100 text-indigo-800'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                Dashboard
+              </button>
+              <button
                 onClick={() => setActiveTab('pending')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   activeTab === 'pending'
@@ -2348,6 +2437,283 @@ export const Leave = () => {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Dashboard Section */}
+      {activeTab === 'dashboard' && (
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div 
+              className={`cursor-pointer transition-all hover:shadow-md ${dashboardFilter === 'all' ? 'ring-2 ring-blue-500 rounded-lg' : ''}`}
+              onClick={() => setDashboardFilter('all')}
+            >
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-blue-600 font-medium">Staff on Leave</p>
+                      <p className="text-3xl font-bold text-blue-900 mt-2">{dashboardData.staffOnLeave.length}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <Calendar className="w-6 h-6 text-blue-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            <div 
+              className={`cursor-pointer transition-all hover:shadow-md ${dashboardFilter === '5' ? 'ring-2 ring-red-500 rounded-lg' : ''}`}
+              onClick={() => setDashboardFilter('5')}
+            >
+              <Card className="bg-red-50 border-red-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-red-600 font-medium">Ending in 5 Days</p>
+                      <p className="text-3xl font-bold text-red-900 mt-2">{dashboardData.endingIn5Days.length}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                      <span className="text-2xl font-bold text-red-600">5</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            <div 
+              className={`cursor-pointer transition-all hover:shadow-md ${dashboardFilter === '10' ? 'ring-2 ring-orange-500 rounded-lg' : ''}`}
+              onClick={() => setDashboardFilter('10')}
+            >
+              <Card className="bg-orange-50 border-orange-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-orange-600 font-medium">Ending in 10 Days</p>
+                      <p className="text-3xl font-bold text-orange-900 mt-2">{dashboardData.endingIn10Days.length}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                      <span className="text-2xl font-bold text-orange-600">10</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            <div 
+              className={`cursor-pointer transition-all hover:shadow-md ${dashboardFilter === '15' ? 'ring-2 ring-yellow-500 rounded-lg' : ''}`}
+              onClick={() => setDashboardFilter('15')}
+            >
+              <Card className="bg-yellow-50 border-yellow-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-yellow-600 font-medium">Ending in 15 Days</p>
+                      <p className="text-3xl font-bold text-yellow-900 mt-2">{dashboardData.endingIn15Days.length}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                      <span className="text-2xl font-bold text-yellow-600">15</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            <div 
+              className={`cursor-pointer transition-all hover:shadow-md ${dashboardFilter === 'upcoming' ? 'ring-2 ring-purple-500 rounded-lg' : ''}`}
+              onClick={() => setDashboardFilter('upcoming')}
+            >
+              <Card className="bg-purple-50 border-purple-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-purple-600 font-medium">Upcoming Leaves</p>
+                      <p className="text-3xl font-bold text-purple-900 mt-2">{dashboardData.upcomingLeaves.length}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                      <Calendar className="w-6 h-6 text-purple-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Staff Currently on Leave */}
+          <Card>
+            <CardHeader>
+              <h2 className="text-lg font-semibold text-gray-900">Staff Currently on Leave</h2>
+            </CardHeader>
+            <CardContent>
+              {dashboardData.staffOnLeave.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No staff currently on leave</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Employee</th>
+                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Employee ID</th>
+                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Leave Type</th>
+                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Start Date</th>
+                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">End Date</th>
+                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Days Remaining</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {dashboardData.staffOnLeave.map((req) => (
+                        <tr key={req.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-4 whitespace-nowrap font-medium">{req.employeeName}</td>
+                          <td className="px-4 py-4 whitespace-nowrap text-gray-500">{req.employeeId}</td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${typeColors[req.type]}`}>
+                              {typeLabels[req.type]}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-gray-500">{formatDate(new Date(req.startDate))}</td>
+                          <td className="px-4 py-4 whitespace-nowrap text-gray-500">{formatDate(new Date(req.endDate))}</td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                              {req.daysRemaining} days
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Annual Leave Ending Soon */}
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-gray-900">Annual Leave Ending Soon (Within 15 Days)</h2>
+                {dashboardFilter !== 'all' && (
+                  <button 
+                    onClick={() => setDashboardFilter('all')}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                let filteredData = dashboardData.annualLeaveEndingSoon;
+                if (dashboardFilter === '5') {
+                  filteredData = dashboardData.endingIn5Days;
+                } else if (dashboardFilter === '10') {
+                  filteredData = dashboardData.endingIn10Days;
+                } else if (dashboardFilter === '15') {
+                  filteredData = dashboardData.endingIn15Days;
+                }
+                
+                if (filteredData.length === 0) {
+                  return <p className="text-gray-500 text-center py-8">No annual leave ending soon</p>;
+                }
+                
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Employee</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Employee ID</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Start Date</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">End Date</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Days Until End</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {filteredData.map((req) => (
+                          <tr key={req.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-4 whitespace-nowrap font-medium">{req.employeeName}</td>
+                            <td className="px-4 py-4 whitespace-nowrap text-gray-500">{req.employeeId}</td>
+                            <td className="px-4 py-4 whitespace-nowrap text-gray-500">{formatDate(new Date(req.startDate))}</td>
+                            <td className="px-4 py-4 whitespace-nowrap text-gray-500">{formatDate(new Date(req.endDate))}</td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                req.daysUntilEnd <= 5 ? 'bg-red-100 text-red-800' :
+                                req.daysUntilEnd <= 10 ? 'bg-orange-100 text-orange-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {req.daysUntilEnd} days
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                                {req.daysUntilEnd <= 5 ? 'Critical' : req.daysUntilEnd <= 10 ? 'Warning' : 'Soon'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Upcoming Leaves */}
+          {dashboardFilter === 'upcoming' && (
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-semibold text-gray-900">Upcoming Leaves (Within 30 Days)</h2>
+                  <button 
+                    onClick={() => setDashboardFilter('all')}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    Clear Filter
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {dashboardData.upcomingLeaves.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No upcoming leaves</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Employee</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Employee ID</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Leave Type</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Start Date</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">End Date</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Days Until Start</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {dashboardData.upcomingLeaves.map((req) => (
+                          <tr key={req.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-4 whitespace-nowrap font-medium">{req.employeeName}</td>
+                            <td className="px-4 py-4 whitespace-nowrap text-gray-500">{req.employeeId}</td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${typeColors[req.type]}`}>
+                                {typeLabels[req.type]}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-gray-500">{formatDate(new Date(req.startDate))}</td>
+                            <td className="px-4 py-4 whitespace-nowrap text-gray-500">{formatDate(new Date(req.endDate))}</td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">
+                                {req.daysUntilStart} days
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Annual Leave Plan Section */}
