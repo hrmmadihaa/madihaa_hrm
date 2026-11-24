@@ -216,6 +216,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     // Performance - View and review team
     PERMISSIONS.PERFORMANCE_VIEW,
     PERMISSIONS.PERFORMANCE_REVIEW,
+
+    // Accommodation - Full access
+    PERMISSIONS.ACCOMMODATION_VIEW,
+    PERMISSIONS.ACCOMMODATION_MANAGE,
+    PERMISSIONS.ACCOMMODATION_ASSIGN,
   ],
   
   employee: [

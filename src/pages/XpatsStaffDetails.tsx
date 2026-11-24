@@ -25,7 +25,7 @@ import {
   getAllMedicalApplications,
   createMedicalApplication
 } from '../lib/medicalApplications';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { collection, getDocs, query, doc, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { logActivity } from '../lib/activityLog';
 import { formatDate } from '../lib/dateUtils';
@@ -62,7 +62,14 @@ export const XpatsStaffDetails = () => {
     refNumber: '',
     egovLink: ''
   });
-  const [showExpiringOnly, setShowExpiringOnly] = useState(false);
+  const [expiryFilter, setExpiryFilter] = useState<number>(0);
+  const [selectedCandidate, setSelectedCandidate] = useState<any | null>(null);
+  const [showCandidateModal, setShowCandidateModal] = useState(false);
+  const [selectedMedicalApp, setSelectedMedicalApp] = useState<any | null>(null);
+  const [showMedicalApprovalModal, setShowMedicalApprovalModal] = useState(false);
+  const [medicalApprovalData, setMedicalApprovalData] = useState({
+    expiryDate: ''
+  });
 
   // Check if user has edit permissions (supervisor or superadmin)
   const canEdit = () => {
@@ -292,11 +299,6 @@ export const XpatsStaffDetails = () => {
     if (daysRemaining <= 30) return 'Expiring Soon';
     if (daysRemaining <= 60) return 'Warning';
     return 'Valid';
-  };
-
-  const isExpiringWithin3Months = (daysRemaining?: number) => {
-    if (daysRemaining === undefined) return false;
-    return daysRemaining >= 0 && daysRemaining <= 90;
   };
 
   const calculateDaysRemaining = (expiryDate?: Date): number | undefined => {
@@ -572,7 +574,7 @@ export const XpatsStaffDetails = () => {
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <h2 className="text-xl font-bold text-secondary-900">All Expat Staff</h2>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-4 h-4" />
                       <input
@@ -583,6 +585,19 @@ export const XpatsStaffDetails = () => {
                         className="pl-10 pr-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                       />
                     </div>
+                    <select
+                      value={expiryFilter}
+                      onChange={(e) => setExpiryFilter(Number(e.target.value))}
+                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value={0}>No Filter</option>
+                      <option value={15}>15 Days</option>
+                      <option value={30}>30 Days</option>
+                      <option value={45}>45 Days</option>
+                      <option value={60}>60 Days</option>
+                      <option value={90}>90 Days (3 Months)</option>
+                      <option value={180}>180 Days (6 Months)</option>
+                    </select>
                   </div>
                 </div>
               </CardHeader>
@@ -610,6 +625,9 @@ export const XpatsStaffDetails = () => {
                           Work Permit
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                          Work Permit Expiry
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
                           Passport
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
@@ -627,7 +645,13 @@ export const XpatsStaffDetails = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-secondary-200">
-                      {filterEmployees(employees, tabSearchTerm).map((emp) => (
+                      {filterEmployees(employees, tabSearchTerm)
+                        .filter(e => {
+                          if (expiryFilter === 0) return true;
+                          const days = calculateDaysRemaining(e.wpExpDate);
+                          return days !== undefined && days <= expiryFilter;
+                        })
+                        .map((emp) => (
                         <tr key={emp.id} className="hover:bg-secondary-50">
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-900 font-medium">
                             {emp.employeeId}
@@ -646,6 +670,9 @@ export const XpatsStaffDetails = () => {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                             {emp.wpNo || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
+                            {emp.wpExpDate ? formatDate(new Date(emp.wpExpDate)) : 'N/A'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                             {emp.ppIdNumber || 'N/A'}
@@ -713,8 +740,37 @@ export const XpatsStaffDetails = () => {
           >
             <Card>
               <CardHeader>
-                <h2 className="text-xl font-bold text-secondary-900">Ongoing - Recruitment Pipeline</h2>
-                <p className="text-sm text-secondary-600">Candidates with work permit approval in progress</p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-secondary-900">Ongoing - Recruitment Pipeline</h2>
+                    <p className="text-sm text-secondary-600">Candidates with work permit approval in progress</p>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search..."
+                        value={tabSearchTerm}
+                        onChange={(e) => setTabSearchTerm(e.target.value)}
+                        className="pl-10 pr-4 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <select
+                      value={expiryFilter}
+                      onChange={(e) => setExpiryFilter(Number(e.target.value))}
+                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value={0}>No Filter</option>
+                      <option value={15}>15 Days</option>
+                      <option value={30}>30 Days</option>
+                      <option value={45}>45 Days</option>
+                      <option value={60}>60 Days</option>
+                      <option value={90}>90 Days (3 Months)</option>
+                      <option value={180}>180 Days (6 Months)</option>
+                    </select>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -744,6 +800,9 @@ export const XpatsStaffDetails = () => {
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
                           E-Gov Link
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                          Actions
                         </th>
                       </tr>
                     </thead>
@@ -785,6 +844,19 @@ export const XpatsStaffDetails = () => {
                               </a>
                             ) : 'N/A'}
                           </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setSelectedCandidate(candidate);
+                                setShowCandidateModal(true);
+                              }}
+                              className="text-xs text-blue-600"
+                            >
+                              View Details
+                            </Button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -805,23 +877,30 @@ export const XpatsStaffDetails = () => {
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <h2 className="text-xl font-bold text-secondary-900">Work Visa Tracking</h2>
-                  <div className="flex gap-2 items-center">
-                    <label className="flex items-center gap-2 text-sm">
+                  <div className="flex gap-2 flex-wrap">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-4 h-4" />
                       <input
-                        type="checkbox"
-                        checked={showExpiringOnly}
-                        onChange={(e) => setShowExpiringOnly(e.target.checked)}
-                        className="rounded"
+                        type="text"
+                        placeholder="Search..."
+                        value={tabSearchTerm}
+                        onChange={(e) => setTabSearchTerm(e.target.value)}
+                        className="pl-10 pr-4 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       />
-                      Show expiring within 3 months
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Search..."
-                      value={tabSearchTerm}
-                      onChange={(e) => setTabSearchTerm(e.target.value)}
-                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm w-48"
-                    />
+                    </div>
+                    <select
+                      value={expiryFilter}
+                      onChange={(e) => setExpiryFilter(Number(e.target.value))}
+                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value={0}>No Filter</option>
+                      <option value={15}>15 Days</option>
+                      <option value={30}>30 Days</option>
+                      <option value={45}>45 Days</option>
+                      <option value={60}>60 Days</option>
+                      <option value={90}>90 Days (3 Months)</option>
+                      <option value={180}>180 Days (6 Months)</option>
+                    </select>
                   </div>
                 </div>
               </CardHeader>
@@ -840,6 +919,9 @@ export const XpatsStaffDetails = () => {
                           Work Permit No
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                          Work Permit Expiry
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
                           Visa Expiry
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
@@ -852,7 +934,11 @@ export const XpatsStaffDetails = () => {
                     </thead>
                     <tbody className="divide-y divide-secondary-200">
                       {filterEmployees(employees.filter(e => e.status === 'active'), tabSearchTerm)
-                        .filter(e => !showExpiringOnly || isExpiringWithin3Months(calculateDaysRemaining(e.visaExpiryDate)))
+                        .filter(e => {
+                          if (expiryFilter === 0) return true;
+                          const days = calculateDaysRemaining(e.wpExpDate);
+                          return days !== undefined && days <= expiryFilter;
+                        })
                         .map((emp) => {
                           const daysRemaining = calculateDaysRemaining(emp.visaExpiryDate);
                           return (
@@ -865,6 +951,9 @@ export const XpatsStaffDetails = () => {
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                                 {emp.wpNo || 'N/A'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
+                                {emp.wpExpDate ? formatDate(new Date(emp.wpExpDate)) : 'N/A'}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                                 {emp.visaExpiryDate ? formatDate(new Date(emp.visaExpiryDate)) : 'N/A'}
@@ -896,7 +985,34 @@ export const XpatsStaffDetails = () => {
           >
             <Card>
               <CardHeader>
-                <h2 className="text-xl font-bold text-secondary-900">Medical Applications</h2>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <h2 className="text-xl font-bold text-secondary-900">Medical Applications</h2>
+                  <div className="flex gap-2 flex-wrap">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search..."
+                        value={tabSearchTerm}
+                        onChange={(e) => setTabSearchTerm(e.target.value)}
+                        className="pl-10 pr-4 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <select
+                      value={expiryFilter}
+                      onChange={(e) => setExpiryFilter(Number(e.target.value))}
+                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value={0}>No Filter</option>
+                      <option value={15}>15 Days</option>
+                      <option value={30}>30 Days</option>
+                      <option value={45}>45 Days</option>
+                      <option value={60}>60 Days</option>
+                      <option value={90}>90 Days (3 Months)</option>
+                      <option value={180}>180 Days (6 Months)</option>
+                    </select>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -923,6 +1039,9 @@ export const XpatsStaffDetails = () => {
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
                           E-Gov Link
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                          Actions
                         </th>
                       </tr>
                     </thead>
@@ -967,6 +1086,26 @@ export const XpatsStaffDetails = () => {
                               </a>
                             ) : 'N/A'}
                           </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {(app.status === 'submitted' || app.status === 'under_review') && canEdit() && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                setSelectedMedicalApp(app);
+                                setShowMedicalApprovalModal(true);
+                              }}
+                                className="text-xs text-green-600"
+                              >
+                                Approve
+                              </Button>
+                            )}
+                            {app.status === 'approved' && (
+                              <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-700">
+                                Approved
+                              </span>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -979,23 +1118,30 @@ export const XpatsStaffDetails = () => {
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <h2 className="text-xl font-bold text-secondary-900">Medical Tracking</h2>
-                  <div className="flex gap-2 items-center">
-                    <label className="flex items-center gap-2 text-sm">
+                  <div className="flex gap-2 flex-wrap">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-4 h-4" />
                       <input
-                        type="checkbox"
-                        checked={showExpiringOnly}
-                        onChange={(e) => setShowExpiringOnly(e.target.checked)}
-                        className="rounded"
+                        type="text"
+                        placeholder="Search..."
+                        value={tabSearchTerm}
+                        onChange={(e) => setTabSearchTerm(e.target.value)}
+                        className="pl-10 pr-4 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       />
-                      Show expiring within 3 months
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Search..."
-                      value={tabSearchTerm}
-                      onChange={(e) => setTabSearchTerm(e.target.value)}
-                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm w-48"
-                    />
+                    </div>
+                    <select
+                      value={expiryFilter}
+                      onChange={(e) => setExpiryFilter(Number(e.target.value))}
+                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value={0}>No Filter</option>
+                      <option value={15}>15 Days</option>
+                      <option value={30}>30 Days</option>
+                      <option value={45}>45 Days</option>
+                      <option value={60}>60 Days</option>
+                      <option value={90}>90 Days (3 Months)</option>
+                      <option value={180}>180 Days (6 Months)</option>
+                    </select>
                   </div>
                 </div>
               </CardHeader>
@@ -1009,6 +1155,12 @@ export const XpatsStaffDetails = () => {
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
                           Company
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                          Work Permit No
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                          Work Permit Expiry
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
                           Medical Date
@@ -1029,7 +1181,11 @@ export const XpatsStaffDetails = () => {
                     </thead>
                     <tbody className="divide-y divide-secondary-200">
                       {filterEmployees(employees.filter(e => e.status === 'active'), tabSearchTerm)
-                        .filter(e => !showExpiringOnly || isExpiringWithin3Months(calculateDaysRemaining(e.medExpDate)))
+                        .filter(e => {
+                          if (expiryFilter === 0) return true;
+                          const days = calculateDaysRemaining(e.medExpDate);
+                          return days !== undefined && days <= expiryFilter;
+                        })
                         .map((emp) => {
                           const daysRemaining = calculateDaysRemaining(emp.medExpDate);
                           return (
@@ -1039,6 +1195,12 @@ export const XpatsStaffDetails = () => {
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                                 {emp.department || 'N/A'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
+                                {emp.wpNo || 'N/A'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
+                                {emp.wpExpDate ? formatDate(new Date(emp.wpExpDate)) : 'N/A'}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                                 {emp.joinDate ? formatDate(new Date(emp.joinDate)) : 'N/A'}
@@ -1055,14 +1217,21 @@ export const XpatsStaffDetails = () => {
                                 </span>
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap">
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => handleMedicalApply(emp as any)}
-                                  className="text-xs"
-                                >
-                                  Apply Medical
-                                </Button>
+                                {!medicalApplications.some(app => app.staffName === emp.fullName) && (
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => handleMedicalApply(emp as any)}
+                                    className="text-xs"
+                                  >
+                                    Apply Medical
+                                  </Button>
+                                )}
+                                {medicalApplications.some(app => app.staffName === emp.fullName) && (
+                                  <span className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-700">
+                                    Applied
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           );
@@ -1085,23 +1254,30 @@ export const XpatsStaffDetails = () => {
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <h2 className="text-xl font-bold text-secondary-900">Insurance Tracking</h2>
-                  <div className="flex gap-2 items-center">
-                    <label className="flex items-center gap-2 text-sm">
+                  <div className="flex gap-2 flex-wrap">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-4 h-4" />
                       <input
-                        type="checkbox"
-                        checked={showExpiringOnly}
-                        onChange={(e) => setShowExpiringOnly(e.target.checked)}
-                        className="rounded"
+                        type="text"
+                        placeholder="Search..."
+                        value={tabSearchTerm}
+                        onChange={(e) => setTabSearchTerm(e.target.value)}
+                        className="pl-10 pr-4 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       />
-                      Show expiring within 3 months
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Search..."
-                      value={tabSearchTerm}
-                      onChange={(e) => setTabSearchTerm(e.target.value)}
-                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm w-48"
-                    />
+                    </div>
+                    <select
+                      value={expiryFilter}
+                      onChange={(e) => setExpiryFilter(Number(e.target.value))}
+                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value={0}>No Filter</option>
+                      <option value={15}>15 Days</option>
+                      <option value={30}>30 Days</option>
+                      <option value={45}>45 Days</option>
+                      <option value={60}>60 Days</option>
+                      <option value={90}>90 Days (3 Months)</option>
+                      <option value={180}>180 Days (6 Months)</option>
+                    </select>
                   </div>
                 </div>
               </CardHeader>
@@ -1115,6 +1291,12 @@ export const XpatsStaffDetails = () => {
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
                           Company
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                          Work Permit No
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                          Work Permit Expiry
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
                           Provider
@@ -1135,7 +1317,11 @@ export const XpatsStaffDetails = () => {
                     </thead>
                     <tbody className="divide-y divide-secondary-200">
                       {filterEmployees(employees.filter(e => e.status === 'active'), tabSearchTerm)
-                        .filter(e => !showExpiringOnly || isExpiringWithin3Months(calculateDaysRemaining(e.insuranceExpDate)))
+                        .filter(e => {
+                          if (expiryFilter === 0) return true;
+                          const days = calculateDaysRemaining(e.insuranceExpDate);
+                          return days !== undefined && days <= expiryFilter;
+                        })
                         .map((emp) => {
                           const daysRemaining = calculateDaysRemaining(emp.insuranceExpDate);
                           return (
@@ -1145,6 +1331,12 @@ export const XpatsStaffDetails = () => {
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                                 {emp.department || 'N/A'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
+                                {emp.wpNo || 'N/A'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
+                                {emp.wpExpDate ? formatDate(new Date(emp.wpExpDate)) : 'N/A'}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                                 'N/A'
@@ -1184,13 +1376,31 @@ export const XpatsStaffDetails = () => {
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <h2 className="text-xl font-bold text-secondary-900">Deposit Tracking</h2>
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    value={tabSearchTerm}
-                    onChange={(e) => setTabSearchTerm(e.target.value)}
-                    className="px-3 py-2 border border-secondary-300 rounded-lg text-sm w-48"
-                  />
+                  <div className="flex gap-2 flex-wrap">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search..."
+                        value={tabSearchTerm}
+                        onChange={(e) => setTabSearchTerm(e.target.value)}
+                        className="pl-10 pr-4 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <select
+                      value={expiryFilter}
+                      onChange={(e) => setExpiryFilter(Number(e.target.value))}
+                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value={0}>No Filter</option>
+                      <option value={15}>15 Days</option>
+                      <option value={30}>30 Days</option>
+                      <option value={45}>45 Days</option>
+                      <option value={60}>60 Days</option>
+                      <option value={90}>90 Days (3 Months)</option>
+                      <option value={180}>180 Days (6 Months)</option>
+                    </select>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1203,6 +1413,12 @@ export const XpatsStaffDetails = () => {
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
                           Company
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                          Work Permit No
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                          Work Permit Expiry
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
                           Deposit Amount
@@ -1219,13 +1435,25 @@ export const XpatsStaffDetails = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-secondary-200">
-                      {filterEmployees(employees, tabSearchTerm).map((emp) => (
+                      {filterEmployees(employees, tabSearchTerm)
+                        .filter(e => {
+                          if (expiryFilter === 0) return true;
+                          const days = calculateDaysRemaining(e.wpExpDate);
+                          return days !== undefined && days <= expiryFilter;
+                        })
+                        .map((emp) => (
                         <tr key={emp.id} className="hover:bg-secondary-50">
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-900 font-medium">
                             {emp.fullName}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                             {emp.department || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
+                            {emp.wpNo || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
+                            {emp.wpExpDate ? formatDate(new Date(emp.wpExpDate)) : 'N/A'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                             N/A
@@ -1261,13 +1489,31 @@ export const XpatsStaffDetails = () => {
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <h2 className="text-xl font-bold text-secondary-900">Left Staffs</h2>
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    value={tabSearchTerm}
-                    onChange={(e) => setTabSearchTerm(e.target.value)}
-                    className="px-3 py-2 border border-secondary-300 rounded-lg text-sm w-48"
-                  />
+                  <div className="flex gap-2 flex-wrap">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search..."
+                        value={tabSearchTerm}
+                        onChange={(e) => setTabSearchTerm(e.target.value)}
+                        className="pl-10 pr-4 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <select
+                      value={expiryFilter}
+                      onChange={(e) => setExpiryFilter(Number(e.target.value))}
+                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value={0}>No Filter</option>
+                      <option value={15}>15 Days</option>
+                      <option value={30}>30 Days</option>
+                      <option value={45}>45 Days</option>
+                      <option value={60}>60 Days</option>
+                      <option value={90}>90 Days (3 Months)</option>
+                      <option value={180}>180 Days (6 Months)</option>
+                    </select>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1280,6 +1526,9 @@ export const XpatsStaffDetails = () => {
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
                           Work Permit No
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
+                          Work Permit Expiry
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">
                           Reason
@@ -1302,13 +1551,22 @@ export const XpatsStaffDetails = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-secondary-200">
-                      {filterEmployees(employees.filter(e => e.status === 'resigned' || e.status === 'terminated'), tabSearchTerm).map((emp) => (
+                      {filterEmployees(employees.filter(e => e.status === 'resigned' || e.status === 'terminated'), tabSearchTerm)
+                        .filter(e => {
+                          if (expiryFilter === 0) return true;
+                          const days = calculateDaysRemaining(e.wpExpDate);
+                          return days !== undefined && days <= expiryFilter;
+                        })
+                        .map((emp) => (
                         <tr key={emp.id} className="hover:bg-secondary-50">
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-900 font-medium">
                             {emp.fullName}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                             {emp.wpNo || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
+                            {emp.wpExpDate ? formatDate(new Date(emp.wpExpDate)) : 'N/A'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-600">
                             {emp.status === 'resigned' ? 'Resigned' : 'Terminated'}
@@ -1373,13 +1631,31 @@ export const XpatsStaffDetails = () => {
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <h2 className="text-xl font-bold text-secondary-900">Expiry Center</h2>
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    value={tabSearchTerm}
-                    onChange={(e) => setTabSearchTerm(e.target.value)}
-                    className="px-3 py-2 border border-secondary-300 rounded-lg text-sm w-48"
-                  />
+                  <div className="flex gap-2 flex-wrap">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search..."
+                        value={tabSearchTerm}
+                        onChange={(e) => setTabSearchTerm(e.target.value)}
+                        className="pl-10 pr-4 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <select
+                      value={expiryFilter}
+                      onChange={(e) => setExpiryFilter(Number(e.target.value))}
+                      className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value={0}>No Filter</option>
+                      <option value={15}>15 Days</option>
+                      <option value={30}>30 Days</option>
+                      <option value={45}>45 Days</option>
+                      <option value={60}>60 Days</option>
+                      <option value={90}>90 Days (3 Months)</option>
+                      <option value={180}>180 Days (6 Months)</option>
+                    </select>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1417,7 +1693,10 @@ export const XpatsStaffDetails = () => {
                         { type: 'Work Permit', number: emp.wpNo, expiry: emp.wpExpDate, days: calculateDaysRemaining(emp.wpExpDate) },
                         { type: 'Medical', number: '-', expiry: emp.medExpDate, days: calculateDaysRemaining(emp.medExpDate) },
                         { type: 'Insurance', number: emp.insuranceNumber, expiry: emp.insuranceExpDate, days: calculateDaysRemaining(emp.insuranceExpDate) },
-                      ]).filter(doc => doc.days !== undefined && doc.days <= 60).sort((a, b) => (a.days || 0) - (b.days || 0)).map((doc, idx) => (
+                      ]).filter(doc => {
+                        if (expiryFilter === 0) return doc.days !== undefined;
+                        return doc.days !== undefined && doc.days <= expiryFilter;
+                      }).sort((a, b) => (a.days || 0) - (b.days || 0)).map((doc, idx) => (
                         <tr key={`${doc.type}-${idx}`} className="hover:bg-secondary-50">
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-secondary-900 font-medium">
                             {employees.find(e => e.ppIdNumber === doc.number || e.wpNo === doc.number)?.fullName || 'N/A'}
@@ -1643,6 +1922,214 @@ export const XpatsStaffDetails = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Medical Approval Modal */}
+      {showMedicalApprovalModal && selectedMedicalApp && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">Approve Medical Application</h2>
+              <button onClick={() => { setShowMedicalApprovalModal(false); setSelectedMedicalApp(null); }}>
+                ✕
+              </button>
+            </div>
+            <div className="mb-4">
+              <p className="text-sm text-secondary-600">
+                Approving medical for: <span className="font-medium text-secondary-900">{selectedMedicalApp.staffName}</span>
+              </p>
+              <p className="text-sm text-secondary-600">
+                Reference Number: <span className="font-medium text-secondary-900">{selectedMedicalApp.refNumber}</span>
+              </p>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                console.log('Selected medical app ID:', selectedMedicalApp.id);
+                console.log('Selected medical app:', selectedMedicalApp);
+                
+                // Reload medical applications to get fresh data
+                const freshMedicalApps = await getAllMedicalApplications();
+                console.log('Fresh medical apps count:', freshMedicalApps.length);
+                const freshApp = freshMedicalApps.find(app => app.id === selectedMedicalApp.id);
+                console.log('Found fresh app:', freshApp);
+                
+                if (!freshApp) {
+                  console.error('Medical application not found in fresh data. ID:', selectedMedicalApp.id);
+                  alert('Medical application no longer exists. It may have been deleted.');
+                  setShowMedicalApprovalModal(false);
+                  setSelectedMedicalApp(null);
+                  setMedicalApprovalData({ expiryDate: '' });
+                  loadData();
+                  return;
+                }
+
+                // Update medical application status to approved
+                const medicalAppRef = doc(db, 'medicalApplications', selectedMedicalApp.id);
+                console.log('Updating document at path:', medicalAppRef.path);
+                
+                // Check if document exists before updating
+                const docSnapshot = await getDoc(medicalAppRef);
+                console.log('Document exists:', docSnapshot.exists());
+                console.log('Document data:', docSnapshot.data());
+                
+                if (!docSnapshot.exists()) {
+                  console.error('Document does not exist in Firestore, using setDoc instead');
+                  // Filter out undefined values before creating document
+                  const cleanData = Object.fromEntries(
+                    Object.entries(freshApp).filter(([_, v]) => v !== undefined && v !== null)
+                  );
+                  await setDoc(medicalAppRef, {
+                    ...cleanData,
+                    status: 'approved',
+                    lastSubmittedDate: new Date().toISOString()
+                  });
+                  console.log('Created document with approved status');
+                } else {
+                  await updateDoc(medicalAppRef, {
+                    status: 'approved',
+                    lastSubmittedDate: new Date().toISOString()
+                  });
+                  console.log('Updated document to approved status');
+                }
+
+                // Find the employee by staff name and update their medical expiry date
+                const employee = employees.find(emp => emp.fullName === selectedMedicalApp.staffName);
+                console.log('Found employee:', employee ? employee.fullName : 'Not found');
+                if (employee && medicalApprovalData.expiryDate) {
+                  try {
+                    // Use updateEmployee function from lib
+                    await updateEmployee(employee.id, {
+                      medExpDate: new Date(medicalApprovalData.expiryDate)
+                    });
+                    await logActivity('updated', 'employee', employee.id, `Updated medical expiry date for ${employee.fullName}`);
+                    console.log('Successfully updated employee medical expiry date');
+                  } catch (error) {
+                    console.error('Error updating employee:', error);
+                    alert('Failed to update employee medical expiry date. Medical application was approved but employee record could not be updated.');
+                  }
+                }
+
+                alert('Medical application approved and expiry date updated successfully');
+                setShowMedicalApprovalModal(false);
+                setSelectedMedicalApp(null);
+                setMedicalApprovalData({ expiryDate: '' });
+                
+                // Reload medical applications specifically to update the UI
+                const updatedMedicalApps = await getAllMedicalApplications();
+                setMedicalApplications(updatedMedicalApps);
+                console.log('Reloaded medical applications:', updatedMedicalApps.length);
+                console.log('Updated app status:', updatedMedicalApps.find(app => app.id === selectedMedicalApp.id)?.status);
+                
+                // Also reload all data to ensure consistency
+                loadData();
+              } catch (error) {
+                console.error('Error approving medical application:', error);
+                alert('Failed to approve medical application. Please refresh the page and try again.');
+              }
+            }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Medical Expiry Date *</label>
+                  <input
+                    type="date"
+                    value={medicalApprovalData.expiryDate}
+                    onChange={(e) => setMedicalApprovalData({ ...medicalApprovalData, expiryDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <Button type="button" variant="secondary" onClick={() => { setShowMedicalApprovalModal(false); setSelectedMedicalApp(null); }}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                  Approve & Update Date
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Candidate Details Modal */}
+      {showCandidateModal && selectedCandidate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">Candidate Details</h2>
+              <button onClick={() => { setShowCandidateModal(false); setSelectedCandidate(null); }}>
+                ✕
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <p className="text-sm text-secondary-900">{selectedCandidate.Name || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
+                  <p className="text-sm text-secondary-900">{selectedCandidate['EMP ID'] || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                  <p className="text-sm text-secondary-900">{selectedCandidate.POSITION || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Stage</label>
+                  <p className="text-sm text-secondary-900">{selectedCandidate.stage?.replace(/_/g, ' ').toUpperCase() || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Expat Reference Number</label>
+                  <p className="text-sm text-secondary-900">{selectedCandidate.expat_reference_number || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Slot Number</label>
+                  <p className="text-sm text-secondary-900">{selectedCandidate.slot_number || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Submitted Date</label>
+                  <p className="text-sm text-secondary-900">{selectedCandidate.submitted_date || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">E-Gov Link</label>
+                  {selectedCandidate.egov_link ? (
+                    <a
+                      href={selectedCandidate.egov_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-800 underline"
+                    >
+                      {selectedCandidate.egov_link}
+                    </a>
+                  ) : (
+                    <p className="text-sm text-secondary-900">N/A</p>
+                  )}
+                </div>
+              </div>
+              {/* Display all other candidate fields */}
+              {Object.entries(selectedCandidate).filter(([key]) => 
+                !['id', 'Name', 'EMP ID', 'POSITION', 'stage', 'expat_reference_number', 'slot_number', 'submitted_date', 'egov_link'].includes(key)
+              ).map(([key, value]) => (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </label>
+                  <p className="text-sm text-secondary-900">
+                    {value !== null && value !== undefined ? String(value) : 'N/A'}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <Button variant="secondary" onClick={() => { setShowCandidateModal(false); setSelectedCandidate(null); }}>
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}
