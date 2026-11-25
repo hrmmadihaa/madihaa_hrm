@@ -1314,3 +1314,65 @@ export interface ExpatDashboardStats {
   insuranceExpiring: number;
   pendingDeposits: number;
 }
+
+// Task Management Types
+export type TaskType = 'medical' | 'document' | 'training' | 'meeting' | 'report' | 'other';
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  type: TaskType;
+  status: TaskStatus;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  assignedTo: string; // Employee ID
+  assignedToName: string;
+  assignedToEmail: string;
+  assignedBy: string; // Employee ID of assigner
+  assignedByName: string;
+  assignedByEmail: string;
+  dueDate?: Date;
+  completedAt?: Date;
+  attachments?: TaskAttachment[];
+  links?: TaskLink[];
+  comments?: TaskComment[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TaskAttachment {
+  id: string;
+  name: string;
+  url: string;
+  uploadedAt: Date;
+  uploadedBy: string;
+}
+
+export interface TaskLink {
+  id: string;
+  title: string;
+  url: string;
+  addedAt: Date;
+  addedBy: string;
+}
+
+export interface TaskComment {
+  id: string;
+  text: string;
+  authorId: string;
+  authorName: string;
+  createdAt: Date;
+}
+
+export interface TaskNotification {
+  id: string;
+  userId: string; // Employee ID
+  taskId: string;
+  taskTitle: string;
+  type: 'task_assigned' | 'task_updated' | 'task_completed' | 'task_cancelled';
+  message: string;
+  read: boolean;
+  dismissed: boolean;
+  createdAt: Date;
+}

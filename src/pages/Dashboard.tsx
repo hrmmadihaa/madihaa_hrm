@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Clock, TrendingUp, AlertCircle, Briefcase, Building2, X, Calendar, Cake, Award, FileText, AlertTriangle } from 'lucide-react';
+import { Users, Clock, TrendingUp, AlertCircle, Briefcase, Building2, X, Calendar, Cake, Award, FileText, AlertTriangle, Plus } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { TaskAssignment } from '../components/TaskAssignment';
 import { getEmployees } from '../lib/employees';
 import { getLeaveRequests } from '../lib/leave';
 import { getAttendanceStats } from '../lib/attendance';
@@ -22,6 +23,7 @@ export const Dashboard = () => {
   const [todayLeaveRequests, setTodayLeaveRequests] = useState<any[]>([]);
   const [workLocations, setWorkLocations] = useState<any[]>([]);
   const [expandedDocSections, setExpandedDocSections] = useState<Record<string, boolean>>({});
+  const [showTaskAssignment, setShowTaskAssignment] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -356,11 +358,17 @@ export const Dashboard = () => {
             <p className="text-secondary-600 mt-1">Welcome back! Here's what's happening today.</p>
           </div>
         </div>
-        <div className="text-right sm:text-left">
-          <p className="text-sm text-secondary-600">Today's Date</p>
-          <p className="text-lg sm:text-xl font-semibold text-secondary-900">
-            {formatDate(new Date())}
-          </p>
+        <div className="flex items-center gap-3">
+          <Button onClick={() => setShowTaskAssignment(true)} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Assign Task
+          </Button>
+          <div className="text-right sm:text-left">
+            <p className="text-sm text-secondary-600">Today's Date</p>
+            <p className="text-lg sm:text-xl font-semibold text-secondary-900">
+              {formatDate(new Date())}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -903,6 +911,15 @@ export const Dashboard = () => {
           </Card>
         </div>
       )}
+
+      {/* Task Assignment Modal */}
+      <TaskAssignment
+        isOpen={showTaskAssignment}
+        onClose={() => setShowTaskAssignment(false)}
+        onTaskCreated={() => {
+          // Refresh tasks if needed
+        }}
+      />
     </div>
   );
 };

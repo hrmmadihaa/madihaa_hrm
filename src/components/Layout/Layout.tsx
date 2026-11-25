@@ -4,13 +4,15 @@ import {
   Menu, X, User, LogOut, Settings,
   LayoutDashboard, Users, Calendar, CalendarCheck,
   DollarSign, Clock, BarChart, FileText, GraduationCap,
-  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle, Fuel, Wallet, Mail, Globe, Minus, Stethoscope, BookOpen
+  Trophy, RefreshCw, UserCog, Building2, MapPin, Network, CalendarDays, Gift, AlertTriangle, Fuel, Wallet, Mail, Globe, Minus, Stethoscope, BookOpen, CheckSquare
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import madihaaLogo from '/Madihaa 2026 (1).png';
 import { ActivityNotifications } from '../ActivityNotifications';
+import { NotificationBell } from '../NotificationBell';
+import { NotificationBanner } from '../NotificationBanner';
 
 export const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -19,6 +21,7 @@ export const Layout: React.FC = () => {
   // Simplified navigation for employee role
   const employeeNavigation = [
     { name: 'My Profile', href: '/staff-dashboard', icon: User },
+    { name: 'My Tasks', href: '/my-tasks', icon: CheckSquare },
     { name: 'My Attendance', href: '/staff-attendance', icon: Calendar },
     { name: 'My Leaves', href: '/leave', icon: CalendarCheck },
     { name: 'My Overtime', href: '/overtime', icon: Clock },
@@ -30,6 +33,7 @@ export const Layout: React.FC = () => {
   // Full navigation for admin/manager roles
   const adminNavigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'My Tasks', href: '/my-tasks', icon: CheckSquare },
     { name: 'Employees', href: '/employees', icon: Users },
     { name: 'Xpats Staff', href: '/xpats-staff', icon: Globe },
     { name: 'Attendance', href: '/attendance', icon: Calendar },
@@ -62,6 +66,9 @@ export const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-secondary-50">
+      {/* Notification Banner */}
+      <NotificationBanner />
+      
       {/* Mobile sidebar backdrop */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -240,6 +247,7 @@ export const Layout: React.FC = () => {
             </button>
 
             <div className="flex items-center space-x-4">
+              <NotificationBell />
               <ActivityNotifications />
               <button className="p-2 text-secondary-600 hover:text-secondary-900">
                 <Settings className="w-6 h-6" />
