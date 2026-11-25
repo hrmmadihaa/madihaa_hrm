@@ -3,12 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   CheckCircle, Clock, AlertCircle, FileText, Link, 
   MessageSquare, X, Calendar, User,
-  Search, ExternalLink
+  Search, ExternalLink, Edit, Trash2
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { useAuth } from '../contexts/AuthContext';
-import { getTasksByAssignee, updateTask, addTaskAttachment, addTaskLink, addTaskComment, getTaskAttachments, getTaskLinks, getTaskComments } from '../lib/tasks';
+import { getTasksByAssignee, getTasksByAssigner, updateTask, deleteTask, createTaskNotification, addTaskAttachment, addTaskLink, addTaskComment, getTaskAttachments, getTaskLinks, getTaskComments } from '../lib/tasks';
 import type { Task, TaskStatus, TaskType, TaskAttachment, TaskLink, TaskComment } from '../types';
 import { formatDate } from '../lib/dateUtils';
 
@@ -63,19 +63,53 @@ export const MyTasks = () => {
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [links, setLinks] = useState<TaskLink[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editPriority, setEditPriority] = useState('');
 
   useEffect(() => {
     loadTasks();
   }, [user?.employeeId, user?.id]);
 
   const loadTasks = async () => {
-    // Use employeeId if available, otherwise use user ID
-    const userId = user?.employeeId || user?.id;
-    if (!userId) return;
+    // Try both employeeId and user ID
+    const employeeId = user?.employeeId;
+    const userId = user?.id;
+    console.log('Loading tasks for employeeId:', employeeId, 'user.id:', userId);
+    
+    if (!employeeId && !userId) return;
+    
     try {
       setLoading(true);
-      const data = await getTasksByAssignee(userId);
-      setTasks(data);
+      
+      // Try to load tasks for both employeeId and user.id (assigned to me)
+      const tasksPromises = [];
+      if (employeeId) {
+        tasksPromises.push(getTasksByAssignee(employeeId));
+      }
+      if (userId && userId !== employeeId) {
+        tasksPromises.push(getTasksByAssignee(userId));
+      }
+      
+      // Also load tasks I created (assigned by me)
+      if (employeeId) {
+        tasksPromises.push(getTasksByAssigner(employeeId));
+      }
+      if (userId && userId !== employeeId) {
+        tasksPromises.push(getTasksByAssigner(userId));
+      }
+      
+      const results = await Promise.all(tasksPromises);
+      const allTasks = results.flat();
+      
+      // Remove duplicates by task ID
+      const uniqueTasks = allTasks.filter((task, index, self) =>
+        index === self.findIndex(t => t.id === task.id)
+      );
+      
+      console.log('Tasks loaded:', uniqueTasks.length, uniqueTasks);
+      setTasks(uniqueTasks);
     } catch (error) {
       console.error('Error loading tasks:', error);
     } finally {
@@ -170,6 +204,62 @@ export const MyTasks = () => {
       alert('Error uploading file');
     } finally {
       setUploadingFile(false);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm('Are you sure you want to delete this task?')) return;
+    
+    try {
+      await deleteTask(taskId);
+      await loadTasks();
+      setShowTaskDetail(false);
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      alert('Error deleting task');
+    }
+  };
+
+  const handleEditTask = async () => {
+    if (!selectedTask) return;
+    
+    try {
+      await updateTask(selectedTask.id, {
+        title: editTitle,
+        description: editDescription,
+        priority: editPriority as any
+      });
+      await loadTasks();
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error updating task:', error);
+      alert('Error updating task');
+    }
+  };
+
+  const startEditing = () => {
+    if (!selectedTask) return;
+    setEditTitle(selectedTask.title);
+    setEditDescription(selectedTask.description);
+    setEditPriority(selectedTask.priority);
+    setIsEditing(true);
+  };
+
+  const handleResendNotification = async () => {
+    if (!selectedTask) return;
+    
+    try {
+      await createTaskNotification({
+        userId: selectedTask.assignedTo,
+        taskId: selectedTask.id,
+        taskTitle: selectedTask.title,
+        type: 'task_assigned',
+        message: `Reminder: You have been assigned a task: ${selectedTask.title}`
+      });
+      alert('Notification resent successfully');
+    } catch (error) {
+      console.error('Error resending notification:', error);
+      alert('Error resending notification');
     }
   };
 
@@ -325,16 +415,41 @@ export const MyTasks = () => {
                     <span className={`px-3 py-1 text-xs font-medium rounded-full border ${statusColors[task.status]}`}>
                       {statusLabels[task.status]}
                     </span>
-                    <Button
-                      onClick={() => {
-                        loadTaskDetails(task);
-                        setShowTaskDetail(true);
-                      }}
-                      variant="secondary"
-                      size="sm"
-                    >
-                      View Details
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => {
+                          loadTaskDetails(task);
+                          setShowTaskDetail(true);
+                        }}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        View Details
+                      </Button>
+                      {(task.assignedBy === user?.employeeId || task.assignedBy === user?.id) && (
+                        <>
+                          <Button
+                            onClick={() => {
+                              loadTaskDetails(task);
+                              startEditing();
+                              setShowTaskDetail(true);
+                            }}
+                            variant="secondary"
+                            size="sm"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => handleDeleteTask(task.id)}
+                            variant="secondary"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -362,16 +477,86 @@ export const MyTasks = () => {
             >
               <div className="sticky top-0 bg-white border-b border-secondary-200 p-4 flex items-center justify-between">
                 <h2 className="text-xl font-bold text-secondary-900">{selectedTask.title}</h2>
-                <Button
-                  onClick={() => setShowTaskDetail(false)}
-                  variant="ghost"
-                  size="sm"
-                >
-                  <X className="w-5 h-5" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  {(selectedTask.assignedBy === user?.employeeId || selectedTask.assignedBy === user?.id) && !isEditing && (
+                    <Button
+                      onClick={startEditing}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                  )}
+                  {(selectedTask.assignedBy === user?.employeeId || selectedTask.assignedBy === user?.id) && (
+                    <Button
+                      onClick={() => handleDeleteTask(selectedTask.id)}
+                      variant="secondary"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => {
+                      setShowTaskDetail(false);
+                      setIsEditing(false);
+                    }}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
               </div>
 
               <div className="p-6 space-y-6">
+                {/* Edit Mode */}
+                {isEditing && selectedTask && (
+                  <div className="space-y-4 p-4 bg-secondary-50 rounded-lg">
+                    <h3 className="text-lg font-semibold text-secondary-900">Edit Task</h3>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-1">Title</label>
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-1">Description</label>
+                      <textarea
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-1">Priority</label>
+                      <select
+                        value={editPriority}
+                        onChange={(e) => setEditPriority(e.target.value)}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="urgent">Urgent</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={handleEditTask} className="flex-1">
+                        Save Changes
+                      </Button>
+                      <Button onClick={() => setIsEditing(false)} variant="secondary" className="flex-1">
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Task Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -388,9 +573,14 @@ export const MyTasks = () => {
                     </select>
                   </div>
                   <div className="flex items-end">
-                    <Button onClick={handleStatusUpdate} className="w-full">
+                    <Button onClick={handleStatusUpdate} className="flex-1">
                       Update Status
                     </Button>
+                    {(selectedTask.assignedBy === user?.employeeId || selectedTask.assignedBy === user?.id) && (
+                      <Button onClick={handleResendNotification} variant="secondary" className="ml-2">
+                        Resend Notification
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -399,6 +589,21 @@ export const MyTasks = () => {
                   <p className="text-sm text-secondary-600 bg-secondary-50 p-3 rounded-lg">
                     {selectedTask.description}
                   </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-secondary-700 mb-1">Assigned To</label>
+                    <p className="text-sm text-secondary-600 bg-secondary-50 p-3 rounded-lg">
+                      {selectedTask.assignedToName}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-secondary-700 mb-1">Assigned By</label>
+                    <p className="text-sm text-secondary-600 bg-secondary-50 p-3 rounded-lg">
+                      {selectedTask.assignedByName}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Attachments */}

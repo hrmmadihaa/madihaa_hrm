@@ -1318,6 +1318,7 @@ export interface ExpatDashboardStats {
 // Task Management Types
 export type TaskType = 'medical' | 'document' | 'training' | 'meeting' | 'report' | 'other';
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+export type RecurrenceType = 'none' | 'daily' | 'weekly';
 
 export interface Task {
   id: string;
@@ -1337,6 +1338,8 @@ export interface Task {
   attachments?: TaskAttachment[];
   links?: TaskLink[];
   comments?: TaskComment[];
+  recurrenceType?: RecurrenceType;
+  recurrenceDays?: number[]; // 0-6 for Sunday-Saturday
   createdAt: Date;
   updatedAt: Date;
 }

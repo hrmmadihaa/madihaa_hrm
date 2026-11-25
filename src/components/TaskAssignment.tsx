@@ -5,9 +5,11 @@ import { Button } from './ui/Button';
 import { CardHeader, CardContent } from './ui/Card';
 import { createTask, createTaskNotification, addTaskComment } from '../lib/tasks';
 import { listUsers } from '../lib/auth';
+import { getEmployees } from '../lib/employees';
 import { useAuth } from '../contexts/AuthContext';
 import type { TaskType } from '../types';
 import type { User } from '../types';
+import type { Employee } from '../types';
 
 interface TaskAssignmentProps {
   isOpen: boolean;
@@ -35,6 +37,7 @@ const priorityOptions = [
 export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = 'other' }: TaskAssignmentProps) => {
   const { user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [assignSearchTerm, setAssignSearchTerm] = useState('');
@@ -47,23 +50,29 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
     priority: 'medium',
     assignedTo: [] as string[],
     referencedUsers: [] as string[],
-    dueDate: ''
+    dueDate: '',
+    recurrenceType: 'none' as 'none' | 'daily' | 'weekly',
+    recurrenceDays: [] as number[]
   });
 
   useEffect(() => {
     if (isOpen) {
       loadUsers();
-      setFormData(prev => ({ ...prev, type: defaultType }));
+      setFormData(prev => ({ ...prev, type: defaultType, recurrenceType: 'none', recurrenceDays: [] }));
     }
   }, [isOpen, defaultType]);
 
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const data = await listUsers();
-      setUsers(data);
+      const [usersData, employeesData] = await Promise.all([
+        listUsers(),
+        getEmployees()
+      ]);
+      setUsers(usersData);
+      setEmployees(employeesData);
     } catch (error) {
-      console.error('Error loading users:', error);
+      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -88,20 +97,26 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
       
       // Create a task for each assigned user
       for (const assignedUser of assignedUsers) {
+        const assignedToValue = assignedUser.employeeId || assignedUser.id;
+        console.log('Creating task for user:', assignedUser.displayName, 'assignedTo:', assignedToValue);
+        
         const taskId = await createTask({
           title: formData.title,
           description: formData.description,
           type: formData.type,
           status: 'pending',
           priority: formData.priority as any,
-          assignedTo: assignedUser.employeeId || assignedUser.id,
+          assignedTo: assignedToValue,
           assignedToName: assignedUser.displayName || assignedUser.email || 'Unknown',
           assignedToEmail: assignedUser.email,
           assignedBy: user?.employeeId || user?.id || '',
           assignedByName: user?.displayName || user?.email || 'Unknown',
           assignedByEmail: user?.email || '',
-          dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined
+          dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
+          recurrenceType: formData.recurrenceType,
+          recurrenceDays: formData.recurrenceDays
         });
+        console.log('Task created with ID:', taskId);
 
         // Create notification for the assigned user
         await createTaskNotification({
@@ -114,9 +129,9 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
 
         // Add a comment mentioning the referenced staff
         if (formData.referencedUsers.length > 0) {
-          const referencedNames = users
-            .filter(u => formData.referencedUsers.includes(u.id))
-            .map(u => u.displayName || u.email)
+          const referencedNames = employees
+            .filter(emp => formData.referencedUsers.includes(emp.id))
+            .map(emp => emp.fullName)
             .join(', ');
           
           await addTaskComment(taskId, {
@@ -136,7 +151,9 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
         priority: 'medium',
         assignedTo: [] as string[],
         referencedUsers: [] as string[],
-        dueDate: ''
+        dueDate: '',
+        recurrenceType: 'none',
+        recurrenceDays: []
       });
 
       onClose();
@@ -215,42 +232,42 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
                 <p className="text-xs text-secondary-500 mb-2">Select staff members mentioned in the task description (e.g., Nabina)</p>
                 <input
                   type="text"
-                  placeholder="Search users..."
+                  placeholder="Search employees..."
                   value={referenceSearchTerm}
                   onChange={(e) => setReferenceSearchTerm(e.target.value)}
                   className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 mb-2"
                 />
                 {loading ? (
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
-                ) : users.length === 0 ? (
+                ) : employees.length === 0 ? (
                   <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <p className="text-sm text-yellow-800">
-                      No users found.
+                      No employees found.
                     </p>
                   </div>
                 ) : (
                   <div className="border border-secondary-300 rounded-lg p-3 max-h-32 overflow-y-auto">
-                    {users
-                      .filter(u => 
-                        (u.displayName?.toLowerCase().includes(referenceSearchTerm.toLowerCase()) || 
-                         u.email?.toLowerCase().includes(referenceSearchTerm.toLowerCase()))
+                    {employees
+                      .filter(emp => 
+                        (emp.fullName?.toLowerCase().includes(referenceSearchTerm.toLowerCase()) || 
+                         emp.employeeId?.toLowerCase().includes(referenceSearchTerm.toLowerCase()))
                       )
-                      .map((u) => (
-                      <label key={u.id} className="flex items-center gap-2 p-2 hover:bg-secondary-50 rounded cursor-pointer">
+                      .map((emp) => (
+                      <label key={emp.id} className="flex items-center gap-2 p-2 hover:bg-secondary-50 rounded cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={formData.referencedUsers.includes(u.id)}
+                          checked={formData.referencedUsers.includes(emp.id)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setFormData({ ...formData, referencedUsers: [...formData.referencedUsers, u.id] });
+                              setFormData({ ...formData, referencedUsers: [...formData.referencedUsers, emp.id] });
                             } else {
-                              setFormData({ ...formData, referencedUsers: formData.referencedUsers.filter(id => id !== u.id) });
+                              setFormData({ ...formData, referencedUsers: formData.referencedUsers.filter(id => id !== emp.id) });
                             }
                           }}
                           className="w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
                         />
                         <span className="text-sm text-secondary-900">
-                          {u.displayName || u.email} ({u.role.toUpperCase()})
+                          {emp.fullName} ({emp.employeeId}) - {emp.workLocation || emp.department}
                         </span>
                       </label>
                     ))}
@@ -377,6 +394,53 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
                   className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
+
+              {/* Recurrence */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Recurrence
+                </label>
+                <select
+                  value={formData.recurrenceType}
+                  onChange={(e) => setFormData({ ...formData, recurrenceType: e.target.value as 'none' | 'daily' | 'weekly', recurrenceDays: [] })}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="none">No Recurrence</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+
+              {/* Weekly Days Selection */}
+              {formData.recurrenceType === 'weekly' && (
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">
+                    Select Days
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => {
+                          if (formData.recurrenceDays.includes(index)) {
+                            setFormData({ ...formData, recurrenceDays: formData.recurrenceDays.filter(d => d !== index) });
+                          } else {
+                            setFormData({ ...formData, recurrenceDays: [...formData.recurrenceDays, index] });
+                          }
+                        }}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          formData.recurrenceDays.includes(index)
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                        }`}
+                      >
+                        {day}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex gap-3 pt-4">

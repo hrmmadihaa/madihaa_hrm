@@ -42,46 +42,94 @@ export const getTask = async (taskId: string): Promise<Task | null> => {
   } as Task;
 };
 
-export const getTasksByAssignee = async (employeeId: string): Promise<Task[]> => {
-  const q = query(
-    collection(db, 'tasks'),
-    where('assignedTo', '==', employeeId),
-    orderBy('createdAt', 'desc')
-  );
-  
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      ...data,
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date(),
-      dueDate: data.dueDate?.toDate(),
-      completedAt: data.completedAt?.toDate()
-    } as Task;
-  });
+export const getTasksByAssignee = async (userId: string): Promise<Task[]> => {
+  // Try querying by employeeId first
+  try {
+    const q = query(
+      collection(db, 'tasks'),
+      where('assignedTo', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+        dueDate: data.dueDate?.toDate(),
+        completedAt: data.completedAt?.toDate()
+      } as Task;
+    });
+  } catch (error) {
+    // If index error, try without orderBy
+    const q = query(
+      collection(db, 'tasks'),
+      where('assignedTo', '==', userId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const tasks = querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+        dueDate: data.dueDate?.toDate(),
+        completedAt: data.completedAt?.toDate()
+      } as Task;
+    });
+    // Sort manually
+    return tasks.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
 };
 
-export const getTasksByAssigner = async (employeeId: string): Promise<Task[]> => {
-  const q = query(
-    collection(db, 'tasks'),
-    where('assignedBy', '==', employeeId),
-    orderBy('createdAt', 'desc')
-  );
-  
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      ...data,
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date(),
-      dueDate: data.dueDate?.toDate(),
-      completedAt: data.completedAt?.toDate()
-    } as Task;
-  });
+export const getTasksByAssigner = async (userId: string): Promise<Task[]> => {
+  // Try querying by employeeId first
+  try {
+    const q = query(
+      collection(db, 'tasks'),
+      where('assignedBy', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+        dueDate: data.dueDate?.toDate(),
+        completedAt: data.completedAt?.toDate()
+      } as Task;
+    });
+  } catch (error) {
+    // If index error, try without orderBy
+    const q = query(
+      collection(db, 'tasks'),
+      where('assignedBy', '==', userId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const tasks = querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+        dueDate: data.dueDate?.toDate(),
+        completedAt: data.completedAt?.toDate()
+      } as Task;
+    });
+    // Sort manually
+    return tasks.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
 };
 
 export const getAllTasks = async (): Promise<Task[]> => {
