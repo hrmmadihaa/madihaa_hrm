@@ -56,6 +56,7 @@ export const MyTasks = () => {
   // Task update states
   const [newStatus, setNewStatus] = useState<TaskStatus>('pending');
   const [newComment, setNewComment] = useState('');
+  const [newProgressStage, setNewProgressStage] = useState('');
   const [newLinkTitle, setNewLinkTitle] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -126,6 +127,7 @@ export const MyTasks = () => {
         getTaskLinks(task.id),
         getTaskComments(task.id)
       ]);
+      console.log('Loaded comments:', commentsData);
       setAttachments(attachmentsData);
       setLinks(linksData);
       setComments(commentsData);
@@ -140,10 +142,11 @@ export const MyTasks = () => {
     try {
       await updateTask(selectedTask.id, { 
         status: newStatus,
-        completedAt: newStatus === 'completed' ? new Date() : undefined
+        ...(newStatus === 'completed' && { completedAt: new Date() })
       });
       await loadTasks();
       await loadTaskDetails(selectedTask);
+      setShowTaskDetail(false);
     } catch (error) {
       console.error('Error updating task status:', error);
       alert('Error updating task status');
@@ -151,15 +154,17 @@ export const MyTasks = () => {
   };
 
   const handleAddComment = async () => {
-    if (!selectedTask || !newComment.trim() || !user?.employeeId) return;
+    if (!selectedTask || !newComment.trim() || !user?.employeeId && !user?.id) return;
     try {
       await addTaskComment(selectedTask.id, {
         text: newComment,
-        authorId: user.employeeId,
+        authorId: user.employeeId || user.id,
         authorName: user.displayName || user.email || 'Unknown',
+        progressStage: newProgressStage || undefined,
         createdAt: new Date()
       });
       setNewComment('');
+      setNewProgressStage('');
       await loadTaskDetails(selectedTask);
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -284,6 +289,17 @@ export const MyTasks = () => {
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
 
+  // Calculate today's progress
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayTasks = tasks.filter(t => {
+    const taskDate = t.dueDate ? new Date(t.dueDate) : null;
+    taskDate?.setHours(0, 0, 0, 0);
+    return taskDate && taskDate.getTime() === today.getTime();
+  });
+  const todayCompleted = todayTasks.filter(t => t.status === 'completed').length;
+  const todayProgress = todayTasks.length > 0 ? Math.round((todayCompleted / todayTasks.length) * 100) : 0;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -338,6 +354,25 @@ export const MyTasks = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Today's Progress */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-secondary-700">Today's Progress</p>
+            <p className="text-sm font-bold text-secondary-900">{todayProgress}%</p>
+          </div>
+          <div className="w-full bg-secondary-200 rounded-full h-3">
+            <div
+              className="bg-primary-600 h-3 rounded-full transition-all duration-300"
+              style={{ width: `${todayProgress}%` }}
+            ></div>
+          </div>
+          <p className="text-xs text-secondary-500 mt-2">
+            {todayCompleted} of {todayTasks.length} tasks completed today
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Card>
@@ -713,7 +748,14 @@ export const MyTasks = () => {
                     {comments.map((comment) => (
                       <div key={comment.id} className="p-3 bg-secondary-50 rounded-lg">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-secondary-900">{comment.authorName}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-secondary-900">{comment.authorName}</span>
+                            {comment.progressStage && (
+                              <span className="px-2 py-0.5 text-xs font-medium bg-primary-100 text-primary-700 rounded-full">
+                                {comment.progressStage}
+                              </span>
+                            )}
+                          </div>
                           <span className="text-xs text-secondary-500">
                             {formatDate(comment.createdAt)}
                           </span>
@@ -721,18 +763,27 @@ export const MyTasks = () => {
                         <p className="text-sm text-secondary-600">{comment.text}</p>
                       </div>
                     ))}
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2">
                       <input
                         type="text"
-                        placeholder="Add a comment..."
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
-                        className="flex-1 px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                        placeholder="Progress stage (e.g., Stage 1, Review, etc.)"
+                        value={newProgressStage}
+                        onChange={(e) => setNewProgressStage(e.target.value)}
+                        className="px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
                       />
-                      <Button onClick={handleAddComment} size="sm">
-                        <MessageSquare className="w-4 h-4" />
-                      </Button>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Add a comment..."
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
+                          className="flex-1 px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                        />
+                        <Button onClick={handleAddComment} size="sm">
+                          <MessageSquare className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

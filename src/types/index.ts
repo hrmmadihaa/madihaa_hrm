@@ -1366,6 +1366,7 @@ export interface TaskComment {
   text: string;
   authorId: string;
   authorName: string;
+  progressStage?: string; // Optional progress stage (e.g., "Stage 1", "Stage 2", "Review", etc.)
   createdAt: Date;
 }
 
