@@ -54,6 +54,7 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
     dueTime: '',
     recurrenceType: 'none' as 'none' | 'daily' | 'weekly' | 'monthly',
     recurrenceDays: [] as number[],
+    recurrenceDates: [] as number[], // For monthly recurrence (e.g., 14, 15, 30)
     recurrenceDuration: 30, // Number of days/months to create ahead
     isCustomDuration: false
   });
@@ -61,7 +62,7 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
   useEffect(() => {
     if (isOpen) {
       loadUsers();
-      setFormData(prev => ({ ...prev, type: defaultType, recurrenceType: 'none', recurrenceDays: [], dueTime: '', recurrenceDuration: 30, isCustomDuration: false }));
+      setFormData(prev => ({ ...prev, type: defaultType, recurrenceType: 'none', recurrenceDays: [], recurrenceDates: [], dueTime: '', recurrenceDuration: 30, isCustomDuration: false }));
     }
   }, [isOpen, defaultType]);
 
@@ -136,16 +137,16 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
           dueDates.push(date);
         });
       } else if (formData.recurrenceType === 'monthly' && formData.dueDate) {
-        // Create N monthly tasks on specific dates (15th and 30th)
+        // Create N monthly tasks on selected dates
         const baseDate = new Date(formData.dueDate);
-        const monthlyDates = [15, 30]; // Fixed dates for monthly recurrence
+        const monthlyDates = formData.recurrenceDates.length > 0 ? formData.recurrenceDates : [15, 30]; // Default to 15th and 30th if none selected
         
         for (let i = 0; i < formData.recurrenceDuration; i++) {
           monthlyDates.forEach(dayOfMonth => {
             const date = new Date(baseDate);
             date.setMonth(date.getMonth() + i);
             date.setDate(dayOfMonth);
-            // Handle months with less than 30 days (e.g., February)
+            // Handle months with less than the selected day (e.g., February 30th)
             if (date.getDate() !== dayOfMonth) {
               date.setDate(new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate());
             }
@@ -228,6 +229,7 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
         dueTime: '',
         recurrenceType: 'none',
         recurrenceDays: [],
+        recurrenceDates: [],
         recurrenceDuration: 30,
         isCustomDuration: false
       });
@@ -583,6 +585,47 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
                   {formData.recurrenceType === 'daily' && formData.recurrenceDays.length > 0 && (
                     <p className="text-xs text-secondary-500 mt-1">
                       Tasks will only be created on selected days
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Monthly Date Selection */}
+              {formData.recurrenceType === 'monthly' && (
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">
+                    Select Dates (leave empty for 15th & 30th)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((date) => (
+                      <button
+                        key={date}
+                        type="button"
+                        onClick={() => {
+                          if (formData.recurrenceDates.includes(date)) {
+                            setFormData({ ...formData, recurrenceDates: formData.recurrenceDates.filter(d => d !== date) });
+                          } else {
+                            setFormData({ ...formData, recurrenceDates: [...formData.recurrenceDates, date] });
+                          }
+                        }}
+                        className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                          formData.recurrenceDates.includes(date)
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                        }`}
+                      >
+                        {date}
+                      </button>
+                    ))}
+                  </div>
+                  {formData.recurrenceDates.length > 0 && (
+                    <p className="text-xs text-secondary-500 mt-1">
+                      Tasks will be created on: {formData.recurrenceDates.sort((a, b) => a - b).join(', ')}th of each month
+                    </p>
+                  )}
+                  {formData.recurrenceDates.length === 0 && (
+                    <p className="text-xs text-secondary-500 mt-1">
+                      Default: 15th and 30th of each month
                     </p>
                   )}
                 </div>
