@@ -50,6 +50,7 @@ export const MyTasks = () => {
   const [showTaskDetail, setShowTaskDetail] = useState(false);
   const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all');
   const [filterType, setFilterType] = useState<TaskType | 'all'>('all');
+  const [filterToday, setFilterToday] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Task update states
@@ -269,7 +270,14 @@ export const MyTasks = () => {
     const matchesSearch = searchTerm === '' || 
       task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       task.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesType && matchesSearch;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const taskDate = task.dueDate ? new Date(task.dueDate) : null;
+    taskDate?.setHours(0, 0, 0, 0);
+    const matchesToday = !filterToday || (taskDate && taskDate.getTime() === today.getTime());
+    
+    return matchesStatus && matchesType && matchesSearch && matchesToday;
   });
 
   const pendingTasks = tasks.filter(t => t.status === 'pending').length;
@@ -371,6 +379,15 @@ export const MyTasks = () => {
               <option value="report">Report</option>
               <option value="other">Other</option>
             </select>
+            <label className="flex items-center gap-2 px-4 py-2 border border-secondary-300 rounded-lg cursor-pointer hover:bg-secondary-50">
+              <input
+                type="checkbox"
+                checked={filterToday}
+                onChange={(e) => setFilterToday(e.target.checked)}
+                className="w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+              />
+              <span className="text-sm text-secondary-700">Today Only</span>
+            </label>
           </div>
         </CardContent>
       </Card>
@@ -406,7 +423,7 @@ export const MyTasks = () => {
                       {task.dueDate && (
                         <span className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
-                          Due: {formatDate(task.dueDate)}
+                          Due: {formatDate(task.dueDate)}{task.dueTime && ` ${task.dueTime}`}
                         </span>
                       )}
                     </div>

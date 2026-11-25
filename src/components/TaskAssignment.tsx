@@ -51,14 +51,17 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
     assignedTo: [] as string[],
     referencedUsers: [] as string[],
     dueDate: '',
-    recurrenceType: 'none' as 'none' | 'daily' | 'weekly',
-    recurrenceDays: [] as number[]
+    dueTime: '',
+    recurrenceType: 'none' as 'none' | 'daily' | 'weekly' | 'monthly',
+    recurrenceDays: [] as number[],
+    recurrenceDuration: 30, // Number of days/months to create ahead
+    isCustomDuration: false
   });
 
   useEffect(() => {
     if (isOpen) {
       loadUsers();
-      setFormData(prev => ({ ...prev, type: defaultType, recurrenceType: 'none', recurrenceDays: [] }));
+      setFormData(prev => ({ ...prev, type: defaultType, recurrenceType: 'none', recurrenceDays: [], dueTime: '', recurrenceDuration: 30, isCustomDuration: false }));
     }
   }, [isOpen, defaultType]);
 
@@ -95,52 +98,122 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
     try {
       setSubmitting(true);
       
-      // Create a task for each assigned user
-      for (const assignedUser of assignedUsers) {
-        const assignedToValue = assignedUser.employeeId || assignedUser.id;
-        console.log('Creating task for user:', assignedUser.displayName, 'assignedTo:', assignedToValue);
+      // Calculate due dates for recurrence
+      let dueDates: Date[] = [];
+      if (formData.recurrenceType === 'daily' && formData.dueDate) {
+        // Create N daily tasks (or specific days if selected)
+        const baseDate = new Date(formData.dueDate);
         
-        const taskId = await createTask({
-          title: formData.title,
-          description: formData.description,
-          type: formData.type,
-          status: 'pending',
-          priority: formData.priority as any,
-          assignedTo: assignedToValue,
-          assignedToName: assignedUser.displayName || assignedUser.email || 'Unknown',
-          assignedToEmail: assignedUser.email,
-          assignedBy: user?.employeeId || user?.id || '',
-          assignedByName: user?.displayName || user?.email || 'Unknown',
-          assignedByEmail: user?.email || '',
-          dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
-          recurrenceType: formData.recurrenceType,
-          recurrenceDays: formData.recurrenceDays
+        if (formData.recurrenceDays.length > 0) {
+          // Only create tasks on selected days
+          for (let i = 0; i < formData.recurrenceDuration; i++) {
+            const date = new Date(baseDate);
+            date.setDate(date.getDate() + i);
+            
+            // Check if this date matches any selected day
+            if (formData.recurrenceDays.includes(date.getDay())) {
+              dueDates.push(date);
+            }
+          }
+        } else {
+          // Create tasks for all days
+          for (let i = 0; i < formData.recurrenceDuration; i++) {
+            const date = new Date(baseDate);
+            date.setDate(date.getDate() + i);
+            dueDates.push(date);
+          }
+        }
+      } else if (formData.recurrenceType === 'weekly' && formData.recurrenceDays.length > 0 && formData.dueDate) {
+        // Create tasks for selected days (current week only)
+        const baseDate = new Date(formData.dueDate);
+        const currentDay = baseDate.getDay();
+        
+        formData.recurrenceDays.forEach(day => {
+          const date = new Date(baseDate);
+          const diff = day - currentDay;
+          const daysToAdd = diff >= 0 ? diff : 7 + diff;
+          date.setDate(date.getDate() + daysToAdd);
+          dueDates.push(date);
         });
-        console.log('Task created with ID:', taskId);
-
-        // Create notification for the assigned user
-        await createTaskNotification({
-          userId: assignedUser.employeeId || assignedUser.id,
-          taskId,
-          taskTitle: formData.title,
-          type: 'task_assigned',
-          message: `You have been assigned a new task: ${formData.title}`
-        });
-
-        // Add a comment mentioning the referenced staff
-        if (formData.referencedUsers.length > 0) {
-          const referencedNames = employees
-            .filter(emp => formData.referencedUsers.includes(emp.id))
-            .map(emp => emp.fullName)
-            .join(', ');
-          
-          await addTaskComment(taskId, {
-            text: `Referenced staff: ${referencedNames}`,
-            authorId: user?.id || '',
-            authorName: user?.displayName || user?.email || 'System',
-            createdAt: new Date()
+      } else if (formData.recurrenceType === 'monthly' && formData.dueDate) {
+        // Create N monthly tasks on specific dates (15th and 30th)
+        const baseDate = new Date(formData.dueDate);
+        const monthlyDates = [15, 30]; // Fixed dates for monthly recurrence
+        
+        for (let i = 0; i < formData.recurrenceDuration; i++) {
+          monthlyDates.forEach(dayOfMonth => {
+            const date = new Date(baseDate);
+            date.setMonth(date.getMonth() + i);
+            date.setDate(dayOfMonth);
+            // Handle months with less than 30 days (e.g., February)
+            if (date.getDate() !== dayOfMonth) {
+              date.setDate(new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate());
+            }
+            dueDates.push(date);
           });
         }
+      } else if (formData.dueDate) {
+        dueDates.push(new Date(formData.dueDate));
+      }
+
+      // If no due dates, use today
+      if (dueDates.length === 0) {
+        dueDates.push(new Date());
+      }
+
+      // Create tasks for each due date and each assigned user
+      let firstTaskId = '';
+      for (const assignedUser of assignedUsers) {
+        for (const dueDate of dueDates) {
+          const assignedToValue = assignedUser.employeeId || assignedUser.id;
+          console.log('Creating task for user:', assignedUser.displayName, 'assignedTo:', assignedToValue, 'dueDate:', dueDate);
+          
+          const taskId = await createTask({
+            title: formData.title,
+            description: formData.description,
+            type: formData.type,
+            status: 'pending',
+            priority: formData.priority as any,
+            assignedTo: assignedToValue,
+            assignedToName: assignedUser.displayName || assignedUser.email || 'Unknown',
+            assignedToEmail: assignedUser.email,
+            assignedBy: user?.employeeId || user?.id || '',
+            assignedByName: user?.displayName || user?.email || 'Unknown',
+            assignedByEmail: user?.email || '',
+            dueDate: dueDate,
+            ...(formData.dueTime && { dueTime: formData.dueTime }),
+            recurrenceType: 'none', // Individual tasks don't have recurrence
+            recurrenceDays: []
+          });
+          console.log('Task created with ID:', taskId);
+
+          // Store first task ID for comment
+          if (!firstTaskId) firstTaskId = taskId;
+
+          // Create notification for the assigned user
+          await createTaskNotification({
+            userId: assignedUser.employeeId || assignedUser.id,
+            taskId,
+            taskTitle: formData.title,
+            type: 'task_assigned',
+            message: `You have been assigned a new task: ${formData.title}`
+          });
+        }
+      }
+
+      // Add a comment mentioning the referenced staff (only on first task)
+      if (formData.referencedUsers.length > 0 && firstTaskId) {
+        const referencedNames = employees
+          .filter(emp => formData.referencedUsers.includes(emp.id))
+          .map(emp => emp.fullName)
+          .join(', ');
+        
+        await addTaskComment(firstTaskId, {
+          text: `Referenced staff: ${referencedNames}`,
+          authorId: user?.id || '',
+          authorName: user?.displayName || user?.email || 'System',
+          createdAt: new Date()
+        });
       }
 
       // Reset form
@@ -152,8 +225,11 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
         assignedTo: [] as string[],
         referencedUsers: [] as string[],
         dueDate: '',
+        dueTime: '',
         recurrenceType: 'none',
-        recurrenceDays: []
+        recurrenceDays: [],
+        recurrenceDuration: 30,
+        isCustomDuration: false
       });
 
       onClose();
@@ -395,6 +471,19 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
                 />
               </div>
 
+              {/* Due Time */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Due Time
+                </label>
+                <input
+                  type="time"
+                  value={formData.dueTime}
+                  onChange={(e) => setFormData({ ...formData, dueTime: e.target.value })}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
               {/* Recurrence */}
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-1">
@@ -402,20 +491,72 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
                 </label>
                 <select
                   value={formData.recurrenceType}
-                  onChange={(e) => setFormData({ ...formData, recurrenceType: e.target.value as 'none' | 'daily' | 'weekly', recurrenceDays: [] })}
+                  onChange={(e) => setFormData({ ...formData, recurrenceType: e.target.value as 'none' | 'daily' | 'weekly' | 'monthly', recurrenceDays: [] })}
                   className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   <option value="none">No Recurrence</option>
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly (15th & 30th)</option>
                 </select>
               </div>
 
-              {/* Weekly Days Selection */}
-              {formData.recurrenceType === 'weekly' && (
+              {/* Recurrence Duration */}
+              {(formData.recurrenceType === 'daily' || formData.recurrenceType === 'monthly') && (
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-1">
-                    Select Days
+                    Duration ({formData.recurrenceType === 'daily' ? 'days' : 'months'})
+                  </label>
+                  <select
+                    value={formData.isCustomDuration ? 'custom' : formData.recurrenceDuration}
+                    onChange={(e) => {
+                      if (e.target.value === 'custom') {
+                        setFormData({ ...formData, isCustomDuration: true });
+                      } else {
+                        setFormData({ ...formData, recurrenceDuration: parseInt(e.target.value), isCustomDuration: false });
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="30">30 {formData.recurrenceType === 'daily' ? 'days' : 'months'}</option>
+                    <option value="90">90 {formData.recurrenceType === 'daily' ? 'days' : 'months'}</option>
+                    <option value="180">180 {formData.recurrenceType === 'daily' ? 'days' : 'months'}</option>
+                    <option value="365">1 Year (365 days)</option>
+                    <option value="custom">Custom...</option>
+                  </select>
+                  {formData.recurrenceDuration === 365 && !formData.isCustomDuration && (
+                    <p className="text-xs text-secondary-500 mt-1">
+                      Creates tasks for the entire year
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Custom Duration Input */}
+              {(formData.recurrenceType === 'daily' || formData.recurrenceType === 'monthly') && formData.isCustomDuration && (
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">
+                    Custom Duration
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={formData.recurrenceDuration}
+                    onChange={(e) => setFormData({ ...formData, recurrenceDuration: parseInt(e.target.value) || 30 })}
+                    className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <p className="text-xs text-secondary-500 mt-1">
+                    Number of {formData.recurrenceType === 'daily' ? 'days' : 'months'} to create tasks ahead
+                  </p>
+                </div>
+              )}
+
+              {/* Weekly Days Selection */}
+              {(formData.recurrenceType === 'weekly' || formData.recurrenceType === 'daily') && (
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">
+                    {formData.recurrenceType === 'daily' ? 'Select Days (leave empty for all days)' : 'Select Days'}
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
@@ -439,6 +580,11 @@ export const TaskAssignment = ({ isOpen, onClose, onTaskCreated, defaultType = '
                       </button>
                     ))}
                   </div>
+                  {formData.recurrenceType === 'daily' && formData.recurrenceDays.length > 0 && (
+                    <p className="text-xs text-secondary-500 mt-1">
+                      Tasks will only be created on selected days
+                    </p>
+                  )}
                 </div>
               )}
 

@@ -1334,6 +1334,7 @@ export interface Task {
   assignedByName: string;
   assignedByEmail: string;
   dueDate?: Date;
+  dueTime?: string; // HH:MM format
   completedAt?: Date;
   attachments?: TaskAttachment[];
   links?: TaskLink[];
