@@ -71,6 +71,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clear filter button to reset filters
 - All calculations are real-time based on current date
 
+#### Task Management
+- Added comprehensive task management system for assigning and tracking employee tasks
+- Task creation with title, description, type, priority, due date, and due time
+- Support for recurring tasks with multiple patterns:
+  - Daily recurrence with optional day selection (e.g., only Mondays)
+  - Weekly recurrence with specific day selection
+  - Monthly recurrence with custom date selection (1-31)
+  - Duration options for pre-creating tasks (30, 90, 180, 365 days/months, or custom)
+- Task assignment to multiple employees with notification system
+- Task detail view showing assigned to, assigned by, due date/time, status
+- Task status update with automatic modal closure
+- Edit and delete functionality for task creators
+- Comment system with progress stage tracking (e.g., "Stage 1", "Review")
+- Attachments and links support for tasks
+- Resend notification feature for task creators
+- Today's progress bar showing completion percentage
+- Filter by status, type, and "Today Only" for tasks due today
+- Fixed supervisor comment button to work without employeeId
+- Fixed task status update to handle undefined completedAt field
+
 ### Changed
 
 - Salary page now defaults to showing all employees with custom ordering support

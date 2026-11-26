@@ -25,8 +25,20 @@ service cloud.firestore {
       return hasRole('department_manager') || isHRManager();
     }
 
+    function isGeneralManager() {
+      return hasRole('general_manager') || isSuperAdmin();
+    }
+
+    function isOperationsManager() {
+      return hasRole('operations_manager') || isSuperAdmin();
+    }
+
+    function isITOfficer() {
+      return hasRole('it_officer') || isSuperAdmin();
+    }
+
     function isSupervisor() {
-      return hasRole('supervisor') || isDepartmentManager() || request.auth.token.email == 'leela@madihaahrms.com';
+      return hasRole('supervisor') || isDepartmentManager() || request.auth.token.email == 'leela@madihaahrms.com' || request.auth.token.email == 'anitha@madihaahrms.com';
     }
 
     function isOwner(userId) {
@@ -276,7 +288,9 @@ service cloud.firestore {
                     resource.data.assignedBy == request.auth.token.employeeId ||
                     resource.data.assignedBy == request.auth.uid ||
                     isSuperAdmin() || isHRManager() || isSupervisor());
-      allow create: if isAuthenticated() && (isSuperAdmin() || isHRManager() || isSupervisor());
+      allow create: if isAuthenticated() && (isSuperAdmin() || isHRManager() || isSupervisor() || 
+                      (request.resource.data.assignedTo == request.auth.token.employeeId) ||
+                      (request.resource.data.assignedTo == request.auth.uid));
       allow update: if isAuthenticated() && 
                     (resource.data.assignedTo == request.auth.token.employeeId || 
                      resource.data.assignedTo == request.auth.uid ||
@@ -319,6 +333,36 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow delete: if isSuperAdmin() || isHRManager();
+    }
+
+    // IT Requests collection
+    match /itRequests/{requestId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && 
+                    (isGeneralManager() || isOperationsManager() || isITOfficer() || 
+                     isEmployeeOwner(resource.data.requestedBy));
+      allow delete: if isSuperAdmin() || isHRManager();
+    }
+
+    // IT Assets collection
+    match /itAssets/{assetId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isITOfficer() || isSuperAdmin() || isHRManager();
+    }
+
+    // IT Access collection
+    match /itAccess/{accessId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isITOfficer() || isSuperAdmin() || isHRManager();
+      allow delete: if isITOfficer() || isSuperAdmin();
+    }
+
+    // IT Audit Logs collection
+    match /itAuditLogs/{logId} {
+      allow read: if isITOfficer() || isSuperAdmin() || isHRManager() || isGeneralManager() || isOperationsManager();
+      allow create: if isAuthenticated();
+      allow update, delete: if isSuperAdmin();
     }
   }
 }

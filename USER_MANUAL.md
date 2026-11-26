@@ -5,27 +5,28 @@
 1. [Introduction](#introduction)
 2. [Getting Started](#getting-started)
 3. [Dashboard](#dashboard)
-4. [Employee Management](#employee-management)
-5. [Attendance Management](#attendance-management)
-6. [Leave Management](#leave-management)
-7. [Salary Management](#salary-management)
-8. [Payroll](#payroll)
-9. [Overtime Management](#overtime-management)
-10. [Accommodation Management](#accommodation-management)
-11. [Recruitment](#recruitment)
-12. [Recruitment Pipeline](#recruitment-pipeline)
-13. [Training](#training)
-14. [Performance Management](#performance-management)
-15. [Disciplinary Management](#disciplinary-management)
-16. [Staff Disciplinary](#staff-disciplinary)
-17. [Ticketing](#ticketing)
-18. [Fleet Management](#fleet-management)
-19. [Petrol Requests](#petrol-requests)
-20. [Work Location Management](#work-location-management)
-21. [Organization Chart](#organization-chart)
-22. [Medical Management](#medical-management)
-23. [Medical Requisitions](#medical-requisitions)
-24. [Medical History](#medical-history)
+4. [Task Management](#task-management)
+5. [Employee Management](#employee-management)
+6. [Attendance Management](#attendance-management)
+7. [Leave Management](#leave-management)
+8. [Salary Management](#salary-management)
+9. [Payroll](#payroll)
+10. [Overtime Management](#overtime-management)
+11. [Accommodation Management](#accommodation-management)
+12. [Recruitment](#recruitment)
+13. [Recruitment Pipeline](#recruitment-pipeline)
+14. [Training](#training)
+15. [Performance Management](#performance-management)
+16. [Disciplinary Management](#disciplinary-management)
+17. [Staff Disciplinary](#staff-disciplinary)
+18. [Ticketing](#ticketing)
+19. [Fleet Management](#fleet-management)
+20. [Petrol Requests](#petrol-requests)
+21. [Work Location Management](#work-location-management)
+22. [Organization Chart](#organization-chart)
+23. [Medical Management](#medical-management)
+24. [Medical Requisitions](#medical-requisitions)
+25. [Medical History](#medical-history)
 25. [Digital Personnel Files](#digital-personnel-files)
 26. [Bonus Management](#bonus-management)
 27. [Deductions](#deductions)
@@ -190,6 +191,135 @@ The Staff Dashboard is available for employees to view their personal informatio
 - Leave balance
 - Recent payslips
 - Upcoming schedules
+
+---
+
+## Task Management
+
+### Overview
+
+The Task Management module allows HR managers, supervisors, and super admins to assign, track, and manage tasks for employees. It supports recurring tasks with customizable schedules and progress tracking.
+
+### Viewing Tasks
+
+1. Navigate to My Tasks page
+2. View task statistics:
+   - Pending tasks count
+   - In Progress tasks count
+   - Completed tasks count
+   - Today's progress bar with percentage
+3. Use filters to narrow down tasks:
+   - Filter by status (All, Pending, In Progress, Completed, Cancelled)
+   - Filter by type (Medical, Document, Training, Meeting, Report, Other)
+   - Filter by "Today Only" to show tasks due today
+   - Search by task title or description
+
+### Creating Tasks
+
+1. Navigate to Dashboard
+2. Click "Assign Task" button
+3. Fill in task details:
+   - Title
+   - Description
+   - Type (Medical, Document, Training, Meeting, Report, Other)
+   - Priority (Low, Medium, High, Urgent)
+   - Assign to (select one or multiple employees)
+   - Due Date
+   - Due Time (optional, in HH:MM format)
+4. Set recurrence options:
+   - **No Recurrence**: One-time task
+   - **Daily**: Creates tasks daily
+     - Optional: Select specific days (e.g., only Mondays)
+     - Duration: Number of days to create ahead (30, 90, 180, 365, or custom)
+   - **Weekly**: Creates tasks for selected days
+     - Select days of the week (Sun, Mon, Tue, Wed, Thu, Fri, Sat)
+   - **Monthly**: Creates tasks on specific dates
+     - Select dates (1-31) or leave empty for default (15th & 30th)
+     - Duration: Number of months to create ahead
+5. Click "Create Task"
+
+### Recurring Task Examples
+
+- **Daily attendance submission**: Daily recurrence, 365 days duration, due time 11:00 AM
+- **Weekly meeting**: Weekly recurrence, select Mon/Wed/Fri
+- **Monthly food allowance**: Monthly recurrence, select 15th and 30th, 12 months duration
+- **Monthly attendance report**: Monthly recurrence, select 14th only, 12 months duration
+
+### Managing Tasks
+
+#### Viewing Task Details
+
+1. Click "View Details" on any task card
+2. View complete task information:
+   - Title, description, type, priority
+   - Assigned To and Assigned By names
+   - Due date and due time
+   - Status
+   - Attachments, links, and comments
+
+#### Updating Task Status
+
+1. Open task details modal
+2. Change status from dropdown (Pending, In Progress, Completed, Cancelled)
+3. Click "Update Status"
+4. Modal closes automatically after update
+
+#### Editing Tasks
+
+1. Open task details modal
+2. Click "Edit" button (visible only to task creator)
+3. Modify title, description, or priority
+4. Click "Save"
+
+#### Deleting Tasks
+
+1. Open task details modal
+2. Click "Delete" button (visible only to task creator)
+3. Confirm deletion
+
+#### Adding Comments with Progress Stages
+
+1. Open task details modal
+2. In the Comments section:
+   - Enter progress stage (e.g., "Stage 1", "Review", "Final Approval")
+   - Enter comment text
+   - Click message icon button
+3. Progress stage appears as a badge next to author name
+4. Use this to track different stages of task progress
+
+#### Adding Attachments
+
+1. Open task details modal
+2. In the Attachments section, click "Choose File"
+3. Select file to upload
+4. File is uploaded and displayed in the list
+
+#### Adding Links
+
+1. Open task details modal
+2. In the Links section, enter:
+   - Link title
+   - URL (https://...)
+3. Click "Add"
+
+#### Resending Notifications
+
+1. Open task details modal
+2. Click "Resend Notification" button (visible only to task creator)
+3. A new notification is sent to the assigned employee
+
+### Today's Progress
+
+The My Tasks page displays a progress bar showing:
+- Percentage of today's tasks completed
+- Number of completed tasks vs total tasks due today
+- Updates in real-time as tasks are marked complete
+
+### Task Permissions
+
+- **Super Admin, HR Manager, Supervisor**: Can create, view, and manage all tasks
+- **Assigned Employee**: Can view and update status of assigned tasks
+- **Task Creator**: Can edit, delete, and resend notifications for their tasks
 
 ---
 

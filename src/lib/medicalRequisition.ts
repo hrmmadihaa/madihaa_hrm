@@ -12,6 +12,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { auth } from './firebase';
 
 const MEDICAL_REQUISITIONS_COLLECTION = 'medical_requisitions';
 
@@ -57,6 +58,21 @@ export interface MedicalRequisition {
 
 export const addMedicalRequisition = async (requisition: Omit<MedicalRequisition, 'id' | 'createdAt' | 'updatedAt'>) => {
   try {
+    // Debug: Log current user auth state
+    const currentUser = auth.currentUser;
+    console.log('=== DEBUG: Auth State ===');
+    console.log('Current user:', currentUser);
+    console.log('User email:', currentUser?.email);
+    console.log('User UID:', currentUser?.uid);
+    // Get ID token to see custom claims
+    if (currentUser) {
+      const idTokenResult = await currentUser.getIdTokenResult();
+      console.log('ID Token Result:', idTokenResult);
+      console.log('Custom claims:', idTokenResult.claims);
+      console.log('Role from claims:', idTokenResult.claims.role);
+    }
+    console.log('========================');
+
     const data: any = {
       ...requisition,
       date: Timestamp.fromDate(requisition.date),
@@ -71,6 +87,15 @@ export const addMedicalRequisition = async (requisition: Omit<MedicalRequisition
         visitTime: Timestamp.fromDate(requisition.consultation.visitTime)
       };
     }
+
+    // Remove undefined values - Firebase doesn't accept them
+    Object.keys(data).forEach(key => {
+      if (data[key] === undefined) {
+        delete data[key];
+      }
+    });
+
+    console.log('Data to save:', data);
 
     const docRef = await addDoc(collection(db, MEDICAL_REQUISITIONS_COLLECTION), data);
     return docRef.id;
