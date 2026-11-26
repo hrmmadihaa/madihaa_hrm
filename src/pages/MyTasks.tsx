@@ -8,7 +8,7 @@ import {
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { useAuth } from '../contexts/AuthContext';
-import { getTasksByAssignee, getTasksByAssigner, updateTask, deleteTask, createTaskNotification, addTaskAttachment, addTaskLink, addTaskComment, getTaskAttachments, getTaskLinks, getTaskComments } from '../lib/tasks';
+import { getTasksByAssignee, getTasksByAssigner, updateTask, deleteTask, createTaskNotification, addTaskAttachment, addTaskLink, addTaskComment, getTaskAttachments, getTaskLinks, getTaskComments, cleanupRecurrenceData, cleanupDuplicateTasks, cleanupTasksByYear } from '../lib/tasks';
 import type { Task, TaskStatus, TaskType, TaskAttachment, TaskLink, TaskComment } from '../types';
 import { formatDate } from '../lib/dateUtils';
 
@@ -50,8 +50,8 @@ export const MyTasks = () => {
   const [showTaskDetail, setShowTaskDetail] = useState(false);
   const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all');
   const [filterType, setFilterType] = useState<TaskType | 'all'>('all');
-  const [filterToday, setFilterToday] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [tabFilter, setTabFilter] = useState<'today' | 'overdue' | 'upcoming' | 'history'>('today');
   
   // Task update states
   const [newStatus, setNewStatus] = useState<TaskStatus>('pending');
@@ -73,6 +73,31 @@ export const MyTasks = () => {
   useEffect(() => {
     loadTasks();
   }, [user?.employeeId, user?.id]);
+
+  const handleCleanupRecurrence = async () => {
+    if (!confirm('Are you sure you want to remove all recurrence data and delete duplicate tasks? This cannot be undone.')) return;
+    try {
+      await cleanupRecurrenceData();
+      await cleanupDuplicateTasks();
+      alert('Recurrence data cleaned up and duplicate tasks deleted successfully');
+      loadTasks();
+    } catch (error) {
+      console.error('Error cleaning up recurrence data:', error);
+      alert('Error cleaning up recurrence data');
+    }
+  };
+
+  const handleCleanup2027Tasks = async () => {
+    if (!confirm('Are you sure you want to delete ALL tasks with due dates in 2027? This cannot be undone.')) return;
+    try {
+      const deletedCount = await cleanupTasksByYear(2027);
+      alert(`Deleted ${deletedCount} tasks with due dates in 2027`);
+      loadTasks();
+    } catch (error) {
+      console.error('Error cleaning up 2027 tasks:', error);
+      alert('Error cleaning up 2027 tasks');
+    }
+  };
 
   const loadTasks = async () => {
     // Try both employeeId and user ID
@@ -111,6 +136,7 @@ export const MyTasks = () => {
       );
       
       console.log('Tasks loaded:', uniqueTasks.length, uniqueTasks);
+      console.log('Recurring tasks:', uniqueTasks.filter(t => t.recurrenceType && t.recurrenceType !== 'none'));
       setTasks(uniqueTasks);
     } catch (error) {
       console.error('Error loading tasks:', error);
@@ -144,6 +170,7 @@ export const MyTasks = () => {
         status: newStatus,
         ...(newStatus === 'completed' && { completedAt: new Date() })
       });
+      
       await loadTasks();
       await loadTaskDetails(selectedTask);
       setShowTaskDetail(false);
@@ -276,29 +303,30 @@ export const MyTasks = () => {
       task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       task.description.toLowerCase().includes(searchTerm.toLowerCase());
     
+    // Tab filtering
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const taskDate = task.dueDate ? new Date(task.dueDate) : null;
-    taskDate?.setHours(0, 0, 0, 0);
-    const matchesToday = !filterToday || (taskDate && taskDate.getTime() === today.getTime());
     
-    return matchesStatus && matchesType && matchesSearch && matchesToday;
+    let matchesTab = true;
+    if (tabFilter === 'today') {
+      const taskDate = task.dueDate ? new Date(task.dueDate) : null;
+      matchesTab = !!taskDate && taskDate.toDateString() === today.toDateString();
+    } else if (tabFilter === 'overdue') {
+      const taskDate = task.dueDate ? new Date(task.dueDate) : null;
+      matchesTab = !!taskDate && taskDate < today && task.status !== 'completed';
+    } else if (tabFilter === 'upcoming') {
+      const taskDate = task.dueDate ? new Date(task.dueDate) : null;
+      matchesTab = !!taskDate && taskDate > today;
+    } else if (tabFilter === 'history') {
+      matchesTab = task.status === 'completed';
+    }
+    
+    return matchesStatus && matchesType && matchesSearch && matchesTab;
   });
 
   const pendingTasks = tasks.filter(t => t.status === 'pending').length;
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
-
-  // Calculate today's progress
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayTasks = tasks.filter(t => {
-    const taskDate = t.dueDate ? new Date(t.dueDate) : null;
-    taskDate?.setHours(0, 0, 0, 0);
-    return taskDate && taskDate.getTime() === today.getTime();
-  });
-  const todayCompleted = todayTasks.filter(t => t.status === 'completed').length;
-  const todayProgress = todayTasks.length > 0 ? Math.round((todayCompleted / todayTasks.length) * 100) : 0;
 
   if (loading) {
     return (
@@ -315,6 +343,21 @@ export const MyTasks = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">My Tasks</h1>
           <p className="text-secondary-600 mt-1">View and manage your assigned tasks</p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleCleanup2027Tasks}
+            variant="secondary"
+            className="bg-orange-600 hover:bg-orange-700 text-white"
+          >
+            Delete 2027 Tasks
+          </Button>
+          <Button
+            onClick={handleCleanupRecurrence}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            Clean Recurrence Data
+          </Button>
         </div>
       </div>
 
@@ -355,74 +398,92 @@ export const MyTasks = () => {
         </Card>
       </div>
 
-      {/* Today's Progress */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-secondary-700">Today's Progress</p>
-            <p className="text-sm font-bold text-secondary-900">{todayProgress}%</p>
-          </div>
-          <div className="w-full bg-secondary-200 rounded-full h-3">
-            <div
-              className="bg-primary-600 h-3 rounded-full transition-all duration-300"
-              style={{ width: `${todayProgress}%` }}
-            ></div>
-          </div>
-          <p className="text-xs text-secondary-500 mt-2">
-            {todayCompleted} of {todayTasks.length} tasks completed today
-          </p>
-        </CardContent>
-      </Card>
-
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-secondary-400" />
-                <input
-                  type="text"
-                  placeholder="Search tasks..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
+          <div className="flex flex-col gap-4">
+            {/* Tabs */}
+            <div className="flex flex-wrap gap-2 border-b border-secondary-200 pb-4">
+              <button
+                onClick={() => setTabFilter('today')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  tabFilter === 'today'
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                Today
+              </button>
+              <button
+                onClick={() => setTabFilter('overdue')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  tabFilter === 'overdue'
+                    ? 'bg-red-500 text-white'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                Overdue
+              </button>
+              <button
+                onClick={() => setTabFilter('upcoming')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  tabFilter === 'upcoming'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                Upcoming
+              </button>
+              <button
+                onClick={() => setTabFilter('history')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  tabFilter === 'history'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                History
+              </button>
             </div>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as TaskStatus | 'all')}
-              className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value as TaskType | 'all')}
-              className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="all">All Types</option>
-              <option value="medical">Medical</option>
-              <option value="document">Document</option>
-              <option value="training">Training</option>
-              <option value="meeting">Meeting</option>
-              <option value="report">Report</option>
-              <option value="other">Other</option>
-            </select>
-            <label className="flex items-center gap-2 px-4 py-2 border border-secondary-300 rounded-lg cursor-pointer hover:bg-secondary-50">
-              <input
-                type="checkbox"
-                checked={filterToday}
-                onChange={(e) => setFilterToday(e.target.checked)}
-                className="w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
-              />
-              <span className="text-sm text-secondary-700">Today Only</span>
-            </label>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-secondary-400" />
+                  <input
+                    type="text"
+                    placeholder="Search tasks..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as TaskStatus | 'all')}
+                className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value as TaskType | 'all')}
+                className="px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="all">All Types</option>
+                <option value="medical">Medical</option>
+                <option value="document">Document</option>
+                <option value="training">Training</option>
+                <option value="meeting">Meeting</option>
+                <option value="report">Report</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
           </div>
         </CardContent>
       </Card>

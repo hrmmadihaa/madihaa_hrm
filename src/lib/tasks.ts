@@ -371,12 +371,12 @@ export const cleanupRecurrenceData = async (): Promise<void> => {
 export const cleanupDuplicateTasks = async (): Promise<void> => {
   const tasksRef = collection(db, 'tasks');
   const querySnapshot = await getDocs(tasksRef);
-  
+
   const tasks = querySnapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
   } as Task));
-  
+
   // Group by title and assignee
   const taskGroups = new Map<string, Task[]>();
   for (const task of tasks) {
@@ -386,15 +386,15 @@ export const cleanupDuplicateTasks = async (): Promise<void> => {
     }
     taskGroups.get(key)!.push(task);
   }
-  
+
   // For each group, keep only the most recent task and delete the rest
   let deletedCount = 0;
   for (const group of taskGroups.values()) {
     if (group.length <= 1) continue;
-    
+
     // Sort by createdAt descending (most recent first)
     group.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
+
     // Keep the first (most recent), delete the rest
     const toDelete = group.slice(1);
     for (const task of toDelete) {
@@ -402,8 +402,33 @@ export const cleanupDuplicateTasks = async (): Promise<void> => {
       deletedCount++;
     }
   }
-  
+
   console.log(`Deleted ${deletedCount} duplicate tasks`);
+};
+
+// Cleanup function to delete tasks with due dates in a specific year
+export const cleanupTasksByYear = async (year: number): Promise<number> => {
+  const tasksRef = collection(db, 'tasks');
+  const querySnapshot = await getDocs(tasksRef);
+
+  const tasks = querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  } as Task));
+
+  let deletedCount = 0;
+  for (const task of tasks) {
+    if (task.dueDate) {
+      const dueYear = new Date(task.dueDate).getFullYear();
+      if (dueYear === year) {
+        await deleteDoc(doc(db, 'tasks', task.id));
+        deletedCount++;
+      }
+    }
+  }
+
+  console.log(`Deleted ${deletedCount} tasks with due dates in ${year}`);
+  return deletedCount;
 };
 
 // Task Template CRUD Operations
