@@ -45,6 +45,29 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'approve_department_overtime',
     'view_department_reports'
   ],
+  general_manager: [
+    'view_dashboard',
+    'view_all_employees',
+    'approve_all_leaves',
+    'approve_all_overtime',
+    'approve_it_requests',
+    'view_reports',
+    'manage_budget'
+  ],
+  operations_manager: [
+    'view_dashboard',
+    'view_department_employees',
+    'acknowledge_it_requests',
+    'manage_operations',
+    'view_reports'
+  ],
+  it_officer: [
+    'view_dashboard',
+    'manage_it_requests',
+    'manage_it_assets',
+    'manage_it_access',
+    'view_reports'
+  ],
   supervisor: [
     'view_dashboard',
     'view_team_employees',
@@ -58,7 +81,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'apply_leave',
     'apply_overtime',
     'view_own_payslips',
-    'view_own_documents'
+    'view_own_tasks',
+    'submit_it_requests'
   ]
 };
 

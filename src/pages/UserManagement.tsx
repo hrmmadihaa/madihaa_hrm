@@ -146,6 +146,9 @@ export const UserManagement: React.FC = () => {
     super_admin: 'bg-purple-100 text-purple-800',
     hr_manager: 'bg-blue-100 text-blue-800',
     department_manager: 'bg-green-100 text-green-800',
+    general_manager: 'bg-indigo-100 text-indigo-800',
+    operations_manager: 'bg-orange-100 text-orange-800',
+    it_officer: 'bg-cyan-100 text-cyan-800',
     supervisor: 'bg-yellow-100 text-yellow-800',
     employee: 'bg-gray-100 text-gray-800',
   };
@@ -386,7 +389,10 @@ export const UserManagement: React.FC = () => {
                   >
                     <option value="employee">Employee</option>
                     <option value="supervisor">Supervisor</option>
+                    <option value="it_officer">IT Officer</option>
                     <option value="department_manager">Department Manager</option>
+                    <option value="operations_manager">Operations Manager</option>
+                    <option value="general_manager">General Manager</option>
                     <option value="hr_manager">HR Manager</option>
                     <option value="super_admin">Super Admin</option>
                   </select>

@@ -195,6 +195,78 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     PERMISSIONS.REPORTS_VIEW,
   ],
   
+  general_manager: [
+    // Employee Management - View all
+    PERMISSIONS.EMPLOYEES_VIEW_ALL,
+    
+    // Attendance - View all
+    PERMISSIONS.ATTENDANCE_VIEW_ALL,
+    
+    // Leave - View and approve all
+    PERMISSIONS.LEAVE_VIEW_ALL,
+    PERMISSIONS.LEAVE_APPROVE,
+    PERMISSIONS.LEAVE_REJECT,
+    
+    // Overtime - View and approve all
+    PERMISSIONS.OVERTIME_VIEW_ALL,
+    PERMISSIONS.OVERTIME_APPROVE,
+    PERMISSIONS.OVERTIME_REJECT,
+    
+    // Performance - View all
+    PERMISSIONS.PERFORMANCE_VIEW_ALL,
+    
+    // Recruitment - Approve
+    PERMISSIONS.RECRUITMENT_VIEW,
+    PERMISSIONS.RECRUITMENT_APPROVE,
+    
+    // Training - Approve
+    PERMISSIONS.TRAINING_VIEW,
+    PERMISSIONS.TRAINING_APPROVE,
+    
+    // Accommodation - View
+    PERMISSIONS.ACCOMMODATION_VIEW,
+    
+    // Reports - View and export
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.REPORTS_EXPORT,
+  ],
+  
+  operations_manager: [
+    // Employee Management - View department
+    PERMISSIONS.EMPLOYEES_VIEW,
+    
+    // Attendance - View department
+    PERMISSIONS.ATTENDANCE_VIEW,
+    
+    // Leave - View department
+    PERMISSIONS.LEAVE_VIEW,
+    
+    // Overtime - View and approve department
+    PERMISSIONS.OVERTIME_VIEW,
+    PERMISSIONS.OVERTIME_VIEW_ALL,
+    PERMISSIONS.OVERTIME_APPROVE,
+    
+    // Performance - View department
+    PERMISSIONS.PERFORMANCE_VIEW,
+    
+    // Accommodation - View
+    PERMISSIONS.ACCOMMODATION_VIEW,
+    
+    // Reports - View
+    PERMISSIONS.REPORTS_VIEW,
+  ],
+  
+  it_officer: [
+    // Employee Management - View
+    PERMISSIONS.EMPLOYEES_VIEW,
+    
+    // Attendance - View
+    PERMISSIONS.ATTENDANCE_VIEW,
+    
+    // Reports - View
+    PERMISSIONS.REPORTS_VIEW,
+  ],
+  
   supervisor: [
     // Employee Management - View and create
     PERMISSIONS.EMPLOYEES_VIEW,
