@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Clock, TrendingUp, AlertCircle, Briefcase, Building2, X, Calendar, Cake, Award, FileText, AlertTriangle, Plus } from 'lucide-react';
+import { Users, Clock, TrendingUp, AlertCircle, Briefcase, Building2, X, Calendar, Cake, Award, FileText, AlertTriangle, Plus, Plane } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { TaskAssignment } from '../components/TaskAssignment';
@@ -8,6 +8,8 @@ import { getEmployees } from '../lib/employees';
 import { getLeaveRequests } from '../lib/leave';
 import { getAttendanceStats } from '../lib/attendance';
 import { getAllWorkLocations } from '../lib/workLocation';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import madihaaLogo from '/Madihaa 2026 (1).png';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -23,6 +25,9 @@ export const Dashboard = () => {
   const [todayLeaveRequests, setTodayLeaveRequests] = useState<any[]>([]);
   const [workLocations, setWorkLocations] = useState<any[]>([]);
   const [expandedDocSections, setExpandedDocSections] = useState<Record<string, boolean>>({});
+  const [expandedLeaveSection, setExpandedLeaveSection] = useState(true);
+  const [expandedNewHiresSection, setExpandedNewHiresSection] = useState(true);
+  const [upcomingNewHires, setUpcomingNewHires] = useState<any[]>([]);
   const [showTaskAssignment, setShowTaskAssignment] = useState(false);
   const navigate = useNavigate();
 
@@ -30,6 +35,7 @@ export const Dashboard = () => {
     loadEmployees();
     loadAttendanceStats();
     loadWorkLocations();
+    loadUpcomingNewHires();
   }, []);
 
   const loadWorkLocations = async () => {
@@ -38,6 +44,39 @@ export const Dashboard = () => {
       setWorkLocations(locations);
     } catch (error) {
       console.error('Error loading work locations:', error);
+    }
+  };
+
+  const loadUpcomingNewHires = async () => {
+    try {
+      // Fetch all candidates and filter in JavaScript to debug
+      const candidatesSnapshot = await getDocs(collection(db, 'recruitment_candidates'));
+      const allCandidates = candidatesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      console.log('All candidates:', allCandidates.length);
+      console.log('Ticket approved candidates:', allCandidates.filter((c: any) => c.stage === 'ticket_approved'));
+
+      const candidatesData = allCandidates.filter((c: any) =>
+        c.stage === 'ticket_approved' &&
+        c.arrival_date &&
+        !c.directory_added
+      );
+
+      console.log('Filtered candidates:', candidatesData);
+
+      // Sort by arrival date
+      candidatesData.sort((a: any, b: any) => {
+        const dateA = new Date(a.arrival_date);
+        const dateB = new Date(b.arrival_date);
+        return dateA.getTime() - dateB.getTime();
+      });
+
+      setUpcomingNewHires(candidatesData);
+    } catch (error) {
+      console.error('Error loading upcoming new hires:', error);
     }
   };
 
@@ -118,6 +157,7 @@ export const Dashboard = () => {
     { name: 'Total Employees', value: totalEmployees.toString(), icon: Users, color: 'bg-blue-500', filter: 'all' },
     { name: 'Active Staff', value: activeEmployees.toString(), icon: Users, color: 'bg-green-500', filter: 'active' },
     { name: 'On Leave', value: onLeaveCount.toString(), icon: Clock, color: 'bg-yellow-500', filter: 'on_leave' },
+    { name: 'Upcoming New Hires', value: upcomingNewHires.length.toString(), icon: Plane, color: 'bg-indigo-500', filter: 'upcoming_hires' },
     { name: 'Resigned', value: resignedEmployees.toString(), icon: AlertCircle, color: 'bg-red-500', filter: 'resigned' },
   ];
 
@@ -152,6 +192,18 @@ export const Dashboard = () => {
       setFilteredEmployees(employees.filter(e => e.status === 'active'));
     } else if (stat.filter === 'on_leave') {
       setFilteredEmployees(onLeaveEmployees);
+    } else if (stat.filter === 'upcoming_hires') {
+      // Expand the upcoming new hires section
+      setExpandedNewHiresSection(true);
+      // Scroll to the section
+      setTimeout(() => {
+        const element = document.getElementById('upcoming-new-hires');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      setSelectedStat(stat.name);
+      return;
     } else if (stat.filter === 'resigned') {
       setFilteredEmployees(employees.filter(e => e.status === 'resigned'));
     } else if (stat.filter === 'position') {
@@ -407,75 +459,148 @@ export const Dashboard = () => {
       {/* Today's Leave Requests */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-secondary-900">Today's Leave Requests</h2>
-          <p className="text-sm text-secondary-600">{todayLeaveRequests.filter(lr => {
-            const employee = employees.find(e => e.id === lr.employeeId);
-            return employee?.status === 'active';
-          }).length} active employees on leave today</p>
+          <div
+            className="flex items-center justify-between cursor-pointer hover:bg-secondary-50 transition-colors p-2 -m-2 rounded"
+            onClick={() => setExpandedLeaveSection(!expandedLeaveSection)}
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-secondary-900">Today's Leave Requests</h2>
+              <p className="text-sm text-secondary-600">{todayLeaveRequests.filter(lr => {
+                const employee = employees.find(e => e.id === lr.employeeId);
+                return employee?.status === 'active';
+              }).length} active employees on leave today</p>
+            </div>
+            <div className={`transform transition-transform ${expandedLeaveSection ? 'rotate-180' : ''}`}>
+              <X className="w-5 h-5 text-secondary-600 rotate-45" />
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          {todayLeaveRequests.length > 0 ? (
-            <div className="space-y-3">
-              {todayLeaveRequests.map((leave) => {
-                const employee = employees.find(e => e.id === leave.employeeId);
-                // Only show active employees
-                if (!employee || employee.status !== 'active') return null;
-                return (
+        {expandedLeaveSection && (
+          <CardContent className="py-2">
+            {todayLeaveRequests.length > 0 ? (
+              <div className="space-y-3">
+                {todayLeaveRequests.map((leave) => {
+                  const employee = employees.find(e => e.id === leave.employeeId);
+                  // Only show active employees
+                  if (!employee || employee.status !== 'active') return null;
+                  return (
+                    <div
+                      key={leave.id}
+                      className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
+                    >
+                      <div className="flex items-center space-x-4">
+                        {employee?.photo ? (
+                          <img
+                            src={employee.photo}
+                            alt={employee.fullName}
+                            className="w-10 h-10 rounded-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                            <Users className="w-5 h-5 text-primary-600" />
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium text-secondary-900">{employee?.fullName || 'Unknown'}</p>
+                          <p className="text-sm text-secondary-600">{employee?.employeeId || 'N/A'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-secondary-900 capitalize">{leave.leaveType || 'Leave'}</p>
+                          <p className="text-xs text-secondary-600">
+                            {formatDate(new Date(leave.startDate))} - {formatDate(new Date(leave.endDate))}
+                          </p>
+                        </div>
+                        <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                          leave.status === 'approved'
+                            ? 'bg-green-100 text-green-700'
+                            : leave.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : leave.status === 'rejected'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-700'
+                        } capitalize`}>
+                          {leave.status}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Clock className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
+                <p className="text-secondary-600">No leave requests for today</p>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Upcoming New Hires */}
+      <div id="upcoming-new-hires">
+        <Card>
+          <CardHeader>
+          <div
+            className="flex items-center justify-between cursor-pointer hover:bg-secondary-50 transition-colors p-2 -m-2 rounded"
+            onClick={() => setExpandedNewHiresSection(!expandedNewHiresSection)}
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-secondary-900">Upcoming New Hires</h2>
+              <p className="text-sm text-secondary-600">{upcomingNewHires.length} candidates arriving soon</p>
+            </div>
+            <div className={`transform transition-transform ${expandedNewHiresSection ? 'rotate-180' : ''}`}>
+              <X className="w-5 h-5 text-secondary-600 rotate-45" />
+            </div>
+          </div>
+        </CardHeader>
+        {expandedNewHiresSection && (
+          <CardContent className="py-2">
+            {upcomingNewHires.length > 0 ? (
+              <div className="space-y-3">
+                {upcomingNewHires.map((candidate) => (
                   <div
-                    key={leave.id}
-                    className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
+                    key={candidate.id}
+                    className="flex items-center justify-between p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                   >
                     <div className="flex items-center space-x-4">
-                      {employee?.photo ? (
-                        <img
-                          src={employee.photo}
-                          alt={employee.fullName}
-                          className="w-10 h-10 rounded-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-                          <Users className="w-5 h-5 text-primary-600" />
-                        </div>
-                      )}
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <Plane className="w-5 h-5 text-blue-600" />
+                      </div>
                       <div>
-                        <p className="font-medium text-secondary-900">{employee?.fullName || 'Unknown'}</p>
-                        <p className="text-sm text-secondary-600">{employee?.employeeId || 'N/A'}</p>
+                        <p className="font-medium text-secondary-900">{candidate.Name || 'Unknown'}</p>
+                        <p className="text-sm text-secondary-600">{candidate.POSITION || 'N/A'}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <p className="text-sm font-medium text-secondary-900 capitalize">{leave.leaveType || 'Leave'}</p>
+                        <p className="text-sm font-medium text-secondary-900">Arriving {formatDate(new Date(candidate.arrival_date))}</p>
                         <p className="text-xs text-secondary-600">
-                          {formatDate(new Date(leave.startDate))} - {formatDate(new Date(leave.endDate))}
+                          {candidate.flight_number ? `Flight ${candidate.flight_number}` : 'Flight TBD'}
+                          {candidate.arrival_time ? ` at ${candidate.arrival_time}` : ''}
                         </p>
                       </div>
-                      <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                        leave.status === 'approved'
-                          ? 'bg-green-100 text-green-700'
-                          : leave.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : leave.status === 'rejected'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-gray-100 text-gray-700'
-                      } capitalize`}>
-                        {leave.status}
+                      <span className="px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+                        Ticket Approved
                       </span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Clock className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
-              <p className="text-secondary-600">No leave requests for today</p>
-            </div>
-          )}
-        </CardContent>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Plane className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
+                <p className="text-secondary-600">No upcoming new hires</p>
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
+      </div>
 
       {/* Positions Grid */}
       <div>

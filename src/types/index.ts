@@ -11,7 +11,7 @@ export interface User {
   lastLogin?: Date;
 }
 
-export type UserRole = 'super_admin' | 'hr_manager' | 'department_manager' | 'supervisor' | 'employee';
+export type UserRole = 'super_admin' | 'hr_manager' | 'department_manager' | 'general_manager' | 'operations_manager' | 'supervisor' | 'it_officer' | 'employee';
 
 export interface Permission {
   module: string;
@@ -1318,7 +1318,7 @@ export interface ExpatDashboardStats {
 // Task Management Types
 export type TaskType = 'medical' | 'document' | 'training' | 'meeting' | 'report' | 'other';
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
-export type RecurrenceType = 'none' | 'daily' | 'weekly';
+export type RecurrenceType = 'none' | 'daily' | 'weekly' | 'monthly';
 
 export interface Task {
   id: string;
@@ -1341,6 +1341,24 @@ export interface Task {
   comments?: TaskComment[];
   recurrenceType?: RecurrenceType;
   recurrenceDays?: number[]; // 0-6 for Sunday-Saturday
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TaskTemplate {
+  id: string;
+  title: string;
+  description: string;
+  type: TaskType;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  assignedTo: string[]; // Array of employee IDs
+  recurrenceType: RecurrenceType;
+  recurrenceDays?: number[]; // 0-6 for Sunday-Saturday (for weekly)
+  dayOfMonth?: number; // 1-31 for monthly recurrence
+  dueTime?: string; // HH:MM format
+  isActive: boolean;
+  createdBy: string;
+  createdByName: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -1379,5 +1397,112 @@ export interface TaskNotification {
   message: string;
   read: boolean;
   dismissed: boolean;
+  createdAt: Date;
+}
+
+// IT Portal Types
+export type ITRequestType = 'hardware' | 'software' | 'access_folder' | 'access_cctv' | 'other';
+export type ITRequestStatus = 'pending_gm' | 'pending_ops' | 'returned_clarification' | 'pending_it' | 'in_progress' | 'on_hold' | 'completed' | 'rejected_gm' | 'cancelled';
+export type ITRequestPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface ITRequest {
+  id: string;
+  requestId: string; // MADIHAA-IT-YYYY-XXXX format
+  title: string;
+  description: string;
+  type: ITRequestType;
+  status: ITRequestStatus;
+  priority: ITRequestPriority;
+  requestedBy: string; // Employee ID
+  requestedByName: string;
+  requestedByEmail: string;
+  requestedByBranch: string;
+  requestedByDepartment: string;
+  businessJustification?: string;
+  dueDate?: Date;
+  assetId?: string; // If hardware request
+  accessDetails?: {
+    folderPath?: string;
+    cctvLocation?: string;
+    accessLevel?: string;
+  };
+  gmDecision?: {
+    action: 'approved' | 'rejected';
+    decisionBy: string;
+    decisionByName: string;
+    decisionAt: Date;
+    comments?: string;
+  };
+  opsDecision?: {
+    action: 'acknowledged' | 'returned';
+    decisionBy: string;
+    decisionByName: string;
+    decisionAt: Date;
+    comments?: string;
+  };
+  itWork?: {
+    assignedTo?: string; // IT Officer ID
+    assignedToName?: string;
+    startedAt?: Date;
+    completedAt?: Date;
+    resolution?: string;
+    assetSerialNumber?: string;
+    accessGranted?: boolean;
+    accessExpiryDate?: Date;
+  };
+  receiptConfirmed?: boolean;
+  receiptConfirmedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ITAsset {
+  id: string;
+  assetId: string; // MADIHAA-ASSET-XXX format
+  name: string;
+  type: 'laptop' | 'desktop' | 'monitor' | 'printer' | 'phone' | 'tablet' | 'other';
+  brand: string;
+  model: string;
+  serialNumber: string;
+  status: 'available' | 'issued' | 'maintenance' | 'retired';
+  assignedTo?: string; // Employee ID
+  assignedToName?: string;
+  assignedAt?: Date;
+  branch: string;
+  purchaseDate?: Date;
+  warrantyExpiry?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ITAccess {
+  id: string;
+  type: 'folder' | 'cctv';
+  name: string;
+  path?: string; // For folder access
+  location?: string; // For CCTV access
+  accessLevel: string;
+  assignedTo: string; // Employee ID
+  assignedToName: string;
+  grantedBy: string; // IT Officer ID
+  grantedByName: string;
+  grantedAt: Date;
+  expiryDate?: Date;
+  status: 'active' | 'expired' | 'revoked';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ITAuditLog {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  requestId?: string;
+  action: string;
+  oldStatus?: string;
+  newStatus?: string;
+  details?: string;
+  ipAddress?: string;
   createdAt: Date;
 }

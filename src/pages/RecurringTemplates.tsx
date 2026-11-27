@@ -45,8 +45,9 @@ export const RecurringTemplates = () => {
     type: 'other' as TaskType,
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     assignedTo: [] as string[],
-    recurrenceType: 'daily' as 'daily' | 'weekly',
+    recurrenceType: 'daily' as 'daily' | 'weekly' | 'monthly',
     recurrenceDays: [] as number[],
+    dayOfMonth: 15 as number,
     dueTime: '',
     isActive: true
   });
@@ -112,6 +113,7 @@ export const RecurringTemplates = () => {
         assignedTo: [] as string[],
         recurrenceType: 'daily',
         recurrenceDays: [],
+        dayOfMonth: 15,
         dueTime: '',
         isActive: true
       });
@@ -143,6 +145,7 @@ export const RecurringTemplates = () => {
       assignedTo: template.assignedTo,
       recurrenceType: template.recurrenceType === 'none' ? 'daily' : template.recurrenceType,
       recurrenceDays: template.recurrenceDays || [],
+      dayOfMonth: template.dayOfMonth || 15,
       dueTime: template.dueTime || '',
       isActive: template.isActive
     });
@@ -475,11 +478,12 @@ export const RecurringTemplates = () => {
                       <label className="block text-sm font-medium text-secondary-700 mb-1">Recurrence</label>
                       <select
                         value={formData.recurrenceType}
-                        onChange={(e) => setFormData({ ...formData, recurrenceType: e.target.value as 'daily' | 'weekly', recurrenceDays: [] })}
+                        onChange={(e) => setFormData({ ...formData, recurrenceType: e.target.value as 'daily' | 'weekly' | 'monthly', recurrenceDays: [] })}
                         className="w-full px-3 py-2 border border-secondary-300 rounded-lg"
                       >
                         <option value="daily">Daily</option>
                         <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
                       </select>
                     </div>
                     <div>
@@ -518,6 +522,22 @@ export const RecurringTemplates = () => {
                           </button>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {formData.recurrenceType === 'monthly' && (
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-1">Day of Month</label>
+                      <select
+                        value={formData.dayOfMonth}
+                        onChange={(e) => setFormData({ ...formData, dayOfMonth: parseInt(e.target.value) })}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                          <option key={day} value={day}>{day}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-secondary-500 mt-1">Task will be due on this day each month</p>
                     </div>
                   )}
 

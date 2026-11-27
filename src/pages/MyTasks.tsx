@@ -299,14 +299,14 @@ export const MyTasks = () => {
   const filteredTasks = tasks.filter(task => {
     const matchesStatus = filterStatus === 'all' || task.status === filterStatus;
     const matchesType = filterType === 'all' || task.type === filterType;
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       task.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     // Tab filtering
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     let matchesTab = true;
     if (tabFilter === 'today') {
       const taskDate = task.dueDate ? new Date(task.dueDate) : null;
@@ -320,8 +320,17 @@ export const MyTasks = () => {
     } else if (tabFilter === 'history') {
       matchesTab = task.status === 'completed';
     }
-    
+
     return matchesStatus && matchesType && matchesSearch && matchesTab;
+  }).sort((a, b) => {
+    // Sort by due date for upcoming tab (chronological order)
+    if (tabFilter === 'upcoming') {
+      const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+      const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+      return dateA - dateB;
+    }
+    // Default sort: newest first
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
   const pendingTasks = tasks.filter(t => t.status === 'pending').length;

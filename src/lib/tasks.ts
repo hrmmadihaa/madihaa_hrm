@@ -510,6 +510,14 @@ export const generateTasksFromTemplate = async (
       if (template.recurrenceDays.includes(current.getDay())) {
         dates.push(new Date(current));
       }
+    } else if (template.recurrenceType === 'monthly' && template.dayOfMonth) {
+      // Check if current date matches the day of month
+      // Handle edge case where dayOfMonth might be 31 but month has fewer days
+      const lastDayOfMonth = new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate();
+      const targetDay = Math.min(template.dayOfMonth, lastDayOfMonth);
+      if (current.getDate() === targetDay) {
+        dates.push(new Date(current));
+      }
     }
     current.setDate(current.getDate() + 1);
   }
