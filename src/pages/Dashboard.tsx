@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Clock, TrendingUp, AlertCircle, Briefcase, Building2, X, Calendar, Cake, Award, FileText, AlertTriangle, Plus, Plane } from 'lucide-react';
+import { Users, Clock, TrendingUp, AlertCircle, Briefcase, Building2, ChevronDown, Calendar, Cake, Award, FileText, AlertTriangle, Plus, Plane, X } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { TaskAssignment } from '../components/TaskAssignment';
@@ -8,6 +8,7 @@ import { getEmployees } from '../lib/employees';
 import { getLeaveRequests } from '../lib/leave';
 import { getAttendanceStats } from '../lib/attendance';
 import { getAllWorkLocations } from '../lib/workLocation';
+import { subscribeToRecentActivities } from '../lib/activityLog';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
@@ -27,7 +28,13 @@ export const Dashboard = () => {
   const [expandedDocSections, setExpandedDocSections] = useState<Record<string, boolean>>({});
   const [expandedLeaveSection, setExpandedLeaveSection] = useState(true);
   const [expandedNewHiresSection, setExpandedNewHiresSection] = useState(true);
+  const [expandedProbationSection, setExpandedProbationSection] = useState(false);
+  const [expandedBirthdaySection, setExpandedBirthdaySection] = useState(false);
+  const [expandedAnniversarySection, setExpandedAnniversarySection] = useState(false);
   const [upcomingNewHires, setUpcomingNewHires] = useState<any[]>([]);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [showAllActivities, setShowAllActivities] = useState(false);
+  const [userEmailToName, setUserEmailToName] = useState<Record<string, string>>({});
   const [showTaskAssignment, setShowTaskAssignment] = useState(false);
   const navigate = useNavigate();
 
@@ -36,6 +43,18 @@ export const Dashboard = () => {
     loadAttendanceStats();
     loadWorkLocations();
     loadUpcomingNewHires();
+
+    // Subscribe to recent activities
+    const unsubscribe = subscribeToRecentActivities((activities) => {
+      setRecentActivities(activities.slice(0, 20).map((activity: any) => ({
+        id: activity.id,
+        message: activity.details || `${activity.action} ${activity.entity}`,
+        userName: activity.userName || userEmailToName[activity.userEmail] || activity.userEmail?.split('@')[0]?.replace(/[._]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || activity.userEmail,
+        time: activity.timestamp ? new Date(activity.timestamp.seconds * 1000).toLocaleString() : 'Just now'
+      })));
+    }, 20);
+
+    return () => unsubscribe();
   }, []);
 
   const loadWorkLocations = async () => {
@@ -93,6 +112,15 @@ export const Dashboard = () => {
     try {
       const data = await getEmployees();
       setEmployees(data);
+
+      // Create email to name mapping
+      const emailToNameMap: Record<string, string> = {};
+      data.forEach(emp => {
+        if (emp.email) {
+          emailToNameMap[emp.email] = emp.fullName || 'Unknown';
+        }
+      });
+      setUserEmailToName(emailToNameMap);
 
       // Fetch leave requests to determine actual on-leave status
       const leaveRequests = await getLeaveRequests();
@@ -228,7 +256,6 @@ export const Dashboard = () => {
     }));
   };
 
-  const recentActivities: any[] = [];
 
   // Calculate probation completion events (within next 30 days)
   const probationEvents: any[] = (() => {
@@ -471,7 +498,7 @@ export const Dashboard = () => {
               }).length} active employees on leave today</p>
             </div>
             <div className={`transform transition-transform ${expandedLeaveSection ? 'rotate-180' : ''}`}>
-              <X className="w-5 h-5 text-secondary-600 rotate-45" />
+              <ChevronDown className="w-5 h-5 text-secondary-600" />
             </div>
           </div>
         </CardHeader>
@@ -554,7 +581,7 @@ export const Dashboard = () => {
               <p className="text-sm text-secondary-600">{upcomingNewHires.length} candidates arriving soon</p>
             </div>
             <div className={`transform transition-transform ${expandedNewHiresSection ? 'rotate-180' : ''}`}>
-              <X className="w-5 h-5 text-secondary-600 rotate-45" />
+              <ChevronDown className="w-5 h-5 text-secondary-600" />
             </div>
           </div>
         </CardHeader>
@@ -712,18 +739,34 @@ export const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentActivities.map((activity) => (
+              {(showAllActivities ? recentActivities : recentActivities.slice(0, 5)).map((activity) => (
                 <div key={activity.id} className="flex items-start space-x-3">
                   <div className="flex-shrink-0">
                     <div className="w-2 h-2 mt-2 rounded-full bg-primary-500"></div>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-secondary-900">{activity.message}</p>
-                    <p className="text-xs text-secondary-500 mt-1">{activity.time}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-xs text-secondary-500">{activity.time}</p>
+                      {activity.userName && (
+                        <>
+                          <span className="text-secondary-300">•</span>
+                          <p className="text-xs text-secondary-600">{activity.userName}</p>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
+            {recentActivities.length > 5 && (
+              <button
+                onClick={() => setShowAllActivities(!showAllActivities)}
+                className="mt-4 text-sm text-primary-600 hover:text-primary-700 font-medium"
+              >
+                {showAllActivities ? 'Show Less' : `Show More (${recentActivities.length - 5} more)`}
+              </button>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -731,120 +774,156 @@ export const Dashboard = () => {
       {/* Probation Completions */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-secondary-900">Probation Completions (Next 30 Days)</h2>
-          <p className="text-sm text-secondary-600">{probationEvents.length} employees completing probation</p>
+          <div
+            className="flex items-center justify-between cursor-pointer hover:bg-secondary-50 transition-colors p-2 -m-2 rounded"
+            onClick={() => setExpandedProbationSection(!expandedProbationSection)}
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-secondary-900">Probation Completions (Next 30 Days)</h2>
+              <p className="text-sm text-secondary-600">{probationEvents.length} employees completing probation <span className="text-xs text-primary-600">(Click to expand)</span></p>
+            </div>
+            <div className={`transform transition-transform ${expandedProbationSection ? 'rotate-180' : ''}`}>
+              <ChevronDown className="w-5 h-5 text-secondary-600" />
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          {probationEvents.length > 0 ? (
-            <div className="space-y-3">
-              {probationEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
-                >
-                  <div className="flex items-center space-x-4">
-                    <Calendar className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="font-medium text-secondary-900">{event.title}</p>
-                      <p className="text-sm text-secondary-600">Hire Date: {event.hireDate}</p>
-                      <p className="text-sm text-secondary-600">Completion: {event.date}</p>
-                      <p className="text-xs text-secondary-500">
-                        {event.daysRemaining === 0 ? 'Today' : event.daysRemaining === 1 ? 'Tomorrow' : `In ${event.daysRemaining} days`}
-                      </p>
+        {expandedProbationSection && (
+          <CardContent className="py-2">
+            {probationEvents.length > 0 ? (
+              <div className="space-y-3">
+                {probationEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <Calendar className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <p className="font-medium text-secondary-900">{event.title}</p>
+                        <p className="text-sm text-secondary-600">Hire Date: {event.hireDate}</p>
+                        <p className="text-sm text-secondary-600">Completion: {event.date}</p>
+                        <p className="text-xs text-secondary-500">
+                          {event.daysRemaining === 0 ? 'Today' : event.daysRemaining === 1 ? 'Tomorrow' : `In ${event.daysRemaining} days`}
+                        </p>
+                      </div>
                     </div>
+                    <span className="px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 capitalize">
+                      Probation
+                    </span>
                   </div>
-                  <span className="px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 capitalize">
-                    Probation
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Calendar className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
-              <p className="text-secondary-600">No probation completions in the next 30 days</p>
-            </div>
-          )}
-        </CardContent>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Calendar className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
+                <p className="text-secondary-600">No probation completions in the next 30 days</p>
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       {/* Birthdays This Month */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-secondary-900">Birthdays This Month</h2>
-          <p className="text-sm text-secondary-600">{birthdayEvents.length} employees have birthdays this month</p>
+          <div
+            className="flex items-center justify-between cursor-pointer hover:bg-secondary-50 transition-colors p-2 -m-2 rounded"
+            onClick={() => setExpandedBirthdaySection(!expandedBirthdaySection)}
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-secondary-900">Birthdays This Month</h2>
+              <p className="text-sm text-secondary-600">{birthdayEvents.length} employees have birthdays this month <span className="text-xs text-primary-600">(Click to expand)</span></p>
+            </div>
+            <div className={`transform transition-transform ${expandedBirthdaySection ? 'rotate-180' : ''}`}>
+              <ChevronDown className="w-5 h-5 text-secondary-600" />
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          {birthdayEvents.length > 0 ? (
-            <div className="space-y-3">
-              {birthdayEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
-                >
-                  <div className="flex items-center space-x-4">
-                    <Cake className="w-5 h-5 text-pink-600" />
-                    <div>
-                      <p className="font-medium text-secondary-900">{event.title}</p>
-                      <p className="text-sm text-secondary-600">{event.date}</p>
-                      <p className="text-xs text-secondary-500">
-                        {event.daysRemaining === 0 ? 'Today' : event.daysRemaining === 1 ? 'Tomorrow' : `In ${event.daysRemaining} days`}
-                      </p>
+        {expandedBirthdaySection && (
+          <CardContent className="py-2">
+            {birthdayEvents.length > 0 ? (
+              <div className="space-y-3">
+                {birthdayEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <Cake className="w-5 h-5 text-pink-600" />
+                      <div>
+                        <p className="font-medium text-secondary-900">{event.title}</p>
+                        <p className="text-sm text-secondary-600">{event.date}</p>
+                        <p className="text-xs text-secondary-500">
+                          {event.daysRemaining === 0 ? 'Today' : event.daysRemaining === 1 ? 'Tomorrow' : `In ${event.daysRemaining} days`}
+                        </p>
+                      </div>
                     </div>
+                    <span className="px-3 py-1 text-xs font-medium rounded-full bg-pink-100 text-pink-700 capitalize">
+                      Birthday
+                    </span>
                   </div>
-                  <span className="px-3 py-1 text-xs font-medium rounded-full bg-pink-100 text-pink-700 capitalize">
-                    Birthday
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Cake className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
-              <p className="text-secondary-600">No birthdays this month</p>
-            </div>
-          )}
-        </CardContent>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Cake className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
+                <p className="text-secondary-600">No birthdays this month</p>
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       {/* Work Anniversaries This Month */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-secondary-900">Work Anniversaries This Month</h2>
-          <p className="text-sm text-secondary-600">{anniversaryEvents.length} employees completing work anniversary</p>
+          <div
+            className="flex items-center justify-between cursor-pointer hover:bg-secondary-50 transition-colors p-2 -m-2 rounded"
+            onClick={() => setExpandedAnniversarySection(!expandedAnniversarySection)}
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-secondary-900">Work Anniversaries This Month</h2>
+              <p className="text-sm text-secondary-600">{anniversaryEvents.length} employees completing work anniversary <span className="text-xs text-primary-600">(Click to expand)</span></p>
+            </div>
+            <div className={`transform transition-transform ${expandedAnniversarySection ? 'rotate-180' : ''}`}>
+              <ChevronDown className="w-5 h-5 text-secondary-600" />
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          {anniversaryEvents.length > 0 ? (
-            <div className="space-y-3">
-              {anniversaryEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
-                >
-                  <div className="flex items-center space-x-4">
-                    <Award className="w-5 h-5 text-amber-600" />
-                    <div>
-                      <p className="font-medium text-secondary-900">{event.title}</p>
-                      <p className="text-sm text-secondary-600">Hire Date: {event.hireDate}</p>
-                      <p className="text-sm text-secondary-600">Anniversary: {event.date}</p>
-                      <p className="text-xs text-secondary-500">
-                        {event.daysRemaining === 0 ? 'Today' : event.daysRemaining === 1 ? 'Tomorrow' : `In ${event.daysRemaining} days`}
-                      </p>
+        {expandedAnniversarySection && (
+          <CardContent className="py-2">
+            {anniversaryEvents.length > 0 ? (
+              <div className="space-y-3">
+                {anniversaryEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <Award className="w-5 h-5 text-amber-600" />
+                      <div>
+                        <p className="font-medium text-secondary-900">{event.title}</p>
+                        <p className="text-sm text-secondary-600">Hire Date: {event.hireDate}</p>
+                        <p className="text-sm text-secondary-600">Anniversary: {event.date}</p>
+                        <p className="text-xs text-secondary-500">
+                          {event.daysRemaining === 0 ? 'Today' : event.daysRemaining === 1 ? 'Tomorrow' : `In ${event.daysRemaining} days`}
+                        </p>
+                      </div>
                     </div>
+                    <span className="px-3 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700 capitalize">
+                      {event.yearsOfService} Year{event.yearsOfService > 1 ? 's' : ''}
+                    </span>
                   </div>
-                  <span className="px-3 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700 capitalize">
-                    {event.yearsOfService} Year{event.yearsOfService > 1 ? 's' : ''}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Award className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
-              <p className="text-secondary-600">No work anniversaries this month</p>
-            </div>
-          )}
-        </CardContent>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Award className="w-12 h-12 text-secondary-400 mx-auto mb-2" />
+                <p className="text-secondary-600">No work anniversaries this month</p>
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       {/* Document Expiry Alerts (Next 3 Months) */}
@@ -881,7 +960,7 @@ export const Dashboard = () => {
                     <p className="text-sm text-secondary-600">{totalAlerts} expiring</p>
                   </div>
                   <div className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
-                    <X className="w-5 h-5 text-secondary-600 rotate-45" />
+                    <ChevronDown className="w-5 h-5 text-secondary-600" />
                   </div>
                 </div>
               </CardHeader>

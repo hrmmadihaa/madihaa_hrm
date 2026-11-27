@@ -5,6 +5,7 @@ export interface ActivityLog {
   id?: string;
   userId: string;
   userEmail: string;
+  userName?: string;
   action: string;
   entity: string;
   entityId?: string;
@@ -19,7 +20,8 @@ export const logActivity = async (
   action: string,
   entity: string,
   entityId?: string,
-  details?: string
+  details?: string,
+  userName?: string
 ): Promise<void> => {
   try {
     const user = auth.currentUser;
@@ -31,6 +33,7 @@ export const logActivity = async (
     await addDoc(collection(db, 'activity_logs'), {
       userId: user.uid,
       userEmail: user.email || 'unknown',
+      userName: userName || user.displayName || user.email?.split('@')[0] || 'unknown',
       action,
       entity,
       entityId,
