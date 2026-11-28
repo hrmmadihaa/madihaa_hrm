@@ -333,9 +333,34 @@ export const MyTasks = () => {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
-  const pendingTasks = tasks.filter(t => t.status === 'pending').length;
-  const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
-  const completedTasks = tasks.filter(t => t.status === 'completed').length;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Filter out upcoming tasks (tasks with due date in the future and status is pending)
+  const relevantTasks = tasks.filter(t => {
+    const taskDate = t.dueDate ? new Date(t.dueDate) : null;
+    return !taskDate || taskDate <= today || t.status !== 'pending';
+  });
+
+  const pendingTasks = relevantTasks.filter(t => t.status === 'pending').length;
+  const inProgressTasks = relevantTasks.filter(t => t.status === 'in_progress').length;
+  const completedTasks = relevantTasks.filter(t => t.status === 'completed').length;
+  const overdueTasks = relevantTasks.filter(t => {
+    const taskDate = t.dueDate ? new Date(t.dueDate) : null;
+    return !!taskDate && taskDate < today && t.status !== 'completed';
+  }).length;
+
+  // Overall progress (excluding upcoming tasks)
+  const relevantTotal = relevantTasks.length;
+  const overallProgress = relevantTotal > 0 ? Math.round((completedTasks / relevantTotal) * 100) : 0;
+
+  // Today's tasks progress
+  const todayTasks = tasks.filter(t => {
+    const taskDate = t.dueDate ? new Date(t.dueDate) : null;
+    return !!taskDate && taskDate.toDateString() === today.toDateString();
+  });
+  const todayCompleted = todayTasks.filter(t => t.status === 'completed').length;
+  const todayProgress = todayTasks.length > 0 ? Math.round((todayCompleted / todayTasks.length) * 100) : 0;
 
   if (loading) {
     return (
@@ -371,7 +396,7 @@ export const MyTasks = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -398,11 +423,56 @@ export const MyTasks = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
+                <p className="text-sm text-secondary-600">Overdue</p>
+                <p className="text-2xl font-bold text-secondary-900">{overdueTasks}</p>
+              </div>
+              <AlertCircle className="w-8 h-8 text-red-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
                 <p className="text-sm text-secondary-600">Completed</p>
                 <p className="text-2xl font-bold text-secondary-900">{completedTasks}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Progress Bars */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-secondary-900">Overall Progress</p>
+              <p className="text-sm text-secondary-600">{overallProgress}%</p>
+            </div>
+            <div className="w-full bg-secondary-200 rounded-full h-2.5">
+              <div
+                className="bg-primary-600 h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${overallProgress}%` }}
+              ></div>
+            </div>
+            <p className="text-xs text-secondary-500 mt-2">{completedTasks} of {relevantTotal} tasks completed</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-secondary-900">Today's Progress</p>
+              <p className="text-sm text-secondary-600">{todayProgress}%</p>
+            </div>
+            <div className="w-full bg-secondary-200 rounded-full h-2.5">
+              <div
+                className="bg-green-600 h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${todayProgress}%` }}
+              ></div>
+            </div>
+            <p className="text-xs text-secondary-500 mt-2">{todayCompleted} of {todayTasks.length} tasks due today</p>
           </CardContent>
         </Card>
       </div>
